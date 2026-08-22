@@ -121,10 +121,11 @@ async function screenshotIfChromium(
 async function screenshotEveryProject(page: Page, name: string): Promise<void> {
   await page.evaluate(async () => document.fonts.ready);
   const testInfo = test.info();
-  // The Android project supplies the required real-engine review evidence but
-  // does not inherit Apple/desktop pixel baselines. Its captures are attached
-  // for the user-facing cross-browser pack instead of being auto-approved.
-  if (testInfo.project.name === "mobile-chromium") {
+  // Phone engines still execute the complete behavior and geometry contract,
+  // but their captures are review evidence rather than desktop pixel
+  // baselines. This avoids approving a macOS WebKit raster as a Linux CI
+  // baseline while preserving attached real-engine evidence.
+  if (testInfo.project.name !== "chromium") {
     const path = testInfo.outputPath(`${name}.png`);
     await page.screenshot({ animations: "disabled", fullPage: true, path });
     await testInfo.attach(name, { contentType: "image/png", path });

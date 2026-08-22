@@ -157,6 +157,10 @@ function renderSmallestCards(cardStyle: "classic" | "four-colour"): string {
 test("Normal compact community cards keep rank and suit readable on phone engines", async ({
   page,
 }, testInfo) => {
+  // Six complete CSS layouts (three phone widths × two deck styles) are
+  // deliberate coverage. Linux mobile emulation can exceed Playwright's
+  // generic 30-second limit under the serial release suite.
+  test.setTimeout(60_000);
   const viewports = [
     { width: 360, height: 800 },
     { width: 393, height: 852 },
