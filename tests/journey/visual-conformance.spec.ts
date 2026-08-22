@@ -132,8 +132,11 @@ async function expectFlushToPhysicalCorner(
   }
 }
 
-async function installDeterministicEntropy(page: Page): Promise<void> {
-  await page.addInitScript(() => {
+async function installDeterministicEntropy(
+  page: Page,
+  fixedByte?: number,
+): Promise<void> {
+  await page.addInitScript((testFixedByte?: number) => {
     // Stable host entropy makes the full card artwork screenshot-testable.
     // This is isolated to the QA page and is never bundled into production.
     let nextByte = 41;
@@ -145,6 +148,14 @@ async function installDeterministicEntropy(page: Page): Promise<void> {
           values.byteOffset,
           values.byteLength,
         );
+        if (testFixedByte !== undefined) {
+          // A sequence makes the dealt artwork depend on every preceding
+          // crypto call. The ten-player fixture creates enough independent
+          // role pages that those calls can differ across Linux runners. A
+          // fixed test-only byte locks the shuffle regardless of that timing.
+          bytes.fill(testFixedByte);
+          return values;
+        }
         for (let index = 0; index < bytes.length; index += 1) {
           bytes[index] = nextByte;
           nextByte = (nextByte + 67) % 251;
@@ -161,7 +172,7 @@ async function installDeterministicEntropy(page: Page): Promise<void> {
         return `00000000-0000-4000-8000-${suffix}`;
       },
     });
-  });
+  }, fixedByte);
 }
 
 async function prepareScreenshot(page: Page): Promise<void> {
@@ -577,7 +588,7 @@ test("Tablet and TV keep ten simultaneous shown hands large, distinct, and clear
     "The iPhone-WebKit profile covers phone journeys; it cannot represent a wall TV plus ten live device sessions in one browser context.",
   );
   test.setTimeout(60_000);
-  await installDeterministicEntropy(host);
+  await installDeterministicEntropy(host, 41);
   await host.setViewportSize(referenceViewport);
   await host.goto("/");
   await host.getByRole("button", { name: "Create table" }).click();
