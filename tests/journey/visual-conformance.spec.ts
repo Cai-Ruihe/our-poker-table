@@ -602,20 +602,22 @@ test("Tablet and TV keep ten simultaneous shown hands large, distinct, and clear
     players.push(await joinPlayer(host, context, name));
     if (players.length === 6) {
       const roster = host.locator(".roster");
+      const rosterMap = roster.locator(".roster-table-map");
       await roster.scrollIntoViewIfNeeded();
       await expectRosterMapGeometry(roster, 6);
       await screenshotLocatorIfChromium(
-        roster,
+        rosterMap,
         testInfo,
         "host-manage-six-spatial-seats",
       );
     }
   }
   const tenPlayerRoster = host.locator(".roster");
+  const tenPlayerRosterMap = tenPlayerRoster.locator(".roster-table-map");
   await tenPlayerRoster.scrollIntoViewIfNeeded();
   await expectRosterMapGeometry(tenPlayerRoster, 10);
   await screenshotLocatorIfChromium(
-    tenPlayerRoster,
+    tenPlayerRosterMap,
     testInfo,
     "host-manage-ten-spatial-seats",
   );
