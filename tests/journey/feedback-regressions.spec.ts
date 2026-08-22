@@ -66,7 +66,9 @@ async function joinPlayer(
     .getByLabel("Player invitation link")
     .inputValue();
   const player = await context.newPage();
-  await player.goto(invitationUrl);
+  // Mobile WebKit can defer the non-critical load event on a second local
+  // role page. The visible join form below is the readiness contract.
+  await player.goto(invitationUrl, { waitUntil: "commit" });
   await player.getByLabel("Display name").fill(displayName);
   await player.getByRole("button", { name: "Join table" }).click();
   await expect(
