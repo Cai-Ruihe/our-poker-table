@@ -1103,6 +1103,10 @@ test("registered phone, tablet, desktop, and TV viewports remain free of clippin
   context,
   page: host,
 }) => {
+  // This matrix opens several local role pages. Mobile WebKit can defer a
+  // fresh page navigation after its serialized profile has run for a while;
+  // retain every viewport assertion while allowing that page to become ready.
+  test.setTimeout(60_000);
   const { alice } = await createTable(host, context);
   await alice
     .getByRole("button", { name: "Reveal my cards privately" })

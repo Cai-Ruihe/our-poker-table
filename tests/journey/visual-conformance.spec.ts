@@ -852,6 +852,10 @@ test("every host Tablet secondary action is exercised and player administration 
   context,
   page: host,
 }, testInfo) => {
+  // This exercises multiple local role pages and every host secondary
+  // control. Mobile WebKit may defer one fresh role-page navigation after a
+  // long serialized profile; the visual and state assertions stay unchanged.
+  test.setTimeout(60_000);
   await installDeterministicEntropy(host);
   const { alice, bob } = await createTable(host, context);
   await host.getByRole("button", { name: "Table View" }).click();
