@@ -59,7 +59,7 @@ test("the host device can play and switch to a private hand or public table view
   await host.goto("/", { waitUntil: "commit" });
   await host.getByRole("button", { name: "Create table" }).click();
   await expect(
-    host.getByRole("heading", { name: "Other devices join here" }),
+    host.getByRole("heading", { name: "Add a player" }),
   ).toBeVisible();
   await expect(
     host.getByText(
@@ -224,7 +224,7 @@ test("two players complete a digital-chip hand only after host settlement confir
 
   await expect(host.getByText("Pot 3", { exact: true })).toBeVisible();
   await host.getByRole("button", { name: /^Players/ }).click();
-  await expect(host.getByText("New seats are paused")).toBeVisible();
+  await expect(host.getByText("New players locked")).toBeVisible();
   await expect(host.getByText(/does not admit late seats/u)).toBeVisible();
   await expect(
     host.getByRole("button", { name: "Open join window" }),
@@ -436,8 +436,8 @@ test("closing and reopening the Join Window invalidates the old invitation", asy
     .getByLabel("Player invitation link")
     .inputValue();
 
-  await host.getByRole("button", { name: "Close join window" }).click();
-  await expect(host.getByText("New seats are paused")).toBeVisible();
+  await host.getByRole("button", { name: "Stop new players" }).click();
+  await expect(host.getByText("New players locked")).toBeVisible();
   const stalePlayer = await context.newPage();
   await stalePlayer.goto(staleInvitation, { waitUntil: "commit" });
   await stalePlayer.getByLabel("Display name").fill("Stale");
@@ -447,7 +447,7 @@ test("closing and reopening the Join Window invalidates the old invitation", asy
   ).toBeVisible();
   await expect(stalePlayer.getByText("invitation-revoked")).toBeVisible();
 
-  await host.getByRole("button", { name: "Open join window" }).first().click();
+  await host.getByRole("button", { name: "Allow new players" }).first().click();
   const freshInvitation = await host
     .getByLabel("Player invitation link")
     .inputValue();
