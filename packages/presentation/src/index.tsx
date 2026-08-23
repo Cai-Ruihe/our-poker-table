@@ -2116,6 +2116,9 @@ export function TableSurface(props: TableSurfaceProps) {
               src={props.brandSymbolSrc}
             />
             <strong>{props.productName}</strong>
+            {!props.airplaneMode ? (
+              <span className="table-mark__control-label">Table controls</span>
+            ) : null}
           </button>
           <div className="table-bar__right">
             <div className="table-status" aria-live="polite">

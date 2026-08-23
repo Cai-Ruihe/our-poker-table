@@ -348,7 +348,7 @@ test("Host lobby, roster, invitations, diagnostics, and corrections verify their
     "roster-join-window-toggle",
     control(host, "roster-join-window-toggle"),
     (target) => target.click(),
-    () => expect(host.getByText("New seats are paused")).toBeVisible(),
+    () => expect(host.getByText("New players locked")).toBeVisible(),
   );
   await exerciseControl(
     "host-open-join-window",

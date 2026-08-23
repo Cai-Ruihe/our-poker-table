@@ -1139,6 +1139,67 @@ button:disabled {
   gap: 0.35rem;
 }
 
+.join-window-toggle {
+  display: inline-grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 0.38rem;
+  min-height: 2.25rem;
+  border: 1px solid var(--rule-strong);
+  border-radius: 999px;
+  padding: 0.32rem 0.5rem;
+  color: var(--ink-soft);
+  background: var(--surface);
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.64rem;
+  font-weight: 680;
+}
+
+.join-window-toggle__track {
+  display: grid;
+  width: 1.45rem;
+  height: 0.82rem;
+  align-items: center;
+  border-radius: 999px;
+  padding: 0.1rem;
+  background: var(--rule-strong);
+  transition: background 150ms ease;
+}
+
+.join-window-toggle__track i {
+  display: block;
+  width: 0.62rem;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background: var(--surface);
+  transition: transform 150ms ease;
+}
+
+.join-window-toggle strong {
+  color: var(--quiet);
+  font-size: 0.58rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.join-window-toggle[aria-pressed="true"] {
+  border-color: color-mix(in srgb, var(--green) 60%, var(--rule-strong));
+  color: var(--green);
+}
+
+.join-window-toggle[aria-pressed="true"] .join-window-toggle__track {
+  background: var(--green);
+}
+
+.join-window-toggle[aria-pressed="true"] .join-window-toggle__track i {
+  transform: translateX(0.63rem);
+}
+
+.join-window-toggle[aria-pressed="true"] strong {
+  color: var(--green);
+}
+
 .roster-map-copy {
   display: grid;
   gap: 0.18rem;
@@ -1698,6 +1759,15 @@ button:disabled {
   height: 2.15rem;
 }
 
+.table-mark__control-label {
+  color: var(--ink-soft);
+  font-family: Archivo, ui-sans-serif, system-ui, sans-serif;
+  font-size: 0.66rem;
+  font-weight: 730;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
 .table-status {
   display: flex;
   align-items: center;
@@ -2158,15 +2228,29 @@ button:disabled {
   order: 0;
 }
 
+.admin-drawer[data-runtime="normal"][data-admin-focus="players"]
+  > .invite-panel,
 .admin-drawer[data-admin-focus="players"] > .roster,
 .admin-drawer[data-admin-focus="displays"] > .role-invitations {
   order: 1;
 }
 
-.admin-drawer[data-admin-focus="players"] > :not(header):not(.roster),
+.admin-drawer[data-runtime="normal"][data-admin-focus="players"]
+  > .invite-panel {
+  flex-shrink: 0;
+}
+
+.admin-drawer[data-runtime="normal"][data-admin-focus="players"] > .roster {
+  order: 2;
+}
+
+.admin-drawer[data-runtime="normal"][data-admin-focus="players"]
+  > :not(header):not(.invite-panel):not(.roster),
+.admin-drawer[data-runtime="airplane"][data-admin-focus="players"]
+  > :not(header):not(.roster),
 .admin-drawer[data-admin-focus="displays"]
   > :not(header):not(.role-invitations) {
-  order: 2;
+  order: 3;
 }
 
 .admin-drawer > header {
@@ -2835,6 +2919,10 @@ button:disabled {
   .brand-lockup__wordmark,
   .table-mark strong {
     display: none;
+  }
+
+  .table-mark__control-label {
+    font-size: 0.58rem;
   }
 
   .brand-lockup__compact {

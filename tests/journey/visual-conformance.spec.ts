@@ -969,13 +969,20 @@ test("every host Tablet secondary action is exercised and player administration 
   await expect(
     host.getByRole("button", { name: "Host Controls" }),
   ).toHaveAttribute("aria-pressed", "true");
+  const invitation = administration.locator(".invite-panel");
+  await expect(invitation).toBeInViewport();
+  await expect(
+    invitation.getByRole("heading", { name: "Add a player" }),
+  ).toBeVisible();
   const roster = administration.locator(".roster");
+  expect((await box(invitation)).y).toBeLessThan((await box(roster)).y);
+  await roster.scrollIntoViewIfNeeded();
   await expect(roster).toBeInViewport();
   await expect(
     roster.getByText("2 of 10 joined", { exact: true }),
   ).toBeVisible();
   await expect(
-    roster.getByRole("button", { name: "Close join window" }),
+    roster.getByRole("button", { name: "Stop new players" }),
   ).toBeVisible();
   const seatMap = roster.locator(".roster-table-map");
   await expect(seatMap).toBeVisible();
@@ -998,9 +1005,6 @@ test("every host Tablet secondary action is exercised and player administration 
   await expect(
     roster.getByRole("button", { name: "Replace device" }),
   ).toHaveCount(1);
-  expect((await box(roster)).y).toBeLessThan(
-    (await box(administration.locator(".invite-panel"))).y,
-  );
   await prepareScreenshot(host);
   await screenshotIfChromium(host, testInfo, "tablet-manage-players");
   await seatMap.getByRole("button", { name: /^Seat 2, Bob,/u }).click();

@@ -1215,3 +1215,107 @@ test("Trusted Host can dissolve a table and its saved authority cannot be recove
     staleHost.getByText("No saved Trusted Host table was found."),
   ).toBeVisible();
 });
+
+test("Normal Host makes player invitations and replacements visible in the Players sheet", async ({
+  context,
+  page: host,
+}, testInfo: TestInfo) => {
+  await host.setViewportSize({ height: 852, width: 393 });
+  await host.addInitScript(() => {
+    let nextByte = 48;
+    Object.defineProperty(globalThis.crypto, "getRandomValues", {
+      configurable: true,
+      value: <T extends ArrayBufferView>(values: T): T => {
+        const bytes = new Uint8Array(
+          values.buffer,
+          values.byteOffset,
+          values.byteLength,
+        );
+        for (let index = 0; index < bytes.length; index += 1) {
+          bytes[index] = nextByte;
+          nextByte = (nextByte + 73) % 251;
+        }
+        return values;
+      },
+    });
+  });
+  await createTable(host, context);
+
+  const tableControls = host.getByRole("button", {
+    name: "Open table control center",
+  });
+  await expect(tableControls).toContainText("Table controls");
+  const tableControlsEvidence = testInfo.outputPath(
+    "phone-host-table-controls-visible.png",
+  );
+  await host.screenshot({ path: tableControlsEvidence });
+  await testInfo.attach("phone-host-table-controls-visible", {
+    contentType: "image/png",
+    path: tableControlsEvidence,
+  });
+
+  await host.getByRole("button", { name: /^Players/u }).click();
+  const administration = host.getByRole("complementary", {
+    name: "Player administration",
+  });
+  const invite = administration.locator(".invite-panel");
+  await expect(
+    invite.getByRole("heading", { name: "Add a player" }),
+  ).toBeVisible();
+  await expect(invite.getByLabel("Player invitation link")).toBeVisible();
+  await expect(invite).toBeInViewport();
+
+  const joinWindowToggle = administration.locator(
+    '[data-qa-control="roster-join-window-toggle"]',
+  );
+  await joinWindowToggle.click();
+  await expect(
+    invite.getByRole("heading", { name: "New players locked" }),
+  ).toBeVisible();
+  await expect(invite).toBeInViewport();
+
+  await expect(joinWindowToggle).toHaveAccessibleName("Allow new players");
+  await joinWindowToggle.click();
+  await expect(
+    invite.getByRole("heading", { name: "Add a player" }),
+  ).toBeVisible();
+  await expect(invite.getByLabel("Player invitation link")).toBeVisible();
+  await expect(invite).toBeInViewport();
+  const invitationBox = await invite.boundingBox();
+  expect(invitationBox).not.toBeNull();
+  expect(invitationBox?.y).toBeGreaterThanOrEqual(70);
+  expect(invitationBox?.y).toBeLessThan(140);
+  const addPlayerEvidence = testInfo.outputPath(
+    "phone-host-add-player-visible.png",
+  );
+  await host.screenshot({ path: addPlayerEvidence });
+  await testInfo.attach("phone-host-add-player-visible", {
+    contentType: "image/png",
+    path: addPlayerEvidence,
+  });
+
+  await joinPlayer(host, context, "Carol");
+  await expect(
+    administration.getByText("3 of 10 joined", { exact: true }),
+  ).toBeVisible();
+
+  await administration.getByRole("button", { name: /^Seat 2, Bob,/u }).click();
+  await administration.getByRole("button", { name: "Replace device" }).click();
+  await expect(
+    invite.getByRole("heading", { name: "Replace Bob's device" }),
+  ).toBeVisible();
+  await expect(invite.getByLabel("Player replacement link")).toBeVisible();
+  await expect(invite).toBeInViewport();
+  const replacementBox = await invite.boundingBox();
+  expect(replacementBox).not.toBeNull();
+  expect(replacementBox?.y).toBeGreaterThanOrEqual(70);
+  expect(replacementBox?.y).toBeLessThan(140);
+  const replacementEvidence = testInfo.outputPath(
+    "phone-host-replace-device-visible.png",
+  );
+  await host.screenshot({ path: replacementEvidence });
+  await testInfo.attach("phone-host-replace-device-visible", {
+    contentType: "image/png",
+    path: replacementEvidence,
+  });
+});

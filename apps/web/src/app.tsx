@@ -1,5 +1,6 @@
 import {
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -1040,29 +1041,53 @@ function InvitePanel({
   const replacementSeat = invitation?.seatId
     ? snapshot.roster.seats.find((seat) => seat.seatId === invitation.seatId)
     : undefined;
+  const [copied, setCopied] = useState(false);
   const digitalJoinLocked =
     runtime.rulesProfile.id === "nlhe-home-v1" && snapshot.stage === "table";
+  const normalMode = !isAirplaneMode();
+
   if (!snapshot.roster.joinWindowOpen && !replacementSeat) {
     return (
       <section
         className={`invite-panel${compact ? " invite-panel--compact" : ""}`}
       >
         <div className="invite-panel__content">
-          <p className="section-label">Join window</p>
-          <h2>New seats are paused</h2>
+          <p className="section-label">
+            {normalMode ? "New players" : "Join window"}
+          </p>
+          <h2>{normalMode ? "New players locked" : "New seats are paused"}</h2>
           <p>
             {digitalJoinLocked
               ? "This one-hand Digital Chips tracer does not admit late seats. Existing seat recovery and device replacement still work."
-              : "Existing seat recovery and device replacement still work."}
+              : normalMode
+                ? "Allow new players to reveal a one-use QR and link. Existing seat recovery and device replacement still work."
+                : "Existing seat recovery and device replacement still work."}
           </p>
           {!digitalJoinLocked ? (
             <button
-              className="button button--quiet"
+              aria-label={normalMode ? "Allow new players" : undefined}
+              aria-pressed={normalMode ? false : undefined}
+              className={
+                normalMode ? "join-window-toggle" : "button button--quiet"
+              }
               data-qa-control="host-open-join-window"
               onClick={() => void runtime.setJoinWindow(true)}
               type="button"
             >
-              Open join window
+              {normalMode ? (
+                <>
+                  <span
+                    aria-hidden="true"
+                    className="join-window-toggle__track"
+                  >
+                    <i />
+                  </span>
+                  <span>New players</span>
+                  <strong>Locked</strong>
+                </>
+              ) : (
+                "Open join window"
+              )}
             </button>
           ) : null}
         </div>
@@ -1101,7 +1126,6 @@ function InvitePanel({
     runtime,
     invitation,
   );
-  const [copied, setCopied] = useState(false);
 
   async function copy() {
     await globalThis.navigator.clipboard.writeText(invitationLink);
@@ -1118,17 +1142,25 @@ function InvitePanel({
       </div>
       <div className="invite-panel__content">
         <p className="section-label">
-          {replacementSeat ? "Device replacement" : "Other devices only"}
+          {replacementSeat
+            ? "Device replacement"
+            : normalMode
+              ? "New players"
+              : "Other devices only"}
         </p>
         <h2>
           {replacementSeat
             ? `Replace ${replacementSeat.displayName}'s device`
-            : "Other devices join here"}
+            : normalMode
+              ? "Add a player"
+              : "Other devices join here"}
         </h2>
         <p>
           {replacementSeat
             ? "This one-use link keeps the seat and revokes its previous device when redeemed."
-            : "Each QR works once. A player chooses their display name after opening it; no account or host approval prompt follows."}
+            : normalMode
+              ? "Show this one-use QR or copy its link to the new player's device. They choose a display name after opening it; no account or host approval prompt follows."
+              : "Each QR works once. A player chooses their display name after opening it; no account or host approval prompt follows."}
         </p>
         {!replacementSeat ? (
           <p className="invite-device-note">
@@ -1527,6 +1559,7 @@ function SeatRoster({
     : -1;
   const digitalJoinLocked =
     runtime?.rulesProfile.id === "nlhe-home-v1" && snapshot.stage === "table";
+
   return (
     <section className="roster" aria-labelledby="roster-title">
       <header>
@@ -1535,22 +1568,47 @@ function SeatRoster({
           <h2 id="roster-title">{snapshot.roster.seats.length} of 10 joined</h2>
         </div>
         <div className="join-window-tools">
-          <span className="join-window-status">
-            <i aria-hidden="true" /> Join window{" "}
-            {snapshot.roster.joinWindowOpen ? "open" : "closed"}
-          </span>
           {runtime && !digitalJoinLocked ? (
             <button
-              className="text-button"
+              aria-label={
+                isAirplaneMode()
+                  ? undefined
+                  : snapshot.roster.joinWindowOpen
+                    ? "Stop new players"
+                    : "Allow new players"
+              }
+              aria-pressed={
+                isAirplaneMode() ? undefined : snapshot.roster.joinWindowOpen
+              }
+              className={
+                isAirplaneMode() ? "text-button" : "join-window-toggle"
+              }
               data-qa-control="roster-join-window-toggle"
               onClick={() =>
                 void runtime.setJoinWindow(!snapshot.roster.joinWindowOpen)
               }
               type="button"
             >
-              {snapshot.roster.joinWindowOpen
-                ? "Close join window"
-                : "Open join window"}
+              {isAirplaneMode() ? (
+                snapshot.roster.joinWindowOpen ? (
+                  "Close join window"
+                ) : (
+                  "Open join window"
+                )
+              ) : (
+                <>
+                  <span
+                    aria-hidden="true"
+                    className="join-window-toggle__track"
+                  >
+                    <i />
+                  </span>
+                  <span>New players</span>
+                  <strong>
+                    {snapshot.roster.joinWindowOpen ? "Open" : "Locked"}
+                  </strong>
+                </>
+              )}
             </button>
           ) : null}
         </div>
@@ -2177,9 +2235,23 @@ function HostTable({
   const [adminFocus, setAdminFocus] = useState<"displays" | "players">(
     "players",
   );
+  const adminDrawerRef = useRef<HTMLElement>(null);
   const [developerMode, setDeveloperMode] = useState(false);
   useScreenWakeLock(true);
   const projection = snapshot.projection;
+
+  useLayoutEffect(() => {
+    if (isAirplaneMode() || !adminOpen || adminFocus !== "players") {
+      return;
+    }
+    adminDrawerRef.current?.scrollTo({ top: 0 });
+  }, [
+    adminFocus,
+    adminOpen,
+    snapshot.invitations.player?.token,
+    snapshot.roster.joinWindowOpen,
+  ]);
+
   if (!projection) return null;
 
   function perform(action: () => Promise<void>) {
@@ -2300,6 +2372,8 @@ function HostTable({
           aria-label="Player administration"
           className="admin-drawer"
           data-admin-focus={adminFocus}
+          data-runtime={isAirplaneMode() ? "airplane" : "normal"}
+          ref={adminDrawerRef}
         >
           <header>
             <div>
