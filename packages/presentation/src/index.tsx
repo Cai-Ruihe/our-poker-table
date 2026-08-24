@@ -472,14 +472,34 @@ function SeatStateGlyph({
   );
 }
 
+function seatStateDescription(
+  status: SeatProjection["self"]["status"],
+  connected: boolean,
+): string {
+  if (!connected) return "Not connected";
+  if (status === "shown") return "Shown to table";
+  if (["folded", "folded-provisional", "mucked"].includes(status)) {
+    return "Folded";
+  }
+  if (status === "sitting-out") return "Sitting out";
+  if (status === "waiting") return "Waiting";
+  return "Playing";
+}
+
 function QuietSeatGrid({
   cardStyle = "classic",
   fullFaceShown = false,
   projection,
+  selfSeatId,
+  showNames = false,
+  showShownHands = true,
 }: {
   readonly cardStyle?: CardStyle;
   readonly fullFaceShown?: boolean;
   readonly projection: PublicProjection | SeatProjection;
+  readonly selfSeatId?: string;
+  readonly showNames?: boolean;
+  readonly showShownHands?: boolean;
 }) {
   const { bigBlindSeatId, smallBlindSeatId } = blindSeatIds(projection);
   const winners = new Set(projection.showdown?.leaders ?? []);
@@ -493,14 +513,24 @@ function QuietSeatGrid({
         const statusLabel = !connected
           ? "offline"
           : seat.status.replace("-", " ");
+        const classifyShownCards =
+          !airplaneBuild && Boolean(projection.showdown);
+        const winningSelection = winners.has(seat.seatId)
+          ? seat.evaluation
+          : undefined;
         const position = tableSeatPosition(index, projection.seats.length);
         return (
           <div
             aria-label={`${seat.displayName}, ${statusLabel}`}
-            className={`seat-edge-status seat-edge-status--${position}`}
+            className={`seat-edge-status seat-edge-status--${position}${showNames ? " seat-edge-status--show-name" : ""}${seat.seatId === selfSeatId ? " seat-edge-status--self" : ""}`}
             data-seat-edge-position={position}
             data-seat-edge-status={statusLabel}
-            {...(seat.holeCards ? { "data-seat-has-shown-hand": "true" } : {})}
+            {...(seat.holeCards && showShownHands
+              ? { "data-seat-has-shown-hand": "true" }
+              : {})}
+            {...(seat.seatId === selfSeatId
+              ? { "data-seat-self": "true" }
+              : {})}
             data-seat-id={seat.seatId}
             key={seat.seatId}
             role="img"
@@ -510,7 +540,7 @@ function QuietSeatGrid({
               status={seat.status}
               winner={winners.has(seat.seatId)}
             />
-            {seat.holeCards ? (
+            {seat.holeCards && showShownHands ? (
               <span
                 className="quiet-shown-hand"
                 aria-label={`${seat.displayName}'s shown cards`}
@@ -521,9 +551,9 @@ function QuietSeatGrid({
                     cardStyle={cardStyle}
                     fullFace={fullFaceShown}
                     quietShown
-                    {...(winners.has(seat.seatId) && seat.evaluation
+                    {...(classifyShownCards
                       ? {
-                          emphasis: seat.evaluation.bestFive.includes(card)
+                          emphasis: winningSelection?.bestFive.includes(card)
                             ? "best"
                             : "unused",
                         }
@@ -546,6 +576,11 @@ function QuietSeatGrid({
                 <span className="position-token position-token--big">BB</span>
               ) : null}
             </span>
+            {showNames ? (
+              <span className="seat-edge-status__name" title={seat.displayName}>
+                {seat.displayName}
+              </span>
+            ) : null}
           </div>
         );
       })}
@@ -559,12 +594,14 @@ function SeatGrid({
   fullFaceShown = false,
   projection,
   mode,
+  showNames = false,
 }: {
   readonly cardStyle?: CardStyle;
   readonly compactGlyphsOnly?: boolean;
   readonly fullFaceShown?: boolean;
   readonly mode: PresentationMode;
   readonly projection: PublicProjection | SeatProjection;
+  readonly showNames?: boolean;
 }) {
   if (["player", "public", "tablet", "tv"].includes(mode)) {
     return (
@@ -572,6 +609,7 @@ function SeatGrid({
         cardStyle={cardStyle}
         fullFaceShown={fullFaceShown}
         projection={projection}
+        showNames={showNames}
       />
     );
   }
@@ -1026,7 +1064,25 @@ function CloseGlyph() {
   );
 }
 
-function TabletControls(props: TableSurfaceProps) {
+function LeaveOptionsGlyph() {
+  return (
+    <svg
+      aria-hidden="true"
+      className="leave-options-glyph"
+      focusable="false"
+      viewBox="0 0 24 24"
+    >
+      <path d="M10 5H5v14h5M14 8l4 4-4 4M8 12h10" />
+    </svg>
+  );
+}
+
+function TabletControls(
+  props: TableSurfaceProps & {
+    readonly onTogglePlayerNames: () => void;
+    readonly playerNamesVisible: boolean;
+  },
+) {
   const [corner, setCorner] = useState<TableCorner>();
   const [fullscreenError, setFullscreenError] = useState<string>();
   const [moreOpen, setMoreOpen] = useState(false);
@@ -1356,7 +1412,7 @@ function TabletControls(props: TableSurfaceProps) {
             <div className="secondary-controls__rule" />
             <div className="secondary-controls__grid">
               <button
-                className="secondary-control-card"
+                className="secondary-control-card secondary-control-card--players"
                 data-qa-action="manage-players"
                 data-qa-control="tablet-manage-players"
                 disabled={!props.onManagePlayers}
@@ -1385,7 +1441,7 @@ function TabletControls(props: TableSurfaceProps) {
                 <CardStyleButtons {...props} />
               </section>
               <button
-                className="secondary-control-card"
+                className="secondary-control-card secondary-control-card--displays"
                 data-qa-action="manage-displays"
                 data-qa-control="tablet-manage-displays"
                 disabled={!props.onManageDisplays}
@@ -1433,6 +1489,18 @@ function TabletControls(props: TableSurfaceProps) {
                       Host Controls
                     </button>
                   ) : null}
+                  {!props.airplaneMode ? (
+                    <button
+                      aria-pressed={props.playerNamesVisible}
+                      data-qa-control="tablet-player-names-toggle"
+                      onClick={props.onTogglePlayerNames}
+                      type="button"
+                    >
+                      {props.playerNamesVisible
+                        ? "Hide player names"
+                        : "Show player names"}
+                    </button>
+                  ) : null}
                   <button
                     data-qa-action="fullscreen"
                     data-qa-control="tablet-fullscreen"
@@ -1443,7 +1511,7 @@ function TabletControls(props: TableSurfaceProps) {
                   </button>
                 </div>
               </section>
-              <section className="secondary-control-card">
+              <section className="secondary-control-card secondary-control-card--connection">
                 <HostControlIcon kind="connection" />
                 <strong>Connection &amp; recovery</strong>
                 <small>Catch up with the Trusted Host now</small>
@@ -1453,7 +1521,7 @@ function TabletControls(props: TableSurfaceProps) {
                   <em>Local host active</em>
                 )}
               </section>
-              <section className="secondary-control-card">
+              <section className="secondary-control-card secondary-control-card--diagnostics">
                 <HostControlIcon kind="diagnostics" />
                 <strong>Diagnostics &amp; history</strong>
                 <small>Privacy-filtered support evidence</small>
@@ -1928,19 +1996,425 @@ function BettingControls(props: {
   );
 }
 
+type GuardedPlayerSliderControl = "player-leave-active" | "player-show-cards";
+type GuardedPlayerSliderTone = "gold" | "danger";
+
+/** @qa-build normal: this guarded surface is not rendered by Airplane Mode. */
+function GuardedPlayerSlider({
+  ariaLabel,
+  control,
+  disabled,
+  label,
+  onComplete,
+  tone,
+}: {
+  readonly ariaLabel: string;
+  readonly control: GuardedPlayerSliderControl;
+  readonly disabled: boolean;
+  readonly label: string;
+  readonly onComplete?: () => void;
+  readonly tone: GuardedPlayerSliderTone;
+}) {
+  const handleSize = 44;
+  const [sliderPosition, setSliderPosition] = useState(0);
+  const sliderDragging = useRef(false);
+  const sliderGrabOffset = useRef(handleSize / 2);
+  const sliderTrack = useRef<HTMLDivElement>(null);
+
+  function travel(): number {
+    const width = sliderTrack.current?.getBoundingClientRect().width ?? 0;
+    return Math.max(0, width - handleSize);
+  }
+
+  function boundedPosition(event: ReactPointerEvent): number {
+    const track = sliderTrack.current;
+    if (!track) return 0;
+    const bounds = track.getBoundingClientRect();
+    return Math.max(
+      0,
+      Math.min(
+        travel(),
+        event.clientX - bounds.left - sliderGrabOffset.current,
+      ),
+    );
+  }
+
+  function commit(): void {
+    if (disabled || !onComplete) return;
+    onComplete();
+    setSliderPosition(0);
+  }
+
+  function beginSliderDrag(event: ReactPointerEvent<HTMLDivElement>): void {
+    if (disabled || !onComplete) return;
+    const bounds = event.currentTarget.getBoundingClientRect();
+    const pointer = event.clientX - bounds.left;
+    if (pointer < sliderPosition || pointer > sliderPosition + handleSize)
+      return;
+    sliderGrabOffset.current = pointer - sliderPosition;
+    sliderDragging.current = true;
+    event.currentTarget.setPointerCapture(event.pointerId);
+  }
+
+  function moveSlider(event: ReactPointerEvent<HTMLDivElement>): void {
+    if (!sliderDragging.current) return;
+    setSliderPosition(boundedPosition(event));
+  }
+
+  function finishSlider(event: ReactPointerEvent<HTMLDivElement>): void {
+    if (!sliderDragging.current) return;
+    const position = boundedPosition(event);
+    sliderDragging.current = false;
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId);
+    }
+    if (position >= travel() * 0.9) {
+      commit();
+      return;
+    }
+    setSliderPosition(0);
+  }
+
+  function cancelSlider(event: ReactPointerEvent<HTMLDivElement>): void {
+    if (!sliderDragging.current) return;
+    sliderDragging.current = false;
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId);
+    }
+    setSliderPosition(0);
+  }
+
+  function controlSliderFromKeyboard(
+    event: ReactKeyboardEvent<HTMLDivElement>,
+  ): void {
+    if (disabled || !onComplete) return;
+    const distance = travel();
+    if (event.key === "Home" || event.key === "ArrowLeft") {
+      event.preventDefault();
+      setSliderPosition((value) =>
+        event.key === "Home" ? 0 : Math.max(0, value - distance / 5),
+      );
+    } else if (event.key === "ArrowRight") {
+      event.preventDefault();
+      setSliderPosition((value) => Math.min(distance, value + distance / 5));
+    } else if (event.key === "End") {
+      event.preventDefault();
+      commit();
+    } else if (event.key === "Enter" || event.key === " ") {
+      event.preventDefault();
+    }
+  }
+
+  const sliderTravel = travel();
+  const percentage = sliderTravel
+    ? Math.round((sliderPosition / sliderTravel) * 100)
+    : 0;
+  const sliderValueText =
+    percentage >= 90
+      ? `Release to ${label.toLowerCase()}`
+      : `Drag the handle to confirm ${label.toLowerCase()}`;
+  const sliderChildren = (
+    <>
+      <span
+        className="player-confirm-slider__handle"
+        style={{ transform: `translateX(${sliderPosition}px)` }}
+      >
+        <span className="slider-grip" aria-hidden="true">
+          <i />
+          <i />
+          <i />
+        </span>
+      </span>
+      <span className="player-confirm-slider__label">{label}</span>
+      <b className="arrow-glyph" aria-hidden="true" />
+    </>
+  );
+  return control === "player-show-cards" ? (
+    <div
+      aria-disabled={disabled || !onComplete}
+      aria-label={ariaLabel}
+      aria-orientation="horizontal"
+      aria-valuemax={100}
+      aria-valuemin={0}
+      aria-valuenow={percentage}
+      aria-valuetext={sliderValueText}
+      className={`player-confirm-slider player-confirm-slider--${tone}`}
+      data-qa-control="player-show-cards"
+      id="player-show-cards"
+      onKeyDown={controlSliderFromKeyboard}
+      onPointerCancel={cancelSlider}
+      onPointerDown={beginSliderDrag}
+      onPointerMove={moveSlider}
+      onPointerUp={finishSlider}
+      ref={sliderTrack}
+      role="slider"
+      tabIndex={0}
+    >
+      {sliderChildren}
+    </div>
+  ) : (
+    <div
+      aria-disabled={disabled || !onComplete}
+      aria-label={ariaLabel}
+      aria-orientation="horizontal"
+      aria-valuemax={100}
+      aria-valuemin={0}
+      aria-valuenow={percentage}
+      aria-valuetext={sliderValueText}
+      className={`player-confirm-slider player-confirm-slider--${tone}`}
+      data-qa-control="player-leave-active"
+      id="player-leave-active"
+      onKeyDown={controlSliderFromKeyboard}
+      onPointerCancel={cancelSlider}
+      onPointerDown={beginSliderDrag}
+      onPointerMove={moveSlider}
+      onPointerUp={finishSlider}
+      ref={sliderTrack}
+      role="slider"
+      tabIndex={0}
+    >
+      {sliderChildren}
+    </div>
+  );
+}
+
+/** @qa-build normal: this guarded surface is not rendered by Airplane Mode. */
+function PublicShowControl({
+  disabled,
+  onShowCards,
+}: {
+  readonly disabled: boolean;
+  readonly onShowCards?: () => void;
+}) {
+  return (
+    <div className="player-show-control">
+      <GuardedPlayerSlider
+        ariaLabel="Slide to show cards to table"
+        control="player-show-cards"
+        disabled={disabled}
+        label="Show cards to table"
+        {...(onShowCards ? { onComplete: onShowCards } : {})}
+        tone="gold"
+      />
+    </div>
+  );
+}
+
+function PlayerTableStatus({
+  projection,
+}: {
+  readonly projection: SeatProjection;
+}) {
+  const selfSeatId = projection.self.seatId;
+  const selfIndex = projection.seats.findIndex(
+    (seat) => seat.seatId === selfSeatId,
+  );
+  const selfSeat = projection.seats[selfIndex];
+  const { bigBlindSeatId, smallBlindSeatId } = blindSeatIds(projection);
+  const isDealer =
+    selfSeat !== undefined &&
+    seatCanHoldPosition(selfSeat) &&
+    selfSeatId === projection.dealerSeatId;
+  const roles = [
+    { active: isDealer, label: "Dealer", token: "D" },
+    {
+      active: selfSeatId === smallBlindSeatId,
+      label: "Small Blind",
+      token: "SB",
+    },
+    { active: selfSeatId === bigBlindSeatId, label: "Big Blind", token: "BB" },
+  ] as const;
+  const activePositions = roles.filter((role) => role.active);
+  const stateDescription = selfSeat
+    ? seatStateDescription(selfSeat.status, selfSeat.connected !== false)
+    : "Seat unavailable";
+
+  return (
+    <section
+      aria-label="Your table status"
+      className="player-table-status"
+      data-player-table-status
+    >
+      <div className="player-table-status__summary">
+        <span
+          className="player-table-status__name"
+          title={selfSeat?.displayName ?? ""}
+        >
+          {selfSeat?.displayName ?? "Unknown player"}
+        </span>
+        <span className="player-table-status__seat">Seat {selfIndex + 1}</span>
+        <span className="player-table-status__position-label">
+          {activePositions.length > 0
+            ? activePositions.map((position, index) => (
+                <span key={position.token}>
+                  {index > 0 ? " · " : null}
+                  <b>{position.token}</b> {position.label}
+                </span>
+              ))
+            : "No blind position"}
+        </span>
+      </div>
+      {selfSeat ? (
+        <div className="player-table-status__state">
+          <span
+            aria-label={`Your table state: ${stateDescription}`}
+            className="player-table-status__seat-state"
+            role="img"
+          >
+            <SeatStateGlyph
+              connected={selfSeat.connected !== false}
+              status={selfSeat.status}
+              winner={false}
+            />
+          </span>
+          <span>{stateDescription}</span>
+        </div>
+      ) : null}
+    </section>
+  );
+}
+
+function PlayerTablePositionDrawer({
+  projection,
+  onClose,
+}: {
+  readonly projection: SeatProjection;
+  readonly onClose: () => void;
+}) {
+  return (
+    <div className="player-position-backdrop">
+      <section
+        aria-label="Your table position"
+        aria-modal="true"
+        className="player-position-drawer"
+        role="dialog"
+      >
+        <header>
+          <div>
+            <span className="section-label">Your table</span>
+            <h2>Physical seat position</h2>
+          </div>
+          <button
+            aria-label="Close your table position"
+            className="icon-action icon-action--close"
+            data-qa-control="player-table-position-close"
+            onClick={onClose}
+            type="button"
+          >
+            <CloseGlyph />
+          </button>
+        </header>
+        <p>
+          Your highlighted seat follows the physical table order. Moving seats
+          on the host changes this map, not the betting order.
+        </p>
+        <div className="player-position-map">
+          <div aria-hidden="true" className="player-position-map__felt">
+            <span>Physical table</span>
+          </div>
+          <QuietSeatGrid
+            projection={projection}
+            selfSeatId={projection.self.seatId}
+            showNames
+            showShownHands={false}
+          />
+        </div>
+      </section>
+    </div>
+  );
+}
+
+function PlayerDepartureControls(props: {
+  readonly airplaneMode: boolean;
+  readonly beforeLeave?: () => void;
+  readonly busy: boolean;
+  readonly futureSittingOut: boolean;
+  readonly onLeaveTable?: () => ActionResult;
+  readonly onToggleSittingOut?: (sittingOut: boolean) => void;
+}) {
+  return (
+    <>
+      {props.airplaneMode ? (
+        <label className="sit-out-control">
+          <input
+            checked={props.futureSittingOut}
+            data-qa-control="player-sit-out-toggle"
+            disabled={props.busy}
+            onChange={(event) =>
+              props.onToggleSittingOut?.(event.target.checked)
+            }
+            type="checkbox"
+          />
+          <span>Sit out next hand</span>
+        </label>
+      ) : (
+        <label className="sit-out-control sit-out-control--switch">
+          <input
+            checked={props.futureSittingOut}
+            data-qa-control="player-sit-out-toggle"
+            disabled={props.busy}
+            onChange={(event) =>
+              props.onToggleSittingOut?.(event.target.checked)
+            }
+            role="switch"
+            type="checkbox"
+          />
+          <span className="sit-out-control__label">Sit out next hand</span>
+          <span aria-hidden="true" className="sit-out-switch">
+            <i />
+          </span>
+        </label>
+      )}
+      {props.airplaneMode ? (
+        props.onLeaveTable ? (
+          <button
+            className="leave-table-action"
+            data-qa-control="player-leave-active"
+            disabled={props.busy}
+            onClick={() => {
+              props.beforeLeave?.();
+              void props.onLeaveTable?.();
+            }}
+            type="button"
+          >
+            Leave table permanently
+          </button>
+        ) : null
+      ) : props.onLeaveTable ? (
+        <div className="leave-table-slider">
+          <GuardedPlayerSlider
+            ariaLabel="Leave table permanently"
+            disabled={props.busy}
+            control="player-leave-active"
+            label="Leave table permanently"
+            onComplete={() => {
+              props.beforeLeave?.();
+              void props.onLeaveTable?.();
+            }}
+            tone="danger"
+          />
+        </div>
+      ) : null}
+    </>
+  );
+}
+
 function PrivateHand(
   props: TableSurfaceProps & { readonly projection: SeatProjection },
 ) {
   const [cardsVisibleOnDevice, setCardsVisibleOnDevice] = useState(false);
+  const [leaveOptionsOpen, setLeaveOptionsOpen] = useState(false);
   const status = props.projection.self.status;
   const handId = props.projection.handId;
   const privateCards = props.projection.self.holeCards.join(",");
   const selfEvaluation = props.projection.seats.find(
     (seat) => seat.seatId === props.projection.self.seatId,
   )?.evaluation;
-  const selfIsLeader =
-    props.projection.showdown?.leaders.includes(props.projection.self.seatId) ??
-    false;
+  const shouldClassifyPrivateCards =
+    !props.airplaneMode && Boolean(props.projection.showdown);
+  const selfIsWinner = Boolean(
+    props.projection.showdown?.leaders.includes(props.projection.self.seatId),
+  );
   const cardStyle: CardStyle = props.airplaneMode
     ? "four-colour"
     : (props.projection.cardStyle ?? "classic");
@@ -1959,47 +2433,60 @@ function PrivateHand(
   }, []);
 
   return (
-    <section className="private-hand" aria-labelledby="private-title">
-      <div className="private-hand__heading">
-        <span className="section-label">Private hand</span>
-        <h1 id="private-title">Your cards</h1>
-        <p>
-          {status === "shown"
-            ? "Shown to the table. Covering them here does not undo the show."
-            : cardsVisibleOnDevice
-              ? "Visible only on this phone until you choose a table action."
-              : "Reveal them privately, then hide them before passing the phone."}
-        </p>
-      </div>
-      <div className="private-hand__cards">
-        {props.projection.self.holeCards.map((card) => (
-          <PlayingCard
-            card={card}
-            cardStyle={cardStyle}
-            fullFace={!props.airplaneMode}
-            {...(selfIsLeader && selfEvaluation
-              ? {
-                  emphasis: selfEvaluation.bestFive.includes(card)
-                    ? "best"
-                    : "unused",
-                }
-              : {})}
-            key={card}
-            marker="private"
-          />
-        ))}
-        {!cardsVisibleOnDevice ? (
-          <button
-            aria-label="Reveal my cards privately"
-            className="card-cover"
-            data-qa-control="player-reveal-private"
-            onClick={() => setCardsVisibleOnDevice(true)}
-            type="button"
-          >
-            <span>Reveal my cards privately</span>
-            <small>Only visible on this phone.</small>
-          </button>
-        ) : null}
+    <section
+      {...(props.airplaneMode
+        ? { "aria-labelledby": "private-title" }
+        : { "aria-label": "Your cards" })}
+      className="private-hand"
+    >
+      {props.airplaneMode ? (
+        <div className="private-hand__heading">
+          <span className="section-label">Private hand</span>
+          <h1 id="private-title">Your cards</h1>
+          <p>
+            {status === "shown"
+              ? "Shown to the table. Covering them here does not undo the show."
+              : cardsVisibleOnDevice
+                ? "Visible only on this phone until you choose a table action."
+                : "Reveal them privately, then hide them before passing the phone."}
+          </p>
+        </div>
+      ) : null}
+      {!props.airplaneMode ? (
+        <h1 className="visually-hidden">Your cards</h1>
+      ) : null}
+      <div className="private-hand__card-area">
+        <div className="private-hand__cards">
+          {props.projection.self.holeCards.map((card) => (
+            <PlayingCard
+              card={card}
+              cardStyle={cardStyle}
+              fullFace={!props.airplaneMode}
+              {...(shouldClassifyPrivateCards
+                ? {
+                    emphasis:
+                      selfIsWinner && selfEvaluation?.bestFive.includes(card)
+                        ? "best"
+                        : "unused",
+                  }
+                : {})}
+              key={card}
+              marker="private"
+            />
+          ))}
+          {!cardsVisibleOnDevice ? (
+            <button
+              aria-label="Reveal my cards privately"
+              className="card-cover"
+              data-qa-control="player-reveal-private"
+              onClick={() => setCardsVisibleOnDevice(true)}
+              type="button"
+            >
+              <span>Reveal my cards privately</span>
+              <small>Only visible on this phone.</small>
+            </button>
+          ) : null}
+        </div>
       </div>
       <div className="player-actions">
         {cardsVisibleOnDevice ? (
@@ -2044,36 +2531,89 @@ function PrivateHand(
             >
               Fold
             </ActionButton>
-            <ActionButton
-              disabled={props.busy || !props.onShowCards}
-              onClick={() => props.onShowCards?.()}
-              qaControl="player-show-cards"
-            >
-              Show cards to table
-            </ActionButton>
+            {props.airplaneMode ? (
+              <ActionButton
+                disabled={props.busy || !props.onShowCards}
+                onClick={() => props.onShowCards?.()}
+                qaControl="player-show-cards"
+              >
+                Show cards to table
+              </ActionButton>
+            ) : (
+              <PublicShowControl
+                disabled={props.busy || !props.onShowCards}
+                {...(props.onShowCards
+                  ? { onShowCards: props.onShowCards }
+                  : {})}
+              />
+            )}
           </>
         ) : null}
       </div>
-      <label className="sit-out-control">
-        <input
-          checked={props.futureSittingOut ?? false}
-          data-qa-control="player-sit-out-toggle"
-          disabled={props.busy}
-          onChange={(event) => props.onToggleSittingOut?.(event.target.checked)}
-          type="checkbox"
+      {props.airplaneMode ? (
+        <PlayerDepartureControls
+          airplaneMode={props.airplaneMode}
+          busy={props.busy}
+          futureSittingOut={props.futureSittingOut ?? false}
+          {...(props.onLeaveTable ? { onLeaveTable: props.onLeaveTable } : {})}
+          {...(props.onToggleSittingOut
+            ? { onToggleSittingOut: props.onToggleSittingOut }
+            : {})}
         />
-        <span>Sit out next hand</span>
-      </label>
-      {props.onLeaveTable ? (
+      ) : props.onLeaveTable || props.onToggleSittingOut ? (
         <button
-          className="leave-table-action"
-          data-qa-control="player-leave-active"
+          aria-expanded={leaveOptionsOpen}
+          aria-label="Open leave options"
+          className="player-leave-options-open"
+          data-qa-control="player-leave-options-open"
           disabled={props.busy}
-          onClick={() => void props.onLeaveTable?.()}
+          onClick={() => setLeaveOptionsOpen(true)}
           type="button"
         >
-          Leave table permanently
+          <LeaveOptionsGlyph />
         </button>
+      ) : null}
+      {leaveOptionsOpen ? (
+        <div className="player-leave-backdrop">
+          <section
+            aria-label="Leave options"
+            aria-modal="true"
+            className="player-leave-drawer"
+            role="dialog"
+          >
+            <header>
+              <div>
+                <span className="section-label">Player options</span>
+                <h2>Step away from the table</h2>
+              </div>
+              <button
+                aria-label="Close leave options"
+                className="icon-action icon-action--close"
+                data-qa-control="player-leave-options-close"
+                onClick={() => setLeaveOptionsOpen(false)}
+                type="button"
+              >
+                <CloseGlyph />
+              </button>
+            </header>
+            <p>
+              Sit out skips the incoming hands while keeping your seat till you
+              back.
+            </p>
+            <PlayerDepartureControls
+              airplaneMode={props.airplaneMode ?? false}
+              beforeLeave={() => setLeaveOptionsOpen(false)}
+              busy={props.busy}
+              futureSittingOut={props.futureSittingOut ?? false}
+              {...(props.onLeaveTable
+                ? { onLeaveTable: props.onLeaveTable }
+                : {})}
+              {...(props.onToggleSittingOut
+                ? { onToggleSittingOut: props.onToggleSittingOut }
+                : {})}
+            />
+          </section>
+        </div>
       ) : null}
     </section>
   );
@@ -2081,6 +2621,8 @@ function PrivateHand(
 
 export function TableSurface(props: TableSurfaceProps) {
   const [hostRootOpen, setHostRootOpen] = useState(false);
+  const [playerPositionOpen, setPlayerPositionOpen] = useState(false);
+  const [tablePlayerNamesVisible, setTablePlayerNamesVisible] = useState(false);
   const pageFullscreen = usePageFullscreen();
   const isPlayer = props.mode === "player" && props.projection.view === "seat";
   const isQuietPublic = ["public", "tablet", "tv"].includes(props.mode);
@@ -2090,6 +2632,10 @@ export function TableSurface(props: TableSurfaceProps) {
     : (props.projection.cardStyle ?? "classic");
   const bestCards = winningBestCards(props.projection);
   const compactGlyphsOnly = !props.airplaneMode;
+  const showQuietPlayerNames =
+    !props.airplaneMode &&
+    (props.mode === "tv" ||
+      (props.mode === "tablet" && tablePlayerNamesVisible));
   return (
     <main
       className={`table-surface table-surface--${props.mode}${hostRootOpen ? " table-surface--host-root-open" : ""}`}
@@ -2170,8 +2716,14 @@ export function TableSurface(props: TableSurfaceProps) {
 
       {isPlayer ? (
         <div className="player-status-bar">
-          <span aria-live="polite">{props.connectionLabel}</span>
-          <ReconnectAction onReconnect={props.onReconnect} />
+          {props.airplaneMode ? (
+            <>
+              <span aria-live="polite">{props.connectionLabel}</span>
+              <ReconnectAction onReconnect={props.onReconnect} />
+            </>
+          ) : (
+            <PlayerTableStatus projection={props.projection} />
+          )}
         </div>
       ) : null}
 
@@ -2204,6 +2756,7 @@ export function TableSurface(props: TableSurfaceProps) {
             }
             mode={props.mode}
             projection={props.projection}
+            showNames={showQuietPlayerNames}
           />
           <SettlementPanel projection={props.projection} />
           {props.projection.showdown ? (
@@ -2226,6 +2779,20 @@ export function TableSurface(props: TableSurfaceProps) {
             compactGlyphsOnly={compactGlyphsOnly}
             minimal
           />
+          {!props.airplaneMode ? (
+            <div className="player-board__connection-actions">
+              <button
+                aria-expanded={playerPositionOpen}
+                className="player-board__position-action"
+                data-qa-control="player-table-position-open"
+                onClick={() => setPlayerPositionOpen(true)}
+                type="button"
+              >
+                See your table position
+              </button>
+              <ReconnectAction onReconnect={props.onReconnect} />
+            </div>
+          ) : null}
           <SeatGrid
             cardStyle={cardStyle}
             mode="player"
@@ -2253,7 +2820,22 @@ export function TableSurface(props: TableSurfaceProps) {
         </footer>
       ) : null}
 
-      {props.mode === "tablet" ? <TabletControls {...props} /> : null}
+      {props.mode === "tablet" ? (
+        <TabletControls
+          {...props}
+          onTogglePlayerNames={() =>
+            setTablePlayerNamesVisible((visible) => !visible)
+          }
+          playerNamesVisible={tablePlayerNamesVisible}
+        />
+      ) : null}
+
+      {isPlayer && !props.airplaneMode && playerPositionOpen ? (
+        <PlayerTablePositionDrawer
+          onClose={() => setPlayerPositionOpen(false)}
+          projection={props.projection}
+        />
+      ) : null}
 
       {props.mode === "host" && hostRootOpen ? (
         <HostControlCenter {...props} onClose={() => setHostRootOpen(false)} />

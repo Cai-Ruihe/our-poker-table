@@ -27,14 +27,18 @@ test("hostile names stay inert and private cards stop at the seat projection", a
     page.on("pageerror", (error) => pageErrors.push(error.message)),
   );
   host.on("pageerror", (error) => pageErrors.push(error.message));
-  const hostileName = "<img src=x onerror=globalThis.pwn=1>";
+  // Keep the payload within Normal Mode's 24-character display-name limit so
+  // the assertion checks the rendered value rather than input truncation.
+  const hostileName = "<img src=x onerror=pwn>";
 
   await host.goto("/");
   await host.getByRole("button", { name: "Create table" }).click();
   const hostilePlayer = await join(host, context, hostileName);
   const bob = await join(host, context, "Bob");
   await expect(
-    host.locator('button[aria-label^="Seat"]').filter({ hasText: hostileName }),
+    host
+      .getByRole("button", { name: /^Seat \d+,/u })
+      .filter({ hasText: hostileName }),
   ).toHaveCount(1);
   expect(await host.evaluate(() => "pwn" in globalThis)).toBeFalsy();
   await expect(host.locator('img[src="x"]')).toHaveCount(0);

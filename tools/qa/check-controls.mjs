@@ -15,6 +15,33 @@ const registry = parseYaml(
 const contract = registry.control_contract;
 const failures = [];
 const sourceControls = new Map();
+const sourceControlBuilds = new Map();
+
+function mutuallyExclusiveBuild(node, sourceFile) {
+  let current = node;
+  while (current.parent) {
+    const annotation = /@qa-build\s+(normal|airplane)/u.exec(
+      sourceFile.text.slice(
+        current.getFullStart(),
+        current.getStart(sourceFile),
+      ),
+    );
+    if (annotation?.[1]) return annotation[1];
+    const parent = current.parent;
+    if (
+      ts.isConditionalExpression(parent) &&
+      parent.condition.getText(sourceFile) === "props.airplaneMode"
+    ) {
+      return current.getStart(sourceFile) >=
+        parent.whenTrue.getStart(sourceFile) &&
+        current.getEnd() <= parent.whenTrue.getEnd()
+        ? "airplane"
+        : "normal";
+    }
+    current = parent;
+  }
+  return undefined;
+}
 
 function attribute(node, name) {
   return node.attributes.properties.find(
@@ -79,6 +106,7 @@ for (const relativePath of contract?.sources ?? []) {
       const forwarded = expressionAttribute(node, attributeName);
       const line =
         sourceFile.getLineAndCharacterOfPosition(node.getStart()).line + 1;
+      const build = mutuallyExclusiveBuild(node, sourceFile);
 
       // The shared ActionButton renderer forwards its call-site ID. Every
       // concrete ActionButton call site is still inventoried separately.
@@ -91,11 +119,15 @@ for (const relativePath of contract?.sources ?? []) {
           `${relativePath}:${line} ${tag} is missing a literal ${attributeName}`,
         );
       } else if (sourceControls.has(id)) {
-        failures.push(
-          `${relativePath}:${line} duplicates control ID ${id} from ${sourceControls.get(id)}`,
-        );
+        const existingBuild = sourceControlBuilds.get(id);
+        if (!existingBuild || !build || existingBuild === build) {
+          failures.push(
+            `${relativePath}:${line} duplicates control ID ${id} from ${sourceControls.get(id)}`,
+          );
+        }
       } else {
         sourceControls.set(id, `${relativePath}:${line}`);
+        if (build) sourceControlBuilds.set(id, build);
       }
     }
     ts.forEachChild(node, visit);

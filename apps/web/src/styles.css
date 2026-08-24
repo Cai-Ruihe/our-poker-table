@@ -2257,6 +2257,7 @@ button:disabled {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
+  gap: 0.75rem;
   padding: 0.5rem 0 1rem;
 }
 
@@ -2270,6 +2271,31 @@ button:disabled {
   background: transparent;
   cursor: pointer;
   font-size: 2rem;
+}
+
+.admin-drawer__header-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.admin-drawer > header .admin-drawer__dissolve {
+  min-height: 2.25rem;
+  border: 1px solid var(--red);
+  border-radius: 999px;
+  padding: 0.42rem 0.7rem;
+  color: var(--red);
+  background: var(--red-soft);
+  font-size: 0.68rem;
+  font-weight: 760;
+  letter-spacing: 0.035em;
+  line-height: 1;
+  text-transform: uppercase;
+}
+
+.admin-drawer > header .admin-drawer__dissolve:hover:not(:disabled) {
+  color: white;
+  background: var(--red);
 }
 
 .admin-section {

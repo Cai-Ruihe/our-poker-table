@@ -10,7 +10,7 @@ Publish a Phase 1 field build that conforms to the approved Tablet v6 interactio
 
 1. **QA authority:** import every PRD User Story and Testing Decision, every product decision, TUI-001–031, and every field-feedback ID; fail closed on missing coverage.
 2. **Tablet conformance:** quiet card-first surface; equal four-corner triggers; upper-seat orientation; exact compact quick-panel geometry; custom short physical slider; centered complete secondary controls; three synchronized themes; full-screen action; auto-dismiss after successful actions.
-3. **Player lifecycle:** automatic visible-state catch-up, explicit reconnect, immediate next-hand updates, return from sit-out, and permanent credential-revoking leave.
+3. **Player lifecycle:** automatic visible-state catch-up; disabled-until-needed Reconnect; immediate next-hand updates; a compact named seat/status row; a top-right step-away pop-out with Sit out switch and deliberate permanent-leave slider; and permanent credential-revoking leave.
 4. **Entry:** default Normal screen accepts a pasted invitation URL or an in-page QR scan.
 5. **Cards and showdown:** compact one-sided mini cards never overlap; shown hands remain visible; the winning best five are emphasized and unused cards recede.
 6. **Release evidence:** contract, privacy, accessibility, geometry, visual, responsive, cross-engine, build, audit, manifest, CI, Pages, and deployed read-back evidence.

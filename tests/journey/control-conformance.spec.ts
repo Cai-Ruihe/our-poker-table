@@ -111,11 +111,17 @@ async function openSecondary(host: Page): Promise<Locator> {
 async function dragSliderToConfirm(host: Page, slider: Locator): Promise<void> {
   const track = await slider.boundingBox();
   if (!track) throw new Error("The next-hand slider is not measurable.");
+  const guardedPlayerSlider = [
+    "player-show-cards",
+    "player-leave-active",
+  ].includes((await slider.getAttribute("data-qa-control")) ?? "");
   await host.mouse.move(track.x + 32, track.y + track.height / 2);
   await host.mouse.down();
-  await host.mouse.move(track.x + 124, track.y + track.height / 2, {
-    steps: 8,
-  });
+  await host.mouse.move(
+    guardedPlayerSlider ? track.x + track.width - 18 : track.x + 124,
+    track.y + track.height / 2,
+    { steps: 8 },
+  );
   await host.mouse.up();
 }
 
@@ -609,6 +615,14 @@ test("Physical-player and dealer controls commit the advertised state transition
     (target) => target.click(),
     () => expect(control(alice, "player-reveal-private")).toBeVisible(),
   );
+  await expect(control(alice, "table-reconnect")).toBeDisabled();
+  await alice.evaluate(() => {
+    Object.defineProperty(document, "visibilityState", {
+      configurable: true,
+      value: "hidden",
+    });
+    document.dispatchEvent(new Event("visibilitychange"));
+  });
   await exerciseControl(
     "table-reconnect",
     control(alice, "table-reconnect"),
@@ -616,6 +630,43 @@ test("Physical-player and dealer controls commit the advertised state transition
     () =>
       expect(alice.getByRole("region", { name: "Your cards" })).toBeVisible(),
   );
+  await exerciseControl(
+    "player-table-position-open",
+    control(alice, "player-table-position-open"),
+    (target) => target.click(),
+    () =>
+      expect(
+        alice.getByRole("dialog", { name: "Your table position" }),
+      ).toBeVisible(),
+  );
+  await exerciseControl(
+    "player-table-position-close",
+    control(alice, "player-table-position-close"),
+    (target) => target.click(),
+    () =>
+      expect(
+        alice.getByRole("dialog", { name: "Your table position" }),
+      ).toHaveCount(0),
+  );
+  await exerciseControl(
+    "player-leave-options-open",
+    control(alice, "player-leave-options-open"),
+    (target) => target.click(),
+    () =>
+      expect(
+        alice.getByRole("dialog", { name: "Leave options" }),
+      ).toBeVisible(),
+  );
+  await exerciseControl(
+    "player-leave-options-close",
+    control(alice, "player-leave-options-close"),
+    (target) => target.click(),
+    () =>
+      expect(alice.getByRole("dialog", { name: "Leave options" })).toHaveCount(
+        0,
+      ),
+  );
+  await control(alice, "player-leave-options-open").click();
   await exerciseControl(
     "player-sit-out-toggle",
     control(alice, "player-sit-out-toggle"),
@@ -625,7 +676,7 @@ test("Physical-player and dealer controls commit the advertised state transition
   await exerciseControl(
     "player-leave-active",
     control(alice, "player-leave-active"),
-    (target) => target.click(),
+    (target) => dragSliderToConfirm(alice, target),
     () =>
       expect(
         alice.getByRole("dialog", { name: "Leave this table?" }),
@@ -643,7 +694,7 @@ test("Physical-player and dealer controls commit the advertised state transition
   await exerciseControl(
     "player-show-cards",
     control(alice, "player-show-cards"),
-    (target) => target.click(),
+    (target) => dragSliderToConfirm(alice, target),
     () => expect(host.locator("[data-shown-card]")).toHaveCount(2),
   );
   await exerciseControl(
@@ -756,6 +807,51 @@ test("Physical-player and dealer controls commit the advertised state transition
       expect(
         alice.getByRole("heading", { name: "Join another session" }),
       ).toBeVisible(),
+  );
+});
+
+test("Normal Player Show reveals only after slider completion", async ({
+  context,
+  page: host,
+}) => {
+  const { alice } = await createPhysicalTable(host, context);
+  const showControl = control(alice, "player-show-cards");
+
+  await showControl.click();
+  await expect(
+    alice.getByRole("dialog", { name: "Confirm showing cards to table" }),
+  ).toHaveCount(0);
+  await expect(host.locator("[data-shown-card]")).toHaveCount(0);
+  await showControl.press(" ");
+  await expect(
+    alice.getByRole("dialog", { name: "Confirm showing cards to table" }),
+  ).toHaveCount(0);
+  await expect(host.locator("[data-shown-card]")).toHaveCount(0);
+  await showControl.press("End");
+  await expect(
+    alice.getByRole("dialog", { name: "Confirm showing cards to table" }),
+  ).toHaveCount(0);
+  await expect(host.locator("[data-shown-card]")).toHaveCount(2);
+});
+
+test("Normal Player can cancel sitting out before the next hand", async ({
+  context,
+  page: host,
+}) => {
+  const { alice } = await createPhysicalTable(host, context);
+  await control(alice, "player-leave-options-open").click();
+
+  await exerciseControl(
+    "player-sit-out-toggle",
+    control(alice, "player-sit-out-toggle"),
+    (target) => target.click(),
+    () => expect(control(alice, "player-sit-out-toggle")).toBeChecked(),
+  );
+  await exerciseControl(
+    "player-sit-out-toggle",
+    control(alice, "player-sit-out-toggle"),
+    (target) => target.click(),
+    () => expect(control(alice, "player-sit-out-toggle")).not.toBeChecked(),
   );
 });
 
@@ -917,6 +1013,29 @@ test("Tablet quick and secondary controls all produce their registered outcomes"
     () => expect(host.locator(".secondary-controls")).toBeVisible(),
   );
   let secondary = host.locator(".secondary-controls");
+  await expect(host.locator(".seat-edge-status__name")).toHaveCount(0);
+  await exerciseControl(
+    "tablet-player-names-toggle",
+    control(secondary, "tablet-player-names-toggle"),
+    (target) => target.click(),
+    async () => {
+      await expect(
+        control(secondary, "tablet-player-names-toggle"),
+      ).toHaveAttribute("aria-pressed", "true");
+      await expect(host.locator(".seat-edge-status__name")).toHaveCount(2);
+    },
+  );
+  await exerciseControl(
+    "tablet-player-names-toggle",
+    control(secondary, "tablet-player-names-toggle"),
+    (target) => target.click(),
+    async () => {
+      await expect(
+        control(secondary, "tablet-player-names-toggle"),
+      ).toHaveAttribute("aria-pressed", "false");
+      await expect(host.locator(".seat-edge-status__name")).toHaveCount(0);
+    },
+  );
   await exerciseControlVariant(
     "tablet-theme-choice",
     "dark-green",

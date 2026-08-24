@@ -34,13 +34,13 @@ Open-source deployers should use the clone-to-running-service [Normal Mode self-
 
 The current Connection Service is an in-memory Node process. It requires these environment variables:
 
-| Variable                          |                 Required | Meaning                                                                                                                                      |
-| --------------------------------- | -----------------------: | -------------------------------------------------------------------------------------------------------------------------------------------- |
-| `POKER_CONNECTION_ACCESS_TOKEN_FILE` | One token source required | Preferred file containing the long-lived operator secret. The supplied Compose recipe mounts it as a file secret.                           |
-| `POKER_CONNECTION_ACCESS_TOKEN`      | One token source required | Inline compatibility alternative. Do not set it together with the file option; keep it off the static site and out of source control.       |
-| `POKER_CONNECTION_HOST`           |                       No | Bind address; defaults to `127.0.0.1`.                                                                                                       |
-| `POKER_CONNECTION_PORT`           |                       No | TCP port; defaults to `8787`.                                                                                                                |
-| `POKER_CONNECTION_ALLOWED_ORIGIN` | No for local development | CORS/Origin policy value. Set the exact HTTPS app origin in a deployment; the `*` default is only suitable for controlled local development. |
+| Variable                             |                  Required | Meaning                                                                                                                                      |
+| ------------------------------------ | ------------------------: | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| `POKER_CONNECTION_ACCESS_TOKEN_FILE` | One token source required | Preferred file containing the long-lived operator secret. The supplied Compose recipe mounts it as a file secret.                            |
+| `POKER_CONNECTION_ACCESS_TOKEN`      | One token source required | Inline compatibility alternative. Do not set it together with the file option; keep it off the static site and out of source control.        |
+| `POKER_CONNECTION_HOST`              |                        No | Bind address; defaults to `127.0.0.1`.                                                                                                       |
+| `POKER_CONNECTION_PORT`              |                        No | TCP port; defaults to `8787`.                                                                                                                |
+| `POKER_CONNECTION_ALLOWED_ORIGIN`    |  No for local development | CORS/Origin policy value. Set the exact HTTPS app origin in a deployment; the `*` default is only suitable for controlled local development. |
 
 Run the built service after setting the variables:
 
@@ -75,6 +75,55 @@ Do not put an operator token, table ticket, invitation secret, or personal endpo
 5. Let the host deal after at least two player seats have joined. Normal Mode prefers direct WebRTC after private signaling and falls back to the private relay when direct WebRTC is unavailable.
 6. Pair a TV/Public Table by opening **Pair this display** on the display, choosing the requested public role, then scanning its QR from the host. The display obtains nothing until that host scan completes.
 7. Use the off-table **Connection Service** card to renew a relay ticket before a long interruption or after a recovered host reports expiry. The operator token is not persisted. Ticket expiry stops a new relay registration; it does not forcibly close an already-open in-memory WebSocket.
+
+### Normal Player and display cues
+
+- Player display names are limited to 24 characters so Table and TV labels stay
+  legible. Table View truncates a longer label visually; the full entered name
+  remains available to assistive technology.
+- The player hand keeps the player's **name**, **Seat**, applicable **D Dealer
+  / SB Small Blind / BB Big Blind** position, and a named seat-state glyph (for
+  example **Playing**, **Folded**, or **Sitting out**) visible. The glyph and
+  its text remain horizontally and vertically aligned and uncropped. Private
+  cards begin promptly below the compact status. Below the community-card rail,
+  a divider and intentional breathing room separate the centered **See your
+  table position** and **Reconnect to table** utility row. The position button opens the private
+  physical-seat map; the player's own seat is highlighted and every map label
+  is screen-upright. Reconnect is grey and disabled until recovery is actually
+  needed.
+- On a phone, the private-card region has no visible **Your cards** or
+  connection-transport heading, while retaining the accessible **Your cards**
+  region name. During a shown-hand comparison, only the winning player or tied
+  winners' private cards that belong to their best five stay bright. Every other
+  exposed private card is faded, and each winner's bright private and community
+  cards total exactly five.
+- **Show cards to table** is a guarded slider because the result is permanent
+  for the current hand. It stays beside **Fold**, is exactly 13.2rem wide for
+  comfortable one-line label clearance, and uses the active table accent instead
+  of danger red. Slide it fully to reveal. A short tap does nothing; no second
+  confirmation window is shown after a completed slide.
+- The compact Leave icon is in the top-right and opens a centered step-away
+  pop-out. **Sit out next hand** is a switch and explains that it “skips the
+  incoming hands while keeping your seat till you back.” **Leave table
+  permanently** uses a red endpoint slider before its separate destructive
+  confirmation. The red slider uses the same custom handle, drag, and arrow
+  treatment as Show, is 30% shorter than the prior Leave rail and centered in
+  the pop-out; its action is named only inside the red rail. The pop-out close
+  circle/X is reduced.
+- In **Table View**, open any corner control, then **More table controls** →
+  **This device** → **Show player names** to toggle table labels. TV always
+  shows player names.
+
+## End a table permanently
+
+From **Host Controls**, open **Players**. The red **Dissolve table** button is
+always available in the drawer header. Choose it only when the session should
+end for every connected player and display: the confirmation explains that it
+closes joining, revokes invitations and credentials, removes the recoverable
+host authority state, and returns the host to Home. This cannot be undone.
+
+The **Table controls** center retains the same explicitly confirmed action as
+an alternate entry point.
 
 Use the combined host page rather than separate host and player tabs. iOS may
 suspend JavaScript and networking while Safari is backgrounded, so dependent

@@ -1,7 +1,31 @@
 import AxeBuilder from "@axe-core/playwright";
-import { expect, test, type BrowserContext, type Page } from "@playwright/test";
+import {
+  expect,
+  test,
+  type BrowserContext,
+  type Locator,
+  type Page,
+} from "@playwright/test";
 
 const appOrigin = `http://127.0.0.1:${process.env.HTML_POKER_TEST_PORT ?? "4173"}`;
+
+async function dragPlayerShow(page: Page, slider?: Locator): Promise<void> {
+  const target =
+    slider ?? page.locator('[data-qa-control="player-show-cards"]');
+  await target.scrollIntoViewIfNeeded();
+  const bounds = await target.boundingBox();
+  if (!bounds) throw new Error("The Player Show slider is not measurable.");
+  await page.mouse.move(bounds.x + 28, bounds.y + bounds.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(
+    bounds.x + bounds.width - 18,
+    bounds.y + bounds.height / 2,
+    {
+      steps: 8,
+    },
+  );
+  await page.mouse.up();
+}
 
 async function joinPlayer(
   host: Page,
@@ -178,7 +202,7 @@ test("host and two player devices complete a private deal-only hand without exte
   await expect(host.locator("[data-board-card]")).toHaveCount(3);
   await expect(alice.locator("[data-board-card]")).toHaveCount(3);
 
-  await alice.getByRole("button", { name: "Show cards to table" }).click();
+  await dragPlayerShow(alice);
   await expect(host.locator("[data-shown-card]")).toHaveCount(2);
   await expect(bob.getByRole("button", { name: "Muck" })).toHaveCount(0);
   await bob.getByRole("button", { name: "Fold", exact: true }).click();
@@ -304,7 +328,7 @@ test("overlapping table updates do not corrupt player recovery state", async ({
   const { alice, bob } = await createTableWithTwoPlayers(host, context);
 
   await Promise.all([
-    alice.getByRole("button", { name: "Show cards to table" }).click(),
+    dragPlayerShow(alice),
     bob.getByRole("button", { name: "Fold", exact: true }).click(),
   ]);
 
@@ -355,7 +379,7 @@ test("host and player refresh recover the same active hand and private seat", as
     )
     .toEqual(cardsBeforeRefresh);
 
-  await alice.getByRole("button", { name: "Show cards to table" }).click();
+  await dragPlayerShow(alice);
   await expect(host.locator("[data-shown-card]")).toHaveCount(2);
 });
 
@@ -480,14 +504,12 @@ test("a one-use player replacement preserves the seat and revokes the old device
   ).toBeVisible();
   await expect(replacement.locator("[data-private-card]")).toHaveCount(2);
 
-  await alice.getByRole("button", { name: "Show cards to table" }).click();
+  await dragPlayerShow(alice);
   await expect(
     alice.getByRole("heading", { name: "This seat could not be opened" }),
   ).toBeVisible();
   await expect(alice.getByText("credential-revoked")).toBeVisible();
-  await replacement
-    .getByRole("button", { name: "Show cards to table" })
-    .click();
+  await dragPlayerShow(replacement);
   await expect(host.locator("[data-shown-card]")).toHaveCount(2);
 });
 

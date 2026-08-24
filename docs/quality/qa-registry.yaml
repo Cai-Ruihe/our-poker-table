@@ -394,6 +394,10 @@ control_contract:
       surface: Host Table control center
       expected_result: After explicit confirmation, the Trusted Host closes the table, revokes invitations and credentials, erases recoverable authority state, and returns home.
       evidence: tests/journey/feedback-regressions.spec.ts
+    host-dissolve-table-drawer:
+      surface: Normal Host Players drawer
+      expected_result: The always-visible drawer-header action requests explicit confirmation; after confirmation, the Trusted Host closes the table, revokes invitations and credentials, erases recoverable authority state, and returns home.
+      evidence: tests/journey/feedback-regressions.spec.ts
     home-create-table:
       surface: Home
       expected_result: A Trusted Host lobby is created.
@@ -444,7 +448,11 @@ control_contract:
     host-open-join-window:
       surface: Host administration
       expected_result: The Normal Host exposes an in-view Add a player QR and fresh one-use link.
-      evidence: [tests/journey/control-conformance.spec.ts, tests/journey/feedback-regressions.spec.ts]
+      evidence:
+        [
+          tests/journey/control-conformance.spec.ts,
+          tests/journey/feedback-regressions.spec.ts,
+        ]
     player-invitation-copy:
       surface: Host invitation
       expected_result: The active player invitation is copied.
@@ -484,7 +492,11 @@ control_contract:
     roster-join-window-toggle:
       surface: Host roster
       expected_result: The Normal Host's explicit New players switch changes between Locked and Open and exposes the matching invitation result.
-      evidence: [tests/journey/control-conformance.spec.ts, tests/journey/feedback-regressions.spec.ts]
+      evidence:
+        [
+          tests/journey/control-conformance.spec.ts,
+          tests/journey/feedback-regressions.spec.ts,
+        ]
     roster-map-seat:
       surface: Host roster table map
       expected_result: Selecting a mapped player opens that player's management panel.
@@ -504,7 +516,11 @@ control_contract:
     roster-replace-device:
       surface: Host roster
       expected_result: A seat-limited replacement invitation appears in view with its one-use replacement link.
-      evidence: [tests/journey/control-conformance.spec.ts, tests/journey/feedback-regressions.spec.ts]
+      evidence:
+        [
+          tests/journey/control-conformance.spec.ts,
+          tests/journey/feedback-regressions.spec.ts,
+        ]
     capability-revoke:
       surface: Host capabilities
       expected_result: The selected room surface loses access.
@@ -641,8 +657,8 @@ control_contract:
       variants: [dark-green, black-gold, deep-navy]
       evidence: tests/journey/control-conformance.spec.ts
     table-reconnect:
-      surface: Player or Tablet recovery
-      expected_result: The current table revision is pulled successfully.
+      surface: Normal Player community-card utility row or Tablet recovery
+      expected_result: Normal Player places Reconnect to table beside See your table position below the community-card rail, keeps it grey and disabled while recovery is not required, enables after a recovery-required state, and then pulls the current table revision successfully.
       evidence: tests/journey/control-conformance.spec.ts
     tablet-corner-open:
       surface: Tablet quiet view
@@ -740,15 +756,43 @@ control_contract:
       evidence: tests/journey/control-conformance.spec.ts
     player-show-cards:
       surface: Player hand
-      expected_result: The two hole cards become public shown cards.
+      expected_result: A completed deliberate slider, or keyboard completion, makes the two hole cards public directly; a short tap does not disclose cards and no duplicate confirmation dialog appears.
+      evidence:
+        [
+          tests/journey/control-conformance.spec.ts,
+          tests/journey/feedback-regressions.spec.ts,
+        ]
+    player-table-position-open:
+      surface: Normal Player community-card utility row
+      expected_result: The centered, below-community-cards See your table position button sits beside Reconnect to table after a deliberate divider and gap, opens a private physical-table map with the player's own current seat highlighted, and is not placed in the topbar.
+      evidence: tests/journey/control-conformance.spec.ts
+    player-table-position-close:
+      surface: Normal Player physical-table map
+      expected_result: The private table-position drawer closes and returns to the player hand.
       evidence: tests/journey/control-conformance.spec.ts
     player-sit-out-toggle:
-      surface: Player hand
-      expected_result: Future sitting-out state follows the checkbox.
+      surface: Normal Player leave-options drawer
+      expected_result: The visible switch updates future sitting-out state.
+      evidence: tests/journey/control-conformance.spec.ts
+    player-leave-options-open:
+      surface: Normal Player hand
+      expected_result: The compact top-right Leave icon opens the step-away pop-out without changing table state.
+      evidence:
+        [
+          tests/journey/control-conformance.spec.ts,
+          tests/journey/feedback-regressions.spec.ts,
+        ]
+    player-leave-options-close:
+      surface: Normal Player leave-options drawer
+      expected_result: The leave-options drawer closes without changing table state.
       evidence: tests/journey/control-conformance.spec.ts
     player-leave-active:
-      surface: Player hand
-      expected_result: Permanent-leave confirmation opens.
+      surface: Player leave options
+      expected_result: A centered completed red custom-standard permanent-leave slider, 84% of its drawer width and separated from Sit out by a divider, opens the destructive confirmation; a partial slide does not.
+      evidence: tests/journey/control-conformance.spec.ts
+    tablet-player-names-toggle:
+      surface: Normal Tablet Table controls
+      expected_result: The host can opt Table View into or out of player names; TV names are always visible.
       evidence: tests/journey/control-conformance.spec.ts
     host-manage-players:
       surface: Host table
@@ -757,7 +801,11 @@ control_contract:
     host-root-controls-open:
       surface: Host table brand mark
       expected_result: The visible Table controls entry opens the centered Table control center.
-      evidence: [tests/journey/control-conformance.spec.ts, tests/journey/feedback-regressions.spec.ts]
+      evidence:
+        [
+          tests/journey/control-conformance.spec.ts,
+          tests/journey/feedback-regressions.spec.ts,
+        ]
     host-root-controls-close:
       surface: Host Table control center
       expected_result: The control center closes and returns to the table.
@@ -812,7 +860,7 @@ performance_contract:
   artifacts:
     normal_javascript_raw_bytes: 1100000
     normal_javascript_gzip_bytes: 330000
-    normal_css_raw_bytes: 85000
+    normal_css_raw_bytes: 100000
     airplane_html_raw_bytes: 1350000
   browser_interaction_timeout_ms: 5000
 

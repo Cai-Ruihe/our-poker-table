@@ -2,7 +2,7 @@
 id: PRD-M06
 kind: module
 status: current
-last_reconciled: 2026-08-17
+last_reconciled: 2026-08-24
 decision_ids:
   - BRAND-IDENTITY-V1
   - PHASE1-TABLE-SIZE
@@ -74,9 +74,7 @@ Each mode has its own renderer over a shared semantic design system. Renderers c
 8. As a dealer, I want a separate administration route for logical dealer relocation.
 9. As a group, we want End Hand to wait for an explicit guarded action even after all-fold.
 10. As an accessibility user, I want semantic labels, high contrast, large ranks, reduced motion, and private headphone card reading where supported.
-11. As a public-display user, I want one clear mode-switch action to enter or leave Tablet presentation when this device already has Table-Control authority.
-12. As a TV user, I want the unpaired screen to show a distance-readable Normal Mode QR so the host can connect it without long remote-control typing.
-13. As a host using a phone or iPad, I want one clear switch among Host Controls, my private hand, and the public Table View so one foreground page can serve the roles I actually hold.
+11. As a device owner, I want role-appropriate Table, TV, and Host switching plus a Normal Mode pairing QR.
 
 ## Implementation Decisions
 
@@ -86,7 +84,7 @@ Each mode has its own renderer over a shared semantic design system. Renderers c
 - An unpaired Normal Mode TV/Public display may render its ephemeral reverse-pairing QR and plain-language status; it receives no table projection until an authorized scanner completes pairing.
 - Player private reveal and irreversible public Show remain separate actions. Hiding cards locally or backgrounding the page never reverses a public Show.
 - The Tablet quiet surface gives all four physical sides equal, orientation-correct corner entry points. Its quick panel contains a large Next card action beside a short horizontal Next hand slider and closes after an acknowledged action.
-- Theme selection, player management, recovery, diagnostics, and other exceptional controls use the centered second layer rather than the Tablet quick panel.
+- Theme, player, recovery, diagnostics, and device controls use a centered layer. Normal tablet controls start This device/Appearance, then Displays/Players.
 - Dark Green, Black Gold, and Deep Navy share identical geometry and synchronize to every role-filtered projection. Device-local accessibility overrides remain local.
 - Cards use the built-in warm-ivory old-school renderer with dimensional shading. Future skins may replace assets only as complete validated packs; Airplane Mode always retains the built-in fallback.
 - Quiet Tablet, TV, and Public Table surfaces omit the application header, Board label/counter, table oval, permanent player tiles, and dealer toolbar. They retain low-key seat state plus distinct D, SB, and BB tokens.
@@ -96,6 +94,9 @@ Each mode has its own renderer over a shared semantic design system. Renderers c
 - Browser/OS color preference cannot recolor the selected table palette or warm cards. The synchronized host-selected theme is the product appearance authority.
 - The product-facing name is **Our Poker Table**. Brand asset version 1.0 uses the approved four-rotation corner-and-dot symbol, Brand Green on light surfaces, and UI Gold on Brand Green; repository and package identifiers remain unchanged until a separately authorized migration.
 - Fold is provisional until its safe boundary. Show has no secrecy undo.
+- Normal Player has one compact seat/role/state row, no connection or **Your cards** heading, and a disabled-until-needed Reconnect. Private cards follow it without a blank band. **See your table position** and **Reconnect to table** share a centered utility row below the community-card rail, with equal upper/lower divider gaps, never the topbar; the former opens the private map and the latter enables only for recovery.
+- A completed Normal Player Show slide reveals; a short tap or duplicate confirmation does not. Its 13.2rem rail gives the one-line action label side clearance.
+- Normal Player Leave is a top-right pop-out with the approved Sit out copy/switch, divider, and red endpoint slider before permanent-leave confirmation. It shares Show's custom handle, drag, and arrow; is 84% of drawer width; is centered; and carries its action only inside the rail. It has a smaller close circle/X. The state-card outline is vertically centered against its text and the Leave glyph horizontally centered. Airplane retains its separate implementation.
 - Visual seat movement never changes logical action/dealer/blind order.
 - The default style uses original assets and interaction principles inspired by Bold Poker, not copied layouts/artwork.
 - Host-selected appearance cannot disable device-local accessibility overrides.
@@ -103,7 +104,7 @@ Each mode has its own renderer over a shared semantic design system. Renderers c
 
 ## Testing Decisions
 
-Use rendered interaction tests at each mode's public interface plus browser/device tests. Cover common one-hand flow, synchronized theme recovery, same-device host-player join and view switching, private-card DOM isolation, refresh recovery, explicit reconnect, accidental gesture, multi-touch/scroll conflict, all four Tablet control orientations, TV distance/input, ten seats, long names, controller revoke, capability denial, VoiceOver/screen readers, headphones, reduced motion, contrast, text scaling, and offline card fallback.
+Use rendered user journeys and browser/device tests for recovery, private-card isolation, Show and Leave safeguards, phone geometry, Tablet/TV input, ten seats, long names, accessibility, and offline fallback.
 
 ## Out of Scope
 

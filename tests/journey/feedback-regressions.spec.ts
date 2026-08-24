@@ -118,6 +118,16 @@ async function screenshotIfChromium(
   });
 }
 
+async function attachReviewScreenshot(
+  page: Page,
+  testInfo: TestInfo,
+  name: string,
+): Promise<void> {
+  const path = testInfo.outputPath(`${name}.png`);
+  await page.screenshot({ animations: "disabled", fullPage: true, path });
+  await testInfo.attach(name, { contentType: "image/png", path });
+}
+
 async function screenshotEveryProject(page: Page, name: string): Promise<void> {
   await page.evaluate(async () => document.fonts.ready);
   const testInfo = test.info();
@@ -135,6 +145,22 @@ async function screenshotEveryProject(page: Page, name: string): Promise<void> {
     animations: "disabled",
     fullPage: true,
   });
+}
+
+async function dragToConfirm(page: Page, slider: Locator): Promise<void> {
+  await slider.scrollIntoViewIfNeeded();
+  const bounds = await slider.boundingBox();
+  if (!bounds) throw new Error("The confirmation slider is not measurable.");
+  await page.mouse.move(bounds.x + 28, bounds.y + bounds.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(
+    bounds.x + bounds.width - 18,
+    bounds.y + bounds.height / 2,
+    {
+      steps: 8,
+    },
+  );
+  await page.mouse.up();
 }
 
 async function attachCompactCardReviewImage(
@@ -315,6 +341,153 @@ test("Player catches up to new hands, can return from sit-out, and can leave per
   const { alice } = await createTable(host, context);
   await alice.setViewportSize({ height: 852, width: 393 });
   await screenshotIfChromium(alice, testInfo, "phone-player-active-covered");
+
+  const openLeaveOptions = alice.getByRole("button", {
+    name: "Open leave options",
+  });
+  const sitOut = alice.getByLabel("Sit out next hand");
+  const leave = alice.getByRole("slider", {
+    name: "Leave table permanently",
+  });
+  await expect(sitOut).toHaveCount(0);
+  await expect(leave).toHaveCount(0);
+  await expect(
+    alice.getByText("Leave table permanently", { exact: true }),
+  ).toHaveCount(0);
+  await expect(openLeaveOptions).toBeVisible();
+  await expect(openLeaveOptions).toHaveAttribute(
+    "data-qa-control",
+    "player-leave-options-open",
+  );
+  const openLeaveOptionsBox = await openLeaveOptions.boundingBox();
+  if (!openLeaveOptionsBox) {
+    throw new Error("Open leave options must be measurable.");
+  }
+  expect(
+    openLeaveOptionsBox.width,
+    "Open leave options stays compact",
+  ).toBeGreaterThanOrEqual(32);
+  expect(
+    openLeaveOptionsBox.width,
+    "Open leave options is no wider than 48px",
+  ).toBeLessThanOrEqual(48);
+  expect(
+    openLeaveOptionsBox.height,
+    "Open leave options is no taller than 48px",
+  ).toBeLessThanOrEqual(48);
+  expect(
+    Math.abs(openLeaveOptionsBox.width - openLeaveOptionsBox.height),
+    "Open leave options is approximately square",
+  ).toBeLessThanOrEqual(8);
+  await openLeaveOptions.click();
+  const leaveOptions = alice.getByRole("dialog", { name: "Leave options" });
+  await expect(leaveOptions).toBeVisible();
+  await expect(
+    leaveOptions.getByText(
+      "Sit out skips the incoming hands while keeping your seat till you back.",
+      { exact: true },
+    ),
+  ).toBeVisible();
+  await expect(
+    leaveOptions.getByRole("switch", { name: "Sit out next hand" }),
+  ).toBeVisible();
+  await expect(leave).toBeVisible();
+  await expect(leave).toHaveAttribute("role", "slider");
+  await expect(leave).toHaveAttribute("aria-orientation", "horizontal");
+  await expect(leave).toHaveAttribute("id", "player-leave-active");
+  await expect(leave.locator(".player-confirm-slider__handle")).toHaveCount(1);
+  await expect(
+    leaveOptions.getByText("Slide to leave table permanently", { exact: true }),
+  ).toHaveCount(0);
+  await expect(
+    leaveOptions.getByText("Release at the end to continue", { exact: true }),
+  ).toHaveCount(0);
+  const [leaveBox, leaveOptionsBox, leaveColour] = await Promise.all([
+    leave.boundingBox(),
+    leaveOptions.boundingBox(),
+    leave.evaluate((element) => {
+      const handle = element.querySelector<HTMLElement>(
+        ".player-confirm-slider__handle",
+      );
+      if (!handle) throw new Error("Leave slider handle is missing.");
+      return {
+        border: getComputedStyle(element).borderTopColor,
+        handle: getComputedStyle(handle).backgroundColor,
+      };
+    }),
+  ]);
+  if (!leaveBox || !leaveOptionsBox) {
+    throw new Error("Leave slider and its pop-out must be measurable.");
+  }
+  const leaveSliderContainer = leave.locator("xpath=..");
+  const [leaveSliderContainerBox, leaveDividerStyle] = await Promise.all([
+    leaveSliderContainer.boundingBox(),
+    leaveSliderContainer.evaluate((element) => {
+      const style = getComputedStyle(element);
+      return {
+        borderTopWidth: style.borderTopWidth,
+        paddingTop: Number.parseFloat(style.paddingTop),
+      };
+    }),
+  ]);
+  if (!leaveSliderContainerBox) {
+    throw new Error("Leave slider container must be measurable.");
+  }
+  expect(
+    leaveBox.width / leaveSliderContainerBox.width,
+    "Leave slider is larger while remaining shorter than its pop-out",
+  ).toBeGreaterThanOrEqual(0.83);
+  expect(
+    leaveBox.width / leaveSliderContainerBox.width,
+    "Leave slider still has clear side margins inside its pop-out",
+  ).toBeLessThanOrEqual(0.85);
+  expect(
+    Math.abs(
+      leaveBox.x +
+        leaveBox.width / 2 -
+        (leaveOptionsBox.x + leaveOptionsBox.width / 2),
+    ),
+    "Leave slider is centered within its pop-out",
+  ).toBeLessThanOrEqual(1);
+  expect(
+    leaveDividerStyle.borderTopWidth,
+    "A divider separates Sit out from the permanent-leave slider",
+  ).toBe("1px");
+  expect(
+    leaveDividerStyle.paddingTop,
+    "The permanent-leave slider breathes below the Sit out divider",
+  ).toBeGreaterThanOrEqual(12);
+  expect(
+    leaveColour.handle,
+    "Leave slider uses Show's custom circular handle treatment",
+  ).toBe(leaveColour.border);
+  const closeLeaveOptions = leaveOptions.getByRole("button", {
+    name: "Close leave options",
+  });
+  const closeLeaveOptionsBox = await closeLeaveOptions.boundingBox();
+  if (!closeLeaveOptionsBox) {
+    throw new Error("Leave-options close button must be measurable.");
+  }
+  expect(
+    closeLeaveOptionsBox.width,
+    "Leave-options close circle is smaller than the generic panel control",
+  ).toBeLessThanOrEqual(40);
+  await leave.press("Home");
+  await expect(
+    alice.getByRole("dialog", { name: "Leave this table?" }),
+  ).toHaveCount(0);
+  await dragToConfirm(alice, leave);
+  await expect(
+    alice.getByRole("dialog", { name: "Leave this table?" }),
+  ).toBeVisible();
+  await alice.getByRole("button", { name: "Stay at table" }).click();
+  await openLeaveOptions.click();
+  await expect(leaveOptions).toBeVisible();
+  await attachReviewScreenshot(alice, testInfo, "phone-player-leave-options");
+  await closeLeaveOptions.click();
+  await expect(leaveOptions).toHaveCount(0);
+  await attachReviewScreenshot(alice, testInfo, "phone-player-action-rows");
+
   await host.getByRole("button", { name: /^Players/u }).click();
   await joinPlayer(host, context, "Carol");
   await host
@@ -342,9 +515,15 @@ test("Player catches up to new hands, can return from sit-out, and can leave per
   ).toHaveCount(0);
 
   const beforeSitOut = await hostRevision(host);
-  await alice.getByLabel("Sit out next hand").click();
+  await openLeaveOptions.click();
+  const sitOutOptions = alice.getByRole("dialog", { name: "Leave options" });
+  await sitOutOptions.getByLabel("Sit out next hand").click();
   await expect.poll(() => hostRevision(host)).toBeGreaterThan(beforeSitOut);
   await expect(alice.getByLabel("Sit out next hand")).toBeChecked();
+  await sitOutOptions
+    .getByRole("button", { name: "Close leave options" })
+    .click();
+  await expect(sitOutOptions).toHaveCount(0);
   await endCurrentHand(host);
   await host.getByRole("button", { name: "Deal next hand" }).click();
 
@@ -408,7 +587,13 @@ test("Player catches up to new hands, can return from sit-out, and can leave per
     ),
   ).toBe(navigationCount);
 
-  await alice.getByRole("button", { name: "Leave table permanently" }).click();
+  await openLeaveOptions.click();
+  const finalLeaveOptions = alice.getByRole("dialog", {
+    name: "Leave options",
+  });
+  await finalLeaveOptions
+    .getByRole("slider", { name: "Leave table permanently" })
+    .press("End");
   const confirmation = alice.getByRole("dialog", { name: "Leave this table?" });
   await expect(confirmation).toBeVisible();
   await confirmation.getByRole("button", { name: "Leave permanently" }).click();
@@ -454,7 +639,10 @@ test("Phone host cards stay compact while Table View shown cards are full, and s
   await host.getByRole("button", { name: "Deal the flop" }).click();
   await host.getByRole("button", { name: "Deal the turn" }).click();
   await host.getByRole("button", { name: "Deal the river" }).click();
-  await alice.getByRole("button", { name: "Show cards to table" }).click();
+  await dragToConfirm(
+    alice,
+    alice.locator('[data-qa-control="player-show-cards"]'),
+  );
 
   await expect(
     host.getByText("Best available shown hand is marked."),
@@ -806,6 +994,617 @@ test("Phone host cards stay compact while Table View shown cards are full, and s
   await screenshotIfChromium(host, testInfo, "tablet-private-card-status");
 });
 
+test("Normal Player Show is compact, aligned with Fold, and still guarded", async ({
+  context,
+  page: host,
+}, testInfo) => {
+  const { alice } = await createTable(host, context);
+  const show = alice.locator('[data-qa-control="player-show-cards"]');
+  const fold = alice.locator('[data-qa-control="player-fold"]');
+  const actions = alice.locator(".player-actions");
+
+  await expect(show).toHaveAttribute("role", "slider");
+  await expect(show).toHaveAttribute("aria-orientation", "horizontal");
+  await expect(show).toHaveAttribute("id", "player-show-cards");
+  for (const width of [360, 393, 412]) {
+    await alice.setViewportSize({ height: 852, width });
+    const [showBox, foldBox, actionsBox, showColours, showLabelMetrics] =
+      await Promise.all([
+        show.boundingBox(),
+        fold.boundingBox(),
+        actions.boundingBox(),
+        show.evaluate((element) => {
+          const surface = element.closest(".table-surface");
+          const handle = element.querySelector<HTMLElement>(
+            ".player-confirm-slider__handle",
+          );
+          if (!surface || !handle)
+            throw new Error("Show slider styling is missing.");
+          const accentProbe = document.createElement("span");
+          accentProbe.style.color = "var(--table-accent)";
+          surface.append(accentProbe);
+          const accent = getComputedStyle(accentProbe).color;
+          accentProbe.remove();
+          return {
+            accent,
+            border: getComputedStyle(element).borderTopColor,
+            handle: getComputedStyle(handle).backgroundColor,
+          };
+        }),
+        show.locator(".player-confirm-slider__label").evaluate((element) => {
+          const style = getComputedStyle(element);
+          const range = document.createRange();
+          range.selectNodeContents(element);
+          const textRects = Array.from(range.getClientRects());
+          return {
+            clientWidth: element.clientWidth,
+            scrollWidth: element.scrollWidth,
+            textHeight: Math.max(...textRects.map((rect) => rect.height)),
+            textLineCount: textRects.length,
+            whiteSpace: style.whiteSpace,
+          };
+        }),
+      ]);
+    if (!showBox || !foldBox || !actionsBox) {
+      throw new Error("Fold, Show, and action rows must be measurable.");
+    }
+    expect(
+      Math.abs(
+        showBox.y + showBox.height / 2 - (foldBox.y + foldBox.height / 2),
+      ),
+      `Fold and Show stay side by side at ${width}px`,
+    ).toBeLessThanOrEqual(1);
+    expect(
+      showBox.width,
+      `Show slider is 10% longer than its 12rem version at ${width}px`,
+    ).toBeGreaterThanOrEqual(210);
+    expect(
+      showBox.width,
+      `Show slider keeps its 13.2rem target width at ${width}px`,
+    ).toBeLessThanOrEqual(213);
+    expect(
+      showBox.height,
+      `Show slider is slightly shorter than Fold at ${width}px`,
+    ).toBeLessThan(foldBox.height);
+    expect(
+      showBox.height,
+      `Show slider remains visually comparable to Fold at ${width}px`,
+    ).toBeGreaterThanOrEqual(foldBox.height * 0.75);
+    expect(showColours.border, "Show border uses the table gold accent").toBe(
+      showColours.accent,
+    );
+    expect(showColours.handle, "Show handle uses the table gold accent").toBe(
+      showColours.accent,
+    );
+    expect(
+      showLabelMetrics.whiteSpace,
+      `Show label stays on one line at ${width}px`,
+    ).toBe("nowrap");
+    expect(
+      showLabelMetrics.scrollWidth,
+      `Show label does not overflow its centered text slot at ${width}px`,
+    ).toBeLessThanOrEqual(showLabelMetrics.clientWidth + 1);
+    expect(
+      showLabelMetrics.textLineCount,
+      `Show label has no vertical wrap at ${width}px`,
+    ).toBe(1);
+    expect(
+      showLabelMetrics.textHeight,
+      `Show label text stays within the slider height at ${width}px`,
+    ).toBeLessThan(showBox.height);
+  }
+
+  await alice.setViewportSize({ height: 852, width: 393 });
+  const confirmation = alice.getByRole("dialog", {
+    name: "Confirm showing cards to table",
+  });
+  await show.click();
+  await expect(confirmation).toHaveCount(0);
+  await expect(host.locator("[data-shown-card]")).toHaveCount(0);
+  await attachReviewScreenshot(alice, testInfo, "phone-player-show-guard");
+  await show.press(" ");
+  await expect(confirmation).toHaveCount(0);
+  await expect(host.locator("[data-shown-card]")).toHaveCount(0);
+
+  await dragToConfirm(alice, show);
+  await expect(host.locator("[data-shown-card]")).toHaveCount(2);
+});
+
+test("PLAYER-TABLE-STATUS-001 / PLAYER-PHONE-STATUS-002: Normal Player keeps only their seat, position, and described state above the hand", async ({
+  context,
+  page: host,
+}, testInfo) => {
+  const { alice } = await createTable(host, context);
+  await alice.setViewportSize({ height: 852, width: 393 });
+  const status = alice.getByLabel("Your table status");
+  const statusBar = alice.locator(".player-status-bar");
+  const playerBoard = alice.locator(".player-board");
+  const boardRail = playerBoard.locator(".dealer-rail");
+  const connectionActions = playerBoard.locator(
+    ".player-board__connection-actions",
+  );
+  const openPosition = alice.getByRole("button", {
+    name: "See your table position",
+  });
+  const reconnect = alice.getByRole("button", {
+    name: "Reconnect to table",
+  });
+
+  await expect(status).toContainText("Seat 1");
+  await expect(status).toContainText("Alice");
+  await expect(status).toContainText("D Dealer");
+  await expect(status).toContainText("SB Small Blind");
+  await expect(status).toContainText("Playing");
+  await expect(status).not.toContainText("Pre-flop");
+  await expect(status).toContainText("Dealer");
+  await expect(status).not.toContainText("Big Blind");
+  await expect(status.locator(":scope > *")).toHaveCount(2);
+  await expect(
+    status.getByRole("button", { name: "See your table position" }),
+  ).toHaveCount(0);
+  await expect(
+    statusBar.getByRole("button", { name: "See your table position" }),
+  ).toHaveCount(0);
+  await expect(
+    playerBoard.getByRole("button", { name: "See your table position" }),
+  ).toHaveCount(1);
+  await expect(
+    status.getByRole("button", { name: "Reconnect to table" }),
+  ).toHaveCount(0);
+  await expect(
+    statusBar.getByRole("button", { name: "Reconnect to table" }),
+  ).toHaveCount(0);
+  await expect(
+    playerBoard.getByRole("button", { name: "Reconnect to table" }),
+  ).toHaveCount(1);
+  await expect(reconnect).toBeDisabled();
+  await expect(reconnect).toHaveCSS("opacity", "0.46");
+  await attachReviewScreenshot(
+    alice,
+    testInfo,
+    "phone-player-status-reconnect-idle",
+  );
+  for (const width of [360, 393, 412]) {
+    await alice.setViewportSize({ height: 852, width });
+    const [
+      statusBox,
+      summaryBox,
+      stateBox,
+      stateGlyphBox,
+      stateTextBox,
+      stateVisualBounds,
+      boardBox,
+      playerBoardBox,
+      connectionActionsBox,
+      connectionActionStyle,
+      openBox,
+      reconnectBox,
+    ] = await Promise.all([
+      status.boundingBox(),
+      status.locator(".player-table-status__summary").boundingBox(),
+      status.locator(".player-table-status__state").boundingBox(),
+      status.locator(".player-table-status__seat-state").boundingBox(),
+      status
+        .locator(".player-table-status__state > span:last-child")
+        .boundingBox(),
+      status
+        .locator(".player-table-status__seat-state .seat-state-glyph > span")
+        .evaluateAll((layers) => {
+          const boxes = layers.map((layer) => layer.getBoundingClientRect());
+          if (boxes.length === 0)
+            throw new Error("State glyph has no visible layers.");
+          return {
+            bottom: Math.max(...boxes.map((box) => box.bottom)),
+            top: Math.min(...boxes.map((box) => box.top)),
+          };
+        }),
+      boardRail.boundingBox(),
+      playerBoard.boundingBox(),
+      connectionActions.boundingBox(),
+      connectionActions.evaluate((element) => {
+        const style = getComputedStyle(element);
+        return {
+          borderTopWidth: style.borderTopWidth,
+          paddingTop: Number.parseFloat(style.paddingTop),
+        };
+      }),
+      openPosition.boundingBox(),
+      reconnect.boundingBox(),
+    ]);
+    if (
+      !statusBox ||
+      !summaryBox ||
+      !stateBox ||
+      !stateGlyphBox ||
+      !stateTextBox ||
+      !boardBox ||
+      !playerBoardBox ||
+      !connectionActionsBox ||
+      !openBox ||
+      !reconnectBox
+    ) {
+      throw new Error(
+        `Player status and connection controls must be measurable at ${width}px.`,
+      );
+    }
+    expect(
+      statusBox.x,
+      `Status stays inside the ${width}px viewport`,
+    ).toBeGreaterThanOrEqual(0);
+    expect(
+      statusBox.x + statusBox.width,
+      `Status stays inside the ${width}px viewport`,
+    ).toBeLessThanOrEqual(width + 1);
+    expect(
+      Math.abs(
+        summaryBox.y +
+          summaryBox.height / 2 -
+          (stateBox.y + stateBox.height / 2),
+      ),
+      `Seat, position, and state stay in one row at ${width}px`,
+    ).toBeLessThanOrEqual(1);
+    expect(
+      Math.abs(
+        stateGlyphBox.y +
+          stateGlyphBox.height / 2 -
+          (stateTextBox.y + stateTextBox.height / 2),
+      ),
+      `State glyph and state text share a horizontal centerline at ${width}px`,
+    ).toBeLessThanOrEqual(1);
+    expect(
+      Math.abs(
+        stateVisualBounds.top +
+          (stateVisualBounds.bottom - stateVisualBounds.top) / 2 -
+          (stateTextBox.y + stateTextBox.height / 2),
+      ),
+      `Actual state-card outline and Playing text share a centerline at ${width}px`,
+    ).toBeLessThanOrEqual(0.25);
+    expect(
+      openBox.y,
+      `Table position action sits below community cards at ${width}px`,
+    ).toBeGreaterThanOrEqual(boardBox.y + boardBox.height - 1);
+    expect(
+      openBox.y - (boardBox.y + boardBox.height),
+      `A deliberate gap separates community cards from the utility row at ${width}px`,
+    ).toBeGreaterThanOrEqual(20);
+    expect(
+      Math.abs(
+        boardBox.y -
+          playerBoardBox.y -
+          (connectionActionsBox.y - (boardBox.y + boardBox.height)),
+      ),
+      `Community cards have equal breathing room between their upper and lower dividers at ${width}px`,
+    ).toBeLessThanOrEqual(1.1);
+    expect(
+      connectionActionStyle.borderTopWidth,
+      `A divider separates community cards from the utility row at ${width}px`,
+    ).toBe("1px");
+    expect(
+      connectionActionStyle.paddingTop,
+      `The utility row breathes below its divider at ${width}px`,
+    ).toBeGreaterThanOrEqual(8);
+    expect(
+      openBox.x + openBox.width,
+      `Table position action stays inside the ${width}px viewport`,
+    ).toBeLessThanOrEqual(width + 1);
+    expect(
+      openBox.y,
+      `Table position and Reconnect share a row below community cards at ${width}px`,
+    ).toBeGreaterThanOrEqual(boardBox.y + boardBox.height - 1);
+    expect(
+      Math.abs(
+        openBox.y +
+          openBox.height / 2 -
+          (reconnectBox.y + reconnectBox.height / 2),
+      ),
+      `Table position and Reconnect share a horizontal centerline at ${width}px`,
+    ).toBeLessThanOrEqual(1);
+    expect(
+      reconnectBox.x + reconnectBox.width,
+      `Connection actions stay inside the ${width}px viewport`,
+    ).toBeLessThanOrEqual(width + 1);
+  }
+  await alice.evaluate(() => {
+    Object.defineProperty(document, "visibilityState", {
+      configurable: true,
+      value: "hidden",
+    });
+    document.dispatchEvent(new Event("visibilitychange"));
+  });
+  await expect(status).toContainText("Not connected");
+  await expect(reconnect).toBeEnabled();
+  await attachReviewScreenshot(
+    alice,
+    testInfo,
+    "phone-player-status-reconnect-needed",
+  );
+  await reconnect.click();
+  await expect(reconnect).toBeDisabled();
+  await alice.evaluate(() => {
+    Object.defineProperty(document, "visibilityState", {
+      configurable: true,
+      value: "visible",
+    });
+    document.dispatchEvent(new Event("visibilitychange"));
+  });
+  await alice.setViewportSize({ height: 852, width: 393 });
+  const stateIconClipping = await status
+    .locator(".player-table-status__seat-state")
+    .evaluate((wrapper) => {
+      const wrapperBox = wrapper.getBoundingClientRect();
+      const silhouettes = Array.from(
+        wrapper.querySelectorAll<HTMLElement>(".seat-state-glyph > span"),
+      );
+      return {
+        overflow: getComputedStyle(wrapper).overflow,
+        silhouettes: silhouettes.map((silhouette) => {
+          const box = silhouette.getBoundingClientRect();
+          return {
+            bottom: box.bottom,
+            left: box.left,
+            right: box.right,
+            top: box.top,
+          };
+        }),
+        wrapper: {
+          bottom: wrapperBox.bottom,
+          left: wrapperBox.left,
+          right: wrapperBox.right,
+          top: wrapperBox.top,
+        },
+      };
+    });
+  expect(stateIconClipping.silhouettes).toHaveLength(2);
+  expect(
+    stateIconClipping.overflow,
+    "the two-card state icon must not be clipped by its wrapper",
+  ).not.toBe("hidden");
+  for (const silhouette of stateIconClipping.silhouettes) {
+    expect(silhouette.left).toBeGreaterThanOrEqual(
+      stateIconClipping.wrapper.left - 1,
+    );
+    expect(silhouette.right).toBeLessThanOrEqual(
+      stateIconClipping.wrapper.right + 1,
+    );
+    expect(silhouette.top).toBeGreaterThanOrEqual(
+      stateIconClipping.wrapper.top - 1,
+    );
+    expect(silhouette.bottom).toBeLessThanOrEqual(
+      stateIconClipping.wrapper.bottom + 1,
+    );
+  }
+
+  await openPosition.click();
+  const drawer = alice.getByRole("dialog", { name: "Your table position" });
+  await expect(drawer).toBeVisible();
+  await expect(
+    drawer.locator('[data-seat-id="seat-1"][data-seat-self="true"]'),
+  ).toHaveAttribute("data-seat-edge-position", "0");
+  const seatTransforms = await drawer
+    .locator(".player-position-map [data-seat-id]")
+    .evaluateAll((elements) =>
+      elements.map((element) => getComputedStyle(element).transform),
+    );
+  for (const transform of seatTransforms) {
+    const matrix = transform.match(/^matrix\(([^)]+)\)$/u);
+    if (!matrix) continue;
+    const values = matrix[1]?.split(",").map(Number);
+    if (!values || values.length !== 6) {
+      throw new Error(`Unexpected seat transform: ${transform}`);
+    }
+    const [a, b, c, d] = values;
+    if (
+      a === undefined ||
+      b === undefined ||
+      c === undefined ||
+      d === undefined
+    ) {
+      throw new Error(`Incomplete seat transform: ${transform}`);
+    }
+    expect(a).toBeGreaterThan(0);
+    expect(d).toBeGreaterThan(0);
+    expect(Math.abs(b)).toBeLessThan(0.001);
+    expect(Math.abs(c)).toBeLessThan(0.001);
+  }
+  await attachReviewScreenshot(
+    alice,
+    testInfo,
+    "phone-player-table-status-and-position",
+  );
+});
+
+test("PLAYER-PHONE-HAND-LAYOUT-001: Normal Player hand fits real phone widths without a visible title", async ({
+  context,
+  page: host,
+}, testInfo) => {
+  const { alice } = await createTable(host, context);
+
+  for (const width of [360, 393, 412]) {
+    await alice.setViewportSize({ height: 852, width });
+    const hand = alice.locator(".private-hand");
+    const title = alice.getByRole("heading", { name: "Your cards" });
+    const cards = alice.locator(".private-hand [data-private-card]");
+    await expect(title).toHaveCount(1);
+    await expect(title).toHaveClass(/visually-hidden/);
+    await expect(cards).toHaveCount(2);
+    await expect(alice.getByText("Private hand", { exact: true })).toHaveCount(
+      0,
+    );
+    await expect(
+      alice.getByText(
+        "Reveal them privately, then hide them before passing the phone.",
+        { exact: true },
+      ),
+    ).toHaveCount(0);
+
+    await expect(
+      alice.locator('.player-status-bar__connection-row [aria-live="polite"]'),
+    ).toHaveCount(0);
+    const reconnect = alice.getByRole("button", {
+      name: "Reconnect to table",
+    });
+    const [
+      reconnectBox,
+      firstCardBox,
+      privateCardAreaBox,
+      statusBox,
+      handDimensions,
+    ] = await Promise.all([
+      reconnect.boundingBox(),
+      cards.first().boundingBox(),
+      hand.locator(".private-hand__card-area").boundingBox(),
+      alice.getByLabel("Your table status").boundingBox(),
+      hand.evaluate((element) => ({
+        clientWidth: element.clientWidth,
+        scrollWidth: element.scrollWidth,
+      })),
+    ]);
+    if (!reconnectBox || !firstCardBox || !privateCardAreaBox || !statusBox) {
+      throw new Error(
+        "The Player status, hand, or reconnect button did not render.",
+      );
+    }
+    await expect(reconnect).toBeDisabled();
+    expect(handDimensions.scrollWidth).toBeLessThanOrEqual(
+      handDimensions.clientWidth,
+    );
+    expect(
+      privateCardAreaBox.y - statusBox.y - statusBox.height,
+      `Private cards begin promptly below the compact status at ${width}px`,
+    ).toBeLessThanOrEqual(32);
+  }
+
+  await alice.setViewportSize({ height: 852, width: 393 });
+  await attachReviewScreenshot(alice, testInfo, "phone-player-hand-layout");
+});
+
+test("SHOWDOWN-CARD-SELECTION-003: only the winner's selected private cards stay bright and the winner sees a complete five-card hand", async ({
+  context,
+  page: host,
+}, testInfo) => {
+  await host.addInitScript(() => {
+    let nextByte = 48;
+    Object.defineProperty(globalThis.crypto, "getRandomValues", {
+      configurable: true,
+      value: <T extends ArrayBufferView>(values: T): T => {
+        const bytes = new Uint8Array(
+          values.buffer,
+          values.byteOffset,
+          values.byteLength,
+        );
+        for (let index = 0; index < bytes.length; index += 1) {
+          bytes[index] = nextByte;
+          nextByte = (nextByte + 73) % 251;
+        }
+        return values;
+      },
+    });
+  });
+  const { alice, bob } = await createTable(host, context);
+  await Promise.all([
+    alice.setViewportSize({ height: 852, width: 393 }),
+    bob.setViewportSize({ height: 852, width: 393 }),
+  ]);
+  await host.getByRole("button", { name: "Deal the flop" }).click();
+  await host.getByRole("button", { name: "Deal the turn" }).click();
+  await host.getByRole("button", { name: "Deal the river" }).click();
+  await dragToConfirm(
+    alice,
+    alice.locator('[data-qa-control="player-show-cards"]'),
+  );
+  await dragToConfirm(
+    bob,
+    bob.locator('[data-qa-control="player-show-cards"]'),
+  );
+  await expect(
+    host.getByText("Best available shown hand is marked."),
+  ).toBeVisible();
+
+  const seatTiles = host.locator(".seat-tile");
+  const winnerIndexes = await seatTiles.evaluateAll((tiles) =>
+    tiles.flatMap((tile, index) =>
+      tile.querySelector(".mini-hand .card--best") ? [index] : [],
+    ),
+  );
+  expect(
+    winnerIndexes,
+    "the deterministic fixture has exactly one winner",
+  ).toHaveLength(1);
+  const pages = [alice, bob] as const;
+  const winnerIndex = winnerIndexes[0];
+  if (winnerIndex !== 0 && winnerIndex !== 1)
+    throw new Error("Winner index is unavailable.");
+  const winner = pages[winnerIndex];
+  const loser = pages[winnerIndex === 0 ? 1 : 0];
+
+  for (const player of pages) {
+    const privateCards = player.locator(".private-hand [data-private-card]");
+    await expect(privateCards).toHaveCount(2);
+    await expect(
+      player.locator(
+        ".private-hand [data-private-card].card--best, .private-hand [data-private-card].card--unused",
+      ),
+    ).toHaveCount(2);
+  }
+  await expect(
+    loser.locator(".private-hand [data-private-card].card--best"),
+  ).toHaveCount(0);
+  await expect(
+    loser.locator(".private-hand [data-private-card].card--unused"),
+  ).toHaveCount(2);
+  const winnerSelectedPrivate = winner.locator(
+    ".private-hand [data-private-card].card--best",
+  );
+  const winnerSelectedBoard = winner.locator(
+    ".player-board [data-board-card].card--best",
+  );
+  const winnerFiveCount =
+    (await winnerSelectedPrivate.count()) + (await winnerSelectedBoard.count());
+  expect(
+    winnerFiveCount,
+    "the winning Player view must mark exactly the complete five-card hand",
+  ).toBe(5);
+  await winner
+    .getByRole("button", { name: "Reveal my cards privately" })
+    .click();
+  await loser
+    .getByRole("button", { name: "Reveal my cards privately" })
+    .click();
+  const selectedPrivateCard = winnerSelectedPrivate.first();
+  const fadedPrivateCard = loser
+    .locator(".private-hand [data-private-card].card--unused")
+    .first();
+  const [selectedOpacity, fadedOpacity] = await Promise.all([
+    selectedPrivateCard.evaluate((element) =>
+      Number.parseFloat(getComputedStyle(element).opacity),
+    ),
+    fadedPrivateCard.evaluate((element) =>
+      Number.parseFloat(getComputedStyle(element).opacity),
+    ),
+  ]);
+  expect(selectedOpacity).toBeGreaterThan(fadedOpacity);
+  await attachReviewScreenshot(winner, testInfo, "phone-player-selected-hand");
+});
+
+test("Normal Mode limits display-name entry to a readable table label", async ({
+  context,
+  page: host,
+}) => {
+  await host.goto("/");
+  await host.getByRole("button", { name: "Create table" }).click();
+  const invitationUrl = await host
+    .getByLabel("Player invitation link")
+    .inputValue();
+  const player = await context.newPage();
+  await player.goto(invitationUrl);
+  const displayName = player.getByLabel("Display name");
+  const overlongName = "This display name is intentionally much too long";
+
+  await expect(displayName).toHaveAttribute("maxlength", "24");
+  await displayName.fill(overlongName);
+  await expect(displayName).toHaveValue(overlongName.slice(0, 24));
+});
+
 test("DECK-APPEARANCE-001: Trusted Host synchronizes the built-in deck appearance while phone board cards remain concise", async ({
   context,
   page: host,
@@ -1090,7 +1889,10 @@ test("PHONE-CROSS-BROWSER-CARD-001: the actual Normal Mode six shares the compac
     await attachCompactCardReviewImage(alice, testInfo, viewport);
   }
 
-  await alice.getByRole("button", { name: "Show cards to table" }).click();
+  await dragToConfirm(
+    alice,
+    alice.locator('[data-qa-control="player-show-cards"]'),
+  );
   const compactCourt = host.locator('.mini-hand [data-card="Jd"]');
   await expect(compactCourt).toHaveCount(1);
   await expect(compactCourt.locator(".card__court")).toHaveCount(0);
@@ -1216,6 +2018,49 @@ test("Trusted Host can dissolve a table and its saved authority cannot be recove
   ).toBeVisible();
 });
 
+test("Normal Host can dissolve a table from the Players control drawer", async ({
+  context,
+  page: host,
+}, testInfo) => {
+  const { alice } = await createTable(host, context);
+
+  await host.getByRole("button", { name: /^Players/ }).click();
+  const playerAdministration = host.getByRole("complementary", {
+    name: "Player administration",
+  });
+  const dissolve = playerAdministration.getByRole("button", {
+    name: "Dissolve table",
+  });
+  await expect(dissolve).toBeVisible();
+  const drawerEvidence = testInfo.outputPath(
+    "phone-host-dissolve-drawer-visible.png",
+  );
+  await host.screenshot({ path: drawerEvidence });
+  await testInfo.attach("phone-host-dissolve-drawer-visible", {
+    contentType: "image/png",
+    path: drawerEvidence,
+  });
+
+  await exerciseControl(
+    "host-dissolve-table-drawer",
+    dissolve,
+    async (target) => {
+      host.once("dialog", (dialog) => dialog.accept());
+      await target.click();
+    },
+    async () => {
+      await expect(
+        host.getByRole("button", { name: "Create table" }),
+      ).toBeVisible();
+      await expect
+        .poll(() =>
+          alice.getByRole("button", { name: "Reconnect to table" }).isVisible(),
+        )
+        .toBe(true);
+    },
+  );
+});
+
 test("Normal Host makes player invitations and replacements visible in the Players sheet", async ({
   context,
   page: host,
@@ -1268,19 +2113,30 @@ test("Normal Host makes player invitations and replacements visible in the Playe
   const joinWindowToggle = administration.locator(
     '[data-qa-control="roster-join-window-toggle"]',
   );
-  await joinWindowToggle.click();
-  await expect(
-    invite.getByRole("heading", { name: "New players locked" }),
-  ).toBeVisible();
-  await expect(invite).toBeInViewport();
-
-  await expect(joinWindowToggle).toHaveAccessibleName("Allow new players");
-  await joinWindowToggle.click();
-  await expect(
-    invite.getByRole("heading", { name: "Add a player" }),
-  ).toBeVisible();
-  await expect(invite.getByLabel("Player invitation link")).toBeVisible();
-  await expect(invite).toBeInViewport();
+  await exerciseControl(
+    "roster-join-window-toggle",
+    joinWindowToggle,
+    (target) => target.click(),
+    async () => {
+      await expect(
+        invite.getByRole("heading", { name: "New players locked" }),
+      ).toBeVisible();
+      await expect(invite).toBeInViewport();
+      await expect(joinWindowToggle).toHaveAccessibleName("Allow new players");
+    },
+  );
+  await exerciseControl(
+    "roster-join-window-toggle",
+    joinWindowToggle,
+    (target) => target.click(),
+    async () => {
+      await expect(
+        invite.getByRole("heading", { name: "Add a player" }),
+      ).toBeVisible();
+      await expect(invite.getByLabel("Player invitation link")).toBeVisible();
+      await expect(invite).toBeInViewport();
+    },
+  );
   const invitationBox = await invite.boundingBox();
   expect(invitationBox).not.toBeNull();
   expect(invitationBox?.y).toBeGreaterThanOrEqual(70);

@@ -53,6 +53,10 @@ interface ScreenWakeLockSentinel {
 }
 
 const PRODUCT_NAME = "Our Poker Table";
+// Normal Mode table surfaces place names around a finite physical table. Keep
+// the input bounded here (rather than in the shared identity protocol) so the
+// Airplane artifact retains its existing behaviour.
+const NORMAL_DISPLAY_NAME_MAX_LENGTH = 24;
 
 interface ScreenWakeLockManager {
   request(type: "screen"): Promise<ScreenWakeLockSentinel>;
@@ -2004,10 +2008,13 @@ function JoinOwnDeviceCard({
           <span>My display name</span>
           <input
             autoComplete="nickname"
-            maxLength={40}
+            maxLength={isAirplaneMode() ? 40 : NORMAL_DISPLAY_NAME_MAX_LENGTH}
             onChange={(event) => setDisplayName(event.target.value)}
             value={displayName}
           />
+          {!isAirplaneMode() ? (
+            <small>Up to 24 characters keeps the table display readable.</small>
+          ) : null}
         </label>
         {error ? (
           <p className="inline-warning" role="alert">
@@ -2380,14 +2387,27 @@ function HostTable({
               <p className="section-label">Off-table controls</p>
               <h2>Players</h2>
             </div>
-            <button
-              aria-label="Close player administration"
-              data-qa-control="administration-close"
-              onClick={() => setAdminOpen(false)}
-              type="button"
-            >
-              ×
-            </button>
+            <div className="admin-drawer__header-actions">
+              {!isAirplaneMode() && adminFocus === "players" ? (
+                <button
+                  className="admin-drawer__dissolve"
+                  data-qa-control="host-dissolve-table-drawer"
+                  disabled={busy || actionGuard.busy}
+                  onClick={() => void onDissolve()}
+                  type="button"
+                >
+                  Dissolve table
+                </button>
+              ) : null}
+              <button
+                aria-label="Close player administration"
+                data-qa-control="administration-close"
+                onClick={() => setAdminOpen(false)}
+                type="button"
+              >
+                ×
+              </button>
+            </div>
           </header>
           <InvitePanel compact runtime={runtime} snapshot={snapshot} />
           <RoleInvitations
@@ -2557,6 +2577,13 @@ function PlayerExperience({
   const snapshot = useClientSnapshot(runtime);
   const playerProjection =
     snapshot.projection?.view === "seat" ? snapshot.projection : undefined;
+  const reconnectRequired = Boolean(
+    playerProjection?.seats.some(
+      (seat) =>
+        seat.seatId === playerProjection.self.seatId &&
+        seat.connected === false,
+    ),
+  );
   const [displayName, setDisplayName] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string>();
@@ -2711,10 +2738,17 @@ function PlayerExperience({
               <input
                 autoComplete="nickname"
                 autoFocus
-                maxLength={40}
+                maxLength={
+                  isAirplaneMode() ? 40 : NORMAL_DISPLAY_NAME_MAX_LENGTH
+                }
                 onChange={(event) => setDisplayName(event.target.value)}
                 value={displayName}
               />
+              {!isAirplaneMode() ? (
+                <small>
+                  Up to 24 characters keeps the table display readable.
+                </small>
+              ) : null}
             </label>
             {error ? (
               <p className="inline-warning" role="alert">
@@ -2850,7 +2884,9 @@ function PlayerExperience({
         {...(manageLifecycle
           ? { onLeaveTable: () => setLeaveConfirmOpen(true) }
           : {})}
-        onReconnect={reconnect}
+        {...(isAirplaneMode() || reconnectRequired
+          ? { onReconnect: reconnect }
+          : {})}
         onShowCards={() => perform({ type: "show" })}
         onToggleSittingOut={(sittingOut) =>
           perform({ sittingOut, type: "set-sitting-out" })

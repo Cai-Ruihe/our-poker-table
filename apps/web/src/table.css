@@ -310,6 +310,19 @@
   filter: saturate(0.38) brightness(0.76);
 }
 
+/* In Normal Player Mode, the selected private card needs to remain unmistakable
+   when every other shown card recedes. This does not affect the Airplane card
+   path. */
+.table-surface[data-runtime="normal"] .private-hand__cards .card--best {
+  box-shadow:
+    inset 0 0 0 0.38rem rgba(255, 255, 255, 0.4),
+    inset 0 0 0 0.5rem rgba(159, 143, 116, 0.25),
+    0 0 0 0.32rem color-mix(in srgb, var(--table-accent) 88%, transparent),
+    0 1.35rem 2.2rem rgba(0, 23, 17, 0.42),
+    0 0 2.2rem color-mix(in srgb, var(--table-accent) 62%, transparent);
+  transform: translateY(-0.48rem) scale(1.018);
+}
+
 .table-surface .card--compact {
   width: 2.35rem;
   min-width: 0;
@@ -842,6 +855,49 @@
   gap: 0.28rem;
 }
 
+/* Names are intentionally opt-in for Table View and always present on TV.
+   The full value remains available through the title/accessible name while
+   the physical table map keeps every seat within its own space. */
+.seat-edge-status--show-name {
+  display: grid;
+  grid-template-areas:
+    "state roles"
+    "name name";
+  grid-template-columns: auto auto;
+  justify-items: center;
+  column-gap: 0.65rem;
+  row-gap: 0.2rem;
+}
+
+.seat-edge-status--show-name > .seat-state-glyph {
+  grid-area: state;
+}
+
+.seat-edge-status--show-name > .seat-edge-status__roles {
+  grid-area: roles;
+}
+
+.seat-edge-status__name {
+  grid-area: name;
+  max-inline-size: clamp(5.25rem, 12vw, 10rem);
+  overflow: hidden;
+  color: var(--table-ink);
+  font-size: clamp(0.6rem, 1vw, 0.8rem);
+  font-weight: 720;
+  letter-spacing: 0.01em;
+  line-height: 1.1;
+  text-align: center;
+  text-overflow: ellipsis;
+  text-shadow: 0 1px 8px var(--table-felt-deep);
+  white-space: nowrap;
+}
+
+.seat-edge-status--self {
+  filter: drop-shadow(
+    0 0 0.4rem color-mix(in srgb, var(--table-accent) 72%, transparent)
+  );
+}
+
 .quiet-shown-hand {
   display: flex;
   gap: clamp(0.42rem, 0.72vw, 0.7rem);
@@ -873,6 +929,13 @@
 
 .seat-edge-status[data-seat-has-shown-hand="true"] > .seat-edge-status__roles {
   grid-area: roles;
+}
+
+.seat-edge-status[data-seat-has-shown-hand="true"].seat-edge-status--show-name {
+  grid-template-areas:
+    "hand hand"
+    "state roles"
+    "name name";
 }
 
 .quiet-shown-hand .card--best {
@@ -1263,10 +1326,103 @@
   will-change: transform;
 }
 
+/* Public Show permanently discloses a player's cards, so it remains a guarded
+   slider while sharing the primary action row with Fold. Only a completed
+   slider gesture (or the keyboard End completion) reveals the hand. */
+.player-show-control {
+  display: grid;
+  width: min(13.2rem, 100%);
+  max-width: 13.2rem;
+  min-width: 0;
+  flex: 0 1 13.2rem;
+}
+
+.player-confirm-slider {
+  --player-slider-accent: var(--table-accent);
+
+  position: relative;
+  width: 100%;
+  height: 2.75rem;
+  overflow: hidden;
+  border: 1px solid var(--player-slider-accent);
+  border-radius: 1.375rem;
+  color: var(--player-slider-accent);
+  background:
+    linear-gradient(
+      90deg,
+      color-mix(in srgb, var(--player-slider-accent) 18%, transparent),
+      transparent 44%
+    ),
+    var(--table-panel-raised);
+  box-shadow: inset 0 4px 10px rgba(0, 15, 11, 0.24);
+  cursor: ew-resize;
+  touch-action: none;
+  user-select: none;
+}
+
+.player-confirm-slider--danger {
+  --player-slider-accent: #e79589;
+}
+
+.player-confirm-slider[aria-disabled="true"] {
+  cursor: not-allowed;
+  opacity: 0.42;
+}
+
+.player-confirm-slider:focus-visible {
+  outline: 3px solid color-mix(in srgb, var(--player-slider-accent) 72%, white);
+  outline-offset: 3px;
+}
+
+.player-confirm-slider__handle {
+  position: absolute;
+  z-index: 2;
+  top: -1px;
+  left: -1px;
+  display: grid;
+  width: 2.75rem;
+  height: 2.75rem;
+  place-items: center;
+  border-radius: 50%;
+  color: var(--table-felt-deep);
+  background: var(--player-slider-accent);
+  box-shadow:
+    4px 3px 10px rgba(0, 18, 13, 0.38),
+    inset 1px 1px 1px rgba(255, 255, 255, 0.28);
+  will-change: transform;
+}
+
+.player-confirm-slider__label {
+  position: absolute;
+  inset: 0 2.45rem 0 2.7rem;
+  display: grid;
+  place-items: center;
+  color: var(--table-ink);
+  overflow: hidden;
+  font-size: 0.54rem;
+  font-weight: 760;
+  letter-spacing: 0.01em;
+  text-align: center;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.player-confirm-slider .arrow-glyph {
+  right: 0.78rem;
+}
+
+.player-confirm-slider .arrow-glyph::before {
+  background: var(--player-slider-accent);
+}
+
+.player-confirm-slider .arrow-glyph::after {
+  border-color: var(--player-slider-accent);
+}
+
 .slider-grip {
   display: flex;
-  height: 32px;
-  gap: 7px;
+  height: 28px;
+  gap: 6px;
   align-items: stretch;
 }
 
@@ -1363,6 +1519,44 @@
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 16px 22px;
+}
+
+/* Normal Mode preserves the larger two-column controls. This device replaces
+   Players & seats beside Appearance without changing Airplane Mode's order. */
+.table-surface[data-runtime="normal"]
+  .secondary-controls:not(.host-control-center)
+  .secondary-control-card--device {
+  order: 1;
+}
+
+.table-surface[data-runtime="normal"]
+  .secondary-controls:not(.host-control-center)
+  .secondary-control-card--appearance {
+  order: 2;
+}
+
+.table-surface[data-runtime="normal"]
+  .secondary-controls:not(.host-control-center)
+  .secondary-control-card--displays {
+  order: 3;
+}
+
+.table-surface[data-runtime="normal"]
+  .secondary-controls:not(.host-control-center)
+  .secondary-control-card--players {
+  order: 4;
+}
+
+.table-surface[data-runtime="normal"]
+  .secondary-controls:not(.host-control-center)
+  .secondary-control-card--connection {
+  order: 5;
+}
+
+.table-surface[data-runtime="normal"]
+  .secondary-controls:not(.host-control-center)
+  .secondary-control-card--diagnostics {
+  order: 6;
 }
 
 .secondary-control-card {
@@ -1679,9 +1873,10 @@ button.secondary-control-card:disabled {
   top: max(0.7rem, env(safe-area-inset-top));
   right: max(0.7rem, env(safe-area-inset-right));
   left: max(0.7rem, env(safe-area-inset-left));
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
-  justify-content: space-between;
+  gap: 0.32rem 0.55rem;
   pointer-events: none;
 }
 
@@ -1691,6 +1886,232 @@ button.secondary-control-card:disabled {
 .player-status-bar > span {
   color: var(--table-ink-soft);
   font-size: 0.68rem;
+}
+
+.table-surface[data-runtime="normal"] .player-status-bar {
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0.32rem;
+  padding-right: 4.2rem;
+}
+
+.player-table-status {
+  display: flex;
+  grid-column: 1 / -1;
+  width: 100%;
+  min-width: 0;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.45rem;
+  border: 1px solid color-mix(in srgb, var(--table-rule) 80%, transparent);
+  border-radius: 0.9rem;
+  padding: 0.38rem 0.5rem;
+  background: color-mix(in srgb, var(--table-panel) 92%, transparent);
+  box-shadow: 0 0.6rem 1.4rem rgba(0, 13, 10, 0.22);
+}
+
+.player-table-status__summary {
+  display: flex;
+  flex: 1 1 auto;
+  min-width: 0;
+  align-items: center;
+  gap: 0.42rem;
+}
+
+.player-table-status__name {
+  min-width: 0;
+  max-width: min(8rem, 28vw);
+  overflow: hidden;
+  color: var(--table-ink);
+  font-size: 0.68rem;
+  font-weight: 760;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.player-table-status__seat {
+  flex: 0 0 auto;
+  color: var(--table-accent);
+  font-size: 0.72rem;
+  font-weight: 820;
+}
+
+.player-table-status__position-label {
+  overflow: hidden;
+  color: var(--table-ink);
+  font-size: 0.64rem;
+  font-weight: 690;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.player-table-status__position-label b {
+  color: var(--table-accent);
+  font-size: 0.72rem;
+}
+
+.player-table-status__seat-state {
+  display: grid;
+  flex: 0 0 auto;
+  width: 1.7rem;
+  height: 1.65rem;
+  place-items: center;
+  overflow: visible;
+}
+
+.player-table-status__seat-state .seat-state-glyph {
+  transform: translateY(-5px) scale(0.47);
+}
+
+.player-table-status__state {
+  display: flex;
+  flex: 0 0 auto;
+  min-width: 0;
+  align-items: center;
+  justify-content: center;
+  gap: 0.18rem;
+  color: var(--table-ink-soft);
+  font-size: 0.64rem;
+  font-weight: 620;
+  white-space: nowrap;
+}
+
+.player-position-backdrop {
+  position: fixed;
+  z-index: 55;
+  inset: 0;
+  display: grid;
+  place-items: end center;
+  padding: max(0.75rem, env(safe-area-inset-top))
+    max(0.75rem, env(safe-area-inset-right))
+    max(0.75rem, env(safe-area-inset-bottom))
+    max(0.75rem, env(safe-area-inset-left));
+  background: rgba(0, 10, 8, 0.66);
+}
+
+.player-position-drawer {
+  width: min(100%, 38rem);
+  border: 1px solid var(--table-rule);
+  border-radius: 1.15rem;
+  padding: 0.9rem;
+  color: var(--table-ink);
+  background: var(--table-panel-raised);
+  box-shadow: 0 -1rem 2.8rem rgba(0, 0, 0, 0.45);
+}
+
+.player-position-drawer > header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.player-position-drawer h2 {
+  margin: 0.12rem 0 0;
+  font-family: var(--display-font);
+  font-size: clamp(1.15rem, 4vw, 1.5rem);
+  font-weight: 560;
+}
+
+.player-position-drawer > p {
+  margin: 0.55rem 0 0.75rem;
+  color: var(--table-ink-soft);
+  font-size: 0.71rem;
+  line-height: 1.4;
+}
+
+.player-position-map {
+  position: relative;
+  width: 100%;
+  max-height: min(49dvh, 29rem);
+  aspect-ratio: 1.45;
+  overflow: hidden;
+  border: 1px solid color-mix(in srgb, var(--table-rule) 72%, transparent);
+  border-radius: 1rem;
+  background: var(--table-felt-deep);
+}
+
+.player-position-map__felt {
+  position: absolute;
+  inset: 20% 19%;
+  display: grid;
+  place-items: center;
+  border: 1px solid color-mix(in srgb, var(--table-accent) 52%, transparent);
+  border-radius: 42%;
+  color: color-mix(in srgb, var(--table-ink-soft) 78%, transparent);
+  font-size: 0.62rem;
+  font-weight: 720;
+  letter-spacing: 0.14em;
+  text-align: center;
+  text-transform: uppercase;
+}
+
+.player-position-map .seat-edge-status {
+  gap: 0.25rem;
+  min-width: 0;
+  min-height: 0;
+}
+
+.player-position-map .seat-edge-status__name {
+  max-inline-size: min(21vw, 5.8rem);
+  font-size: clamp(0.47rem, 1.8vw, 0.62rem);
+}
+
+.player-position-map .seat-state-glyph {
+  transform: scale(0.7);
+}
+
+.player-position-map .position-token {
+  min-width: 1.48rem;
+  height: 1.48rem;
+  font-size: 0.56rem;
+}
+
+.player-position-map .seat-edge-status--0,
+.player-position-map .seat-edge-status--1,
+.player-position-map .seat-edge-status--2 {
+  top: 0.5rem;
+}
+
+.player-position-map .seat-edge-status--3,
+.player-position-map .seat-edge-status--4 {
+  right: 0.5rem;
+}
+
+.player-position-map .seat-edge-status--5,
+.player-position-map .seat-edge-status--6,
+.player-position-map .seat-edge-status--7 {
+  bottom: 0.5rem;
+}
+
+.player-position-map .seat-edge-status--8,
+.player-position-map .seat-edge-status--9 {
+  left: 0.5rem;
+}
+
+/* This is a private map viewed only on one player's phone. Preserve the
+   physical edge positions but keep every label and state glyph readable to
+   that one screen-facing user. */
+.player-position-map .seat-edge-status--0,
+.player-position-map .seat-edge-status--1,
+.player-position-map .seat-edge-status--2,
+.player-position-map .seat-edge-status--6,
+.player-position-map .seat-edge-status--7 {
+  transform: translateX(-50%);
+}
+
+.player-position-map .seat-edge-status--3,
+.player-position-map .seat-edge-status--4,
+.player-position-map .seat-edge-status--8,
+.player-position-map .seat-edge-status--9 {
+  transform: translateY(-50%);
+}
+
+.player-position-map .seat-edge-status--5 {
+  transform: translateX(50%);
+}
+
+.table-surface .private-hand {
+  padding-top: clamp(7.4rem, 13vh, 9rem);
 }
 
 .reconnect-action {
@@ -1710,6 +2131,20 @@ button.secondary-control-card:disabled {
   grid-template-columns: minmax(12rem, 0.55fr) minmax(20rem, 1.45fr);
   width: min(78rem, calc(100% - 2rem));
   padding: clamp(5rem, 9vh, 7rem) 0 2rem;
+}
+
+/* Normal Player Mode is a phone-first private hand, not a two-column hero.
+   Keep the single useful title immediately above the two cards. */
+.table-surface[data-runtime="normal"] .private-hand {
+  grid-template-columns: minmax(0, 1fr);
+  width: min(42rem, calc(100% - 2rem));
+  padding-top: clamp(6.1rem, 12vh, 8.2rem);
+}
+
+.table-surface[data-runtime="normal"] .private-hand__card-area {
+  display: grid;
+  width: 100%;
+  gap: 0.55rem;
 }
 
 .table-surface .private-hand__heading h1 {
@@ -1746,6 +2181,187 @@ button.secondary-control-card:disabled {
   color: var(--table-ink-soft);
 }
 
+.player-leave-options-open {
+  position: absolute;
+  z-index: 14;
+  top: max(0.7rem, env(safe-area-inset-top));
+  right: max(0.7rem, env(safe-area-inset-right));
+  display: grid;
+  width: 2.75rem;
+  height: 2.75rem;
+  place-items: center;
+  border: 1px solid var(--table-rule);
+  border-radius: 50%;
+  padding: 0;
+  color: var(--table-ink-soft);
+  background: color-mix(in srgb, var(--table-panel) 88%, transparent);
+  cursor: pointer;
+}
+
+.player-leave-options-open:disabled {
+  cursor: not-allowed;
+  opacity: 0.42;
+}
+
+.leave-options-glyph {
+  width: 1.25rem;
+  height: 1.25rem;
+  overflow: visible;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.7;
+  transform: translateX(0.5px);
+}
+
+.player-leave-backdrop {
+  position: fixed;
+  z-index: 55;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: max(0.75rem, env(safe-area-inset-top))
+    max(0.75rem, env(safe-area-inset-right))
+    max(0.75rem, env(safe-area-inset-bottom))
+    max(0.75rem, env(safe-area-inset-left));
+  background: rgba(0, 10, 8, 0.66);
+}
+
+.player-leave-drawer {
+  display: grid;
+  width: min(32rem, 100%);
+  gap: 0.85rem;
+  border: 1px solid var(--table-rule);
+  border-radius: 1rem;
+  padding: 1rem;
+  color: var(--table-ink);
+  background: var(--table-panel);
+  box-shadow: 0 -1rem 2.5rem rgba(0, 0, 0, 0.35);
+}
+
+.player-leave-drawer > header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.player-leave-drawer h2,
+.player-leave-drawer p {
+  margin: 0;
+}
+
+.player-leave-drawer h2 {
+  font-family: var(--display-font);
+  font-size: 1.45rem;
+  font-weight: 560;
+}
+
+.table-surface[data-runtime="normal"] .player-leave-drawer .icon-action--close {
+  width: 2.25rem;
+  height: 2.25rem;
+}
+
+.table-surface[data-runtime="normal"]
+  .player-leave-drawer
+  .icon-action--close
+  .table-close-glyph {
+  width: 1rem;
+  height: 1rem;
+}
+
+.player-leave-drawer p {
+  color: var(--table-ink-soft);
+  font-size: 0.76rem;
+  line-height: 1.5;
+}
+
+.player-leave-drawer .sit-out-control {
+  min-height: 2.75rem;
+  border: 1px solid var(--table-rule);
+  border-radius: 0.72rem;
+  padding: 0.55rem 0.7rem;
+}
+
+.table-surface[data-runtime="normal"] .sit-out-control--switch {
+  position: relative;
+  justify-content: space-between;
+  color: var(--table-ink);
+}
+
+.table-surface[data-runtime="normal"] .sit-out-control--switch input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.table-surface[data-runtime="normal"] .sit-out-control__label {
+  color: var(--table-ink);
+}
+
+.table-surface[data-runtime="normal"] .sit-out-switch {
+  position: relative;
+  display: block;
+  flex: 0 0 auto;
+  width: 2.8rem;
+  height: 1.6rem;
+  border: 1px solid var(--table-rule);
+  border-radius: 999px;
+  background: var(--table-felt-deep);
+  transition:
+    background 140ms ease,
+    border-color 140ms ease;
+}
+
+.table-surface[data-runtime="normal"] .sit-out-switch i {
+  position: absolute;
+  top: 0.2rem;
+  left: 0.2rem;
+  width: 1.1rem;
+  height: 1.1rem;
+  border-radius: 50%;
+  background: var(--table-ink-soft);
+  box-shadow: 0 0.15rem 0.25rem rgba(0, 0, 0, 0.28);
+  transition:
+    background 140ms ease,
+    transform 140ms ease;
+}
+
+.table-surface[data-runtime="normal"]
+  .sit-out-control--switch
+  input:checked
+  + .sit-out-control__label
+  + .sit-out-switch {
+  border-color: var(--table-accent);
+  background: color-mix(
+    in srgb,
+    var(--table-accent) 28%,
+    var(--table-felt-deep)
+  );
+}
+
+.table-surface[data-runtime="normal"]
+  .sit-out-control--switch
+  input:checked
+  + .sit-out-control__label
+  + .sit-out-switch
+  i {
+  background: var(--table-accent);
+  transform: translateX(1.2rem);
+}
+
+.table-surface[data-runtime="normal"]
+  .sit-out-control--switch:has(input:focus-visible)
+  .sit-out-switch {
+  outline: 3px solid var(--table-accent);
+  outline-offset: 3px;
+}
+
 .table-surface .leave-table-action {
   justify-self: start;
   min-height: 2.75rem;
@@ -1759,6 +2375,33 @@ button.secondary-control-card:disabled {
   font-weight: 700;
   text-decoration: underline;
   text-underline-offset: 0.22rem;
+}
+
+.table-surface[data-runtime="normal"] .leave-table-slider {
+  display: grid;
+  justify-items: center;
+  border-top: 1px solid var(--table-rule);
+  padding-top: 0.8rem;
+  color: #e79589;
+}
+
+.table-surface[data-runtime="normal"]
+  .leave-table-slider
+  .player-confirm-slider {
+  width: 84%;
+}
+
+.player-leave-drawer .leave-table-action {
+  justify-self: stretch;
+  border: 1px solid color-mix(in srgb, #e79589 68%, var(--table-rule));
+  border-radius: 0.72rem;
+  padding: 0.55rem 0.75rem;
+  background: color-mix(in srgb, #e79589 8%, transparent);
+  text-decoration: none;
+}
+
+.table-surface[data-runtime="normal"] .player-actions {
+  align-items: center;
 }
 
 .table-surface .mini-hand {
@@ -1846,6 +2489,12 @@ button.secondary-control-card:disabled {
   width: min(68rem, calc(100% - 2rem));
   border-color: var(--table-rule);
   padding-bottom: 2rem;
+}
+
+.table-surface[data-runtime="normal"] .player-board {
+  --player-board-divider-gap: 2rem;
+
+  padding-top: var(--player-board-divider-gap);
 }
 
 /* The board below a phone player's controls is a reading rail, not a table
@@ -1947,6 +2596,65 @@ button.secondary-control-card:disabled {
 .table-surface .player-board .dealer-rail {
   width: min(34rem, 100%);
 }
+
+.table-surface[data-runtime="normal"] .player-board__connection-actions {
+  display: flex;
+  width: min(34rem, 100%);
+  margin: 0.55rem auto 0;
+  align-items: stretch;
+  justify-content: center;
+  gap: 0.45rem;
+}
+
+.table-surface[data-runtime="normal"] .player-board__connection-actions {
+  margin-top: var(--player-board-divider-gap);
+  border-top: 1px solid var(--table-rule);
+  padding-top: 0.7rem;
+}
+
+.table-surface[data-runtime="normal"] .player-board__connection-actions > * {
+  flex: 1 1 0;
+  min-width: 0;
+}
+
+.table-surface .player-board__position-action {
+  display: flex;
+  width: auto;
+  min-height: 2.7rem;
+  margin: 0;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--table-rule);
+  border-radius: 0.78rem;
+  padding: 0.55rem 0.8rem;
+  color: var(--table-ink);
+  background: var(--table-panel-raised);
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.68rem;
+  font-weight: 760;
+  letter-spacing: 0.02em;
+}
+
+.table-surface[data-runtime="normal"]
+  .player-board__connection-actions
+  .reconnect-action {
+  min-height: 2.7rem;
+  padding: 0.55rem 0.8rem;
+  font-size: 0.68rem;
+  white-space: normal;
+}
+
+.table-surface .player-board__position-action:focus-visible {
+  outline: 3px solid color-mix(in srgb, var(--table-accent) 72%, white);
+  outline-offset: 3px;
+}
+
+.table-surface .player-board__position-action:hover {
+  border-color: var(--table-accent);
+  color: var(--table-accent);
+}
+
 .table-surface .player-board .quiet-seat-grid {
   display: none;
 }
@@ -2115,6 +2823,10 @@ button.secondary-control-card:disabled {
     gap: 1rem;
     padding-top: 4.7rem;
   }
+  .table-surface[data-runtime="normal"] .private-hand {
+    gap: 1rem;
+    padding-top: 5.2rem;
+  }
   .table-surface .private-hand__heading {
     position: absolute;
     width: 1px;
@@ -2141,12 +2853,16 @@ button.secondary-control-card:disabled {
     position: sticky;
     z-index: 3;
     bottom: 0.5rem;
+    align-items: flex-start;
     padding: 0.5rem;
     border-radius: 1rem;
     background: color-mix(in srgb, var(--table-panel) 90%, transparent);
   }
   .table-surface .player-board {
     padding-top: 1.3rem;
+  }
+  .table-surface[data-runtime="normal"] .player-board {
+    --player-board-divider-gap: 1.3rem;
   }
   .table-surface .player-board .dealer-rail__cards {
     gap: 0.3rem;

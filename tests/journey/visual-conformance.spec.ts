@@ -101,6 +101,22 @@ async function closeQuickPanel(host: Page): Promise<void> {
   await expect(host.locator("[data-control-facing]")).toHaveCount(0);
 }
 
+async function dragPlayerShow(player: Page): Promise<void> {
+  const slider = player.locator('[data-qa-control="player-show-cards"]');
+  await slider.scrollIntoViewIfNeeded();
+  const bounds = await box(slider);
+  await player.mouse.move(bounds.x + 28, bounds.y + bounds.height / 2);
+  await player.mouse.down();
+  await player.mouse.move(
+    bounds.x + bounds.width - 18,
+    bounds.y + bounds.height / 2,
+    {
+      steps: 8,
+    },
+  );
+  await player.mouse.up();
+}
+
 type PhysicalCorner =
   "lower left" | "lower right" | "upper left" | "upper right";
 
@@ -308,6 +324,17 @@ async function screenshotLocatorIfChromium(
   await expect(locator).toHaveScreenshot(`${name}.png`, {
     animations: "disabled",
   });
+}
+
+async function attachQaScreenshot(
+  page: Page,
+  testInfo: TestInfo,
+  name: string,
+): Promise<void> {
+  if (testInfo.project.name !== "chromium") return;
+  const path = testInfo.outputPath(`${name}.png`);
+  await page.screenshot({ animations: "disabled", path });
+  await testInfo.attach(name, { contentType: "image/png", path });
 }
 
 test("Tablet quiet and quick-control states conform to approved geometry", async ({
@@ -529,6 +556,53 @@ test("Tablet quiet and quick-control states conform to approved geometry", async
   ]) {
     await expect(secondary.getByText(label, { exact: true })).toBeVisible();
   }
+  const cardFor = (label: string) =>
+    secondary.getByText(label, { exact: true }).locator("xpath=..");
+  const [
+    playersCard,
+    appearanceCard,
+    deviceCard,
+    displaysCard,
+    recoveryCard,
+    diagnosticsCard,
+  ] = await Promise.all([
+    box(cardFor("Players & seats")),
+    box(cardFor("Appearance")),
+    box(cardFor("This device")),
+    box(cardFor("Displays & pairing")),
+    box(cardFor("Connection & recovery")),
+    box(cardFor("Diagnostics & history")),
+  ]);
+  expectNear(
+    appearanceCard.y + appearanceCard.height / 2,
+    deviceCard.y + deviceCard.height / 2,
+    1,
+    "This device and Appearance share the top row",
+  );
+  expect(
+    deviceCard.x,
+    "This device replaces Players & seats to the left of Appearance",
+  ).toBeLessThan(appearanceCard.x);
+  expectNear(
+    displaysCard.y + displaysCard.height / 2,
+    playersCard.y + playersCard.height / 2,
+    1,
+    "Displays and Players & seats share the second row",
+  );
+  expect(
+    displaysCard.x,
+    "Displays stays on the left of Players & seats",
+  ).toBeLessThan(playersCard.x);
+  expectNear(
+    recoveryCard.y + recoveryCard.height / 2,
+    diagnosticsCard.y + diagnosticsCard.height / 2,
+    1,
+    "Connection and Diagnostics remain together on the third row",
+  );
+  expect(
+    recoveryCard.x,
+    "Connection remains on the left of Diagnostics",
+  ).toBeLessThan(diagnosticsCard.x);
   const secondaryBox = await box(secondary);
   expectNear(
     secondaryBox.x + secondaryBox.width / 2,
@@ -598,6 +672,7 @@ test("Tablet and TV keep ten simultaneous shown hands large, distinct, and clear
   // Seat joins are authoritative commits, so serialize them. Parallel joins
   // intentionally exercise the revision-conflict path and are not a stable
   // way to construct this visual fixture.
+  const longestNormalName = "Alexandria Montgomery XX";
   for (const name of [
     "Alice",
     "Bob",
@@ -608,7 +683,7 @@ test("Tablet and TV keep ten simultaneous shown hands large, distinct, and clear
     "Gus",
     "Hana",
     "Ivan",
-    "Jules",
+    longestNormalName,
   ]) {
     players.push(await joinPlayer(host, context, name));
     if (players.length === 6) {
@@ -637,7 +712,10 @@ test("Tablet and TV keep ten simultaneous shown hands large, distinct, and clear
   await host.getByRole("button", { name: "Deal the turn" }).click();
   await host.getByRole("button", { name: "Deal the river" }).click();
   for (const player of players) {
-    await player.getByRole("button", { name: "Show cards to table" }).click();
+    await dragPlayerShow(player);
+    await expect(player.getByLabel("Your table status")).toContainText(
+      "Shown to table",
+    );
   }
   await host.getByRole("button", { name: "Table View" }).click();
 
@@ -668,6 +746,30 @@ test("Tablet and TV keep ten simultaneous shown hands large, distinct, and clear
     await expect(surface.locator(".quiet-shown-hand")).toHaveCount(10);
     await expect(shownCards).toHaveCount(20);
     await expect(shownCards.locator(".card__face-svg")).toHaveCount(20);
+    const shownCardEmphasis = await shownCards.evaluateAll((cards) => ({
+      selected: cards.filter((card) => card.classList.contains("card--best"))
+        .length,
+      faded: cards.filter((card) => card.classList.contains("card--unused"))
+        .length,
+    }));
+    expect(
+      shownCardEmphasis.selected + shownCardEmphasis.faded,
+      "every shown private card must be either selected or faded at showdown",
+    ).toBe(20);
+    expect(
+      shownCardEmphasis.selected,
+      "the winning shown hand must retain selected cards",
+    ).toBeGreaterThan(0);
+    expect(
+      shownCardEmphasis.faded,
+      "non-selected shown cards must recede",
+    ).toBeGreaterThan(0);
+    await expect(
+      surface.locator(
+        ".seat-edge-status:not(:has(.seat-state-glyph--winner)) .quiet-shown-hand .card--best",
+      ),
+      "no private card from a non-winning player remains bright",
+    ).toHaveCount(0);
     const facesLoaded = await shownCards
       .locator(".card__face-svg")
       .evaluateAll((images) =>
@@ -721,6 +823,38 @@ test("Tablet and TV keep ten simultaneous shown hands large, distinct, and clear
     const boardCards = surface.locator("[data-board-card]");
     await expect(boardCards).toHaveCount(5);
     await expect(boardCards.locator(".card__face-svg")).toHaveCount(5);
+    const boardCardEmphasis = await boardCards.evaluateAll((cards) => ({
+      selected: cards.filter((card) => card.classList.contains("card--best"))
+        .length,
+      faded: cards.filter((card) => card.classList.contains("card--unused"))
+        .length,
+    }));
+    expect(
+      boardCardEmphasis.selected + boardCardEmphasis.faded,
+      "every community card must be either selected or faded at showdown",
+    ).toBe(5);
+    expect(
+      boardCardEmphasis.selected,
+      "the best available hand must retain selected community cards",
+    ).toBeGreaterThan(0);
+    expect(
+      boardCardEmphasis.faded,
+      "non-selected community cards must recede",
+    ).toBeGreaterThan(0);
+    const winningSeats = surface.locator(
+      ".seat-edge-status:has(.seat-state-glyph--winner)",
+    );
+    await expect(
+      winningSeats,
+      "the deterministic ten-player fixture has one winning seat",
+    ).toHaveCount(1);
+    const winningPrivateSelection = winningSeats.locator(
+      ".quiet-shown-hand .card--best",
+    );
+    expect(
+      (await winningPrivateSelection.count()) + boardCardEmphasis.selected,
+      "winner-private plus community selection must form exactly five cards",
+    ).toBe(5);
     const boardBoxes = await Promise.all(
       (await boardCards.all()).map((card) => box(card)),
     );
@@ -798,8 +932,32 @@ test("Tablet and TV keep ten simultaneous shown hands large, distinct, and clear
   }
 
   await expectTenHandGeometry(host, referenceViewport, "tablet");
+  await host
+    .getByRole("button", { name: "Open table controls from lower right" })
+    .click();
+  await host.getByRole("button", { name: "More table controls" }).click();
+  await attachQaScreenshot(
+    host,
+    testInfo,
+    "qa-tablet-show-player-names-control",
+  );
+  await host.getByRole("button", { name: "Show player names" }).click();
+  await expect(host.locator(".seat-edge-status__name")).toHaveCount(10);
+  await expect(
+    host.locator('[data-seat-id="seat-10"] .seat-edge-status__name'),
+  ).toHaveAttribute("title", longestNormalName);
+  await host.getByRole("button", { name: "Return to table" }).click();
+  await expect(host.locator(".secondary-controls")).toHaveCount(0);
+  await expect(host.locator(".public-table")).toBeVisible();
+  await host.locator(".public-table").scrollIntoViewIfNeeded();
+  await expectTenHandGeometry(host, referenceViewport, "tablet");
   await prepareScreenshot(host);
   await screenshotIfChromium(host, testInfo, "tablet-ten-player-shown-hands");
+  await attachQaScreenshot(
+    host,
+    testInfo,
+    "qa-tablet-ten-player-shown-hands-with-names",
+  );
 
   const tv = await context.newPage();
   const tvViewport = { height: 1_080, width: 1_920 };
@@ -810,8 +968,16 @@ test("Tablet and TV keep ten simultaneous shown hands large, distinct, and clear
   await tv.goto(tvUrl, { waitUntil: "commit" });
   await expect(tv.getByRole("heading", { name: "Public table" })).toBeVisible();
   await expectTenHandGeometry(tv, tvViewport, "tv");
+  await expect(tv.locator(".seat-edge-status__name")).toHaveCount(10);
+  const longTvName = tv.locator(
+    '[data-seat-id="seat-10"] .seat-edge-status__name',
+  );
+  await expect(longTvName).toHaveAttribute("title", longestNormalName);
+  await expect(longTvName).toHaveCSS("text-overflow", "ellipsis");
+  await expect(longTvName).toHaveCSS("white-space", "nowrap");
   await prepareScreenshot(tv);
   await screenshotIfChromium(tv, testInfo, "tv-ten-player-shown-hands");
+  await attachQaScreenshot(tv, testInfo, "qa-tv-ten-player-shown-hands");
 });
 
 test("Tablet showdown preserves the quiet board geometry and places the result note directly below it", async ({
@@ -827,7 +993,7 @@ test("Tablet showdown preserves the quiet board geometry and places the result n
 
   const rail = host.locator(".public-table--quiet .dealer-rail");
   const beforeShow = await box(rail);
-  await alice.getByRole("button", { name: "Show cards to table" }).click();
+  await dragPlayerShow(alice);
   const resultNote = host.getByText("Best available shown hand is marked.");
   await expect(resultNote).toBeVisible();
   const afterShow = await box(rail);
