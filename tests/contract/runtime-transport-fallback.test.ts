@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  acceptsProjectionRevision,
   sendWithSerialRouteFallback,
   type RoomMessage,
   type RoomRoute,
@@ -31,5 +32,14 @@ describe("Normal Mode runtime serial relay fallback", () => {
     });
     expect(attempts).toHaveLength(2);
     expect(attempts[1]?.messageId).toBe(attempts[0]?.messageId);
+  });
+});
+
+describe("Normal Mode player projection ordering", () => {
+  it("does not let a delayed older projection overwrite the newest table revision", () => {
+    expect(acceptsProjectionRevision(undefined, 3)).toBe(true);
+    expect(acceptsProjectionRevision(3, 3)).toBe(true);
+    expect(acceptsProjectionRevision(3, 4)).toBe(true);
+    expect(acceptsProjectionRevision(4, 3)).toBe(false);
   });
 });

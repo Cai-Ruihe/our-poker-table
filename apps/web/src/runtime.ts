@@ -189,6 +189,18 @@ export type RoomMessage =
 export type RoomRoute = "airplane" | "direct" | "private-relay" | "cloud-relay";
 type RelayRoomRoute = "private-relay" | "cloud-relay";
 
+/**
+ * Normal Mode projection refreshes can complete out of order when a table
+ * change races a Player action response. A stale result must never replace
+ * newer table state.
+ */
+export function acceptsProjectionRevision(
+  currentRevision: number | undefined,
+  incomingRevision: number,
+): boolean {
+  return currentRevision === undefined || incomingRevision >= currentRevision;
+}
+
 const logicalMessageIds = new WeakMap<object, string>();
 
 function logicalMessageId(message: RoomMessage): string {
@@ -3792,6 +3804,16 @@ export class TableClientRuntime {
       this.error = response.code;
       this.status = "rejected";
     } else {
+      if (
+        !this.airplanePairing &&
+        response.status === "projection" &&
+        !acceptsProjectionRevision(
+          this.projection?.revision,
+          response.projection.revision,
+        )
+      ) {
+        return;
+      }
       this.error = undefined;
       if (response.role !== this.role) {
         this.error = "role-mismatch";
