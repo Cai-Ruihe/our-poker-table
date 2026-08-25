@@ -171,7 +171,7 @@ if (liveRelay?.workflow && relativeExists(liveRelay.workflow)) {
     "Verify configured live relay",
     liveRelay.command,
     "NORMAL_APP_ORIGIN: ${{ vars.NORMAL_APP_ORIGIN || format('https://{0}.github.io', github.repository_owner) }}",
-    "if: vars.NORMAL_CONNECTION_SERVICE_URL != ''",
+    "if: vars.NORMAL_CLOUD_RELAY_URL != '' || vars.NORMAL_MAC_RELAY_URL != '' || vars.NORMAL_CONNECTION_SERVICE_URL != ''",
   ]) {
     if (!workflow.includes(requiredFragment)) {
       failures.push(`live relay workflow is missing: ${requiredFragment}`);
@@ -251,6 +251,8 @@ if (selfHosting?.guide && relativeExists(selfHosting.guide)) {
   for (const requiredFragment of [
     "pnpm relay:create-token",
     "pnpm relay:doctor",
+    "NORMAL_CLOUD_RELAY_URL",
+    "NORMAL_MAC_RELAY_URL",
     "NORMAL_CONNECTION_SERVICE_URL",
     "normal/poker-config.js",
     "## Troubleshooting guide",

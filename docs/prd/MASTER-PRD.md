@@ -26,7 +26,7 @@ router: manifest.yaml
 
 ## Context capsule
 
-Build **Our Poker Table**, an elegant, account-free HTML Texas Hold'em table for nearby social play. Phones hold private cards; a tablet, TV, or computer may show and control the public table. The active browser host is the Phase 1 poker authority. Normal Mode connects through direct peer-to-peer, then the deployer's private relay, then its optional cloud relay. Airplane Mode works from a preloaded standalone HTML artifact on a private local Wi-Fi network. Play chips never represent money.
+Build **Our Poker Table**, an elegant, account-free HTML Texas Hold'em table for nearby social play. Phones hold private cards; a tablet, TV, or computer may show and control the public table. The active browser host is the Phase 1 poker authority. Normal Mode connects through direct peer-to-peer, then the deployer's Cloudflare Workers/Durable Objects relay, then the deployer's Mac Connection Service fallback. Airplane Mode works from a preloaded standalone HTML artifact on a private local Wi-Fi network. Play chips never represent money.
 
 This document routes work. Load the relevant [Phase PRD](#roadmap) and [Module PRD](#module-map) for details.
 

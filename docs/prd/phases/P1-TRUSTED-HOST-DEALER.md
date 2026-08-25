@@ -65,7 +65,7 @@ A capable browser creates one table, owns the shuffled deck, and commits an orde
 - Show is irreversible. Fold undo ends at the first dependent progression. A correction appends an event and never erases exposure.
 - A Public Table/display permission cannot become Table-Control. A valid control capability can reveal streets and run guarded dealer operations without card access.
 - A host device may redeem an ordinary Player invitation, then switch within one active document among Host Controls, its credential-filtered My Hand, and card-blind Table View. The switch changes presentation, never authority.
-- Normal route order is direct → deployer private relay → optional deployer cloud relay. The host key is authenticated independently of signaling.
+- Normal route order is direct → deployer Cloudflare Workers/Durable Objects relay → deployer Mac Connection Service fallback. Relay selection is sticky per active peer and failover is serial after disconnect/timeout; the host key is authenticated independently of signaling.
 - Host death may end the game. Same-browser host refresh resumes only after exclusive authority and deterministic replay succeed.
 - Optional completed-hand remote checkpoints exclude never-revealed/folded cards, legacy-mucked cards, and active custody material.
 
@@ -74,7 +74,7 @@ A capable browser creates one table, owns the shuffled deck, and commits an orde
 - End-to-end: create → join 2–10 seats → deal → privately reveal/fold/show → reveal board → explicit end → next hand.
 - Exercise heads-up, six-max, ten-player layout, all-fold, one-show/rest-fold, tie evaluation, accidental fold, premature deal, duplicate control, player replacement, and disconnect past hand end.
 - Fault every persistence boundary and prove no success/private projection precedes commit.
-- Run direct/private/cloud path, network switch, hostile signaling, replayed invitation, and reconnect tests.
+- Run direct/Cloudflare/Mac path, independent-ticket issuance, serial failover without duplicate actions, network switch, hostile signaling, replayed invitation, and reconnect tests.
 - Run actual iOS/iPadOS, Android, desktop, tablet, and selected TV matrices.
 - Exercise same-device host-player join, all three host-device views, private-card DOM isolation, refresh recovery, and iOS/iPadOS foreground/background behavior.
 - Airplane acceptance requires WAN removed, `iceServers` empty, 2–10 player seats plus the host and at least one Public Table device, two-way QR, client-isolation failure, refresh recovery, version mismatch, and observed zero external requests.

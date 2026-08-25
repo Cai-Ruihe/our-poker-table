@@ -15,6 +15,68 @@ function client(clientId: string): RelayClient {
 }
 
 describe("card-blind Connection Service broker", () => {
+  it("does not forward the same opaque messageId twice during a receipt retry", () => {
+    const broker = createConnectionBroker({ accessToken: "operator-secret" });
+    const host = client("host-socket");
+    const player = client("player-socket");
+    const hostIssued = broker.issueSession({
+      hostKey: "host-key-a",
+      operatorToken: "operator-secret",
+      peerId: "host-peer",
+      protocolVersion: 1,
+      tableId: "table-a",
+    });
+    const playerIssued = broker.issueSession({
+      hostKey: "host-key-a",
+      operatorToken: "operator-secret",
+      peerId: "player-peer",
+      protocolVersion: 1,
+      tableId: "table-a",
+    });
+    if (hostIssued.status !== "issued" || playerIssued.status !== "issued") {
+      throw new Error("Expected relay tickets.");
+    }
+    for (const [peerId, relayClient] of [
+      ["host-peer", host],
+      ["player-peer", player],
+    ] as const) {
+      expect(
+        broker.register(relayClient, {
+          accessToken:
+            peerId === "host-peer"
+              ? hostIssued.ticket.accessToken
+              : playerIssued.ticket.accessToken,
+          hostKey: "host-key-a",
+          peerId,
+          protocolVersion: 1,
+          tableId: "table-a",
+        }),
+      ).toEqual({ status: "accepted" });
+    }
+
+    const frame = JSON.stringify({
+      envelope: {
+        ciphertext: "opaque",
+        hostKey: "host-key-a",
+        messageId: "stable-message-id",
+        protocolVersion: 1,
+        recipientPeerId: "player-peer",
+        senderPeerId: "host-peer",
+        sequence: 1,
+        tableId: "table-a",
+      },
+      type: "envelope",
+    });
+
+    expect(broker.receive(host.clientId, frame)).toEqual({
+      status: "relayed",
+    });
+    expect(broker.receive(host.clientId, frame)).toEqual({
+      status: "relayed",
+    });
+    expect(player.send).toHaveBeenCalledTimes(1);
+  });
+
   it("relays opaque envelopes only within one bound table and host key", () => {
     const metadata: unknown[] = [];
     const broker = createConnectionBroker({
@@ -26,9 +88,19 @@ describe("card-blind Connection Service broker", () => {
     const issued = broker.issueSession({
       hostKey: "host-key-a",
       operatorToken: "operator-secret",
+      peerId: "host-peer",
       protocolVersion: 1,
       tableId: "table-a",
     });
+    const playerIssued = broker.issueSession({
+      hostKey: "host-key-a",
+      operatorToken: "operator-secret",
+      peerId: "player-peer",
+      protocolVersion: 1,
+      tableId: "table-a",
+    });
+    if (playerIssued.status !== "issued")
+      throw new Error("Expected a player relay ticket.");
     if (issued.status !== "issued") throw new Error("Expected a relay ticket.");
     expect(
       broker.register(host, {
@@ -41,7 +113,7 @@ describe("card-blind Connection Service broker", () => {
     ).toEqual({ status: "accepted" });
     expect(
       broker.register(player, {
-        accessToken: issued.ticket.accessToken,
+        accessToken: playerIssued.ticket.accessToken,
         hostKey: "host-key-a",
         peerId: "player-peer",
         protocolVersion: 1,
@@ -76,6 +148,67 @@ describe("card-blind Connection Service broker", () => {
     );
   });
 
+  it("rejects a frame when its registered recipient socket can no longer accept it", () => {
+    const broker = createConnectionBroker({ accessToken: "operator-secret" });
+    const host = client("host-socket");
+    const unavailablePlayer: RelayClient = {
+      clientId: "unavailable-player-socket",
+      close: vi.fn(),
+      send() {
+        throw new Error("socket closed");
+      },
+    };
+    const issued = broker.issueSession({
+      hostKey: "host-key-a",
+      operatorToken: "operator-secret",
+      peerId: "host-peer",
+      protocolVersion: 1,
+      tableId: "table-a",
+    });
+    if (issued.status !== "issued") throw new Error("Expected a relay ticket.");
+    const playerIssued = broker.issueSession({
+      hostKey: "host-key-a",
+      operatorToken: "operator-secret",
+      peerId: "player-peer",
+      protocolVersion: 1,
+      tableId: "table-a",
+    });
+    if (playerIssued.status !== "issued")
+      throw new Error("Expected a player relay ticket.");
+    for (const [peerId, relayClient, ticket] of [
+      ["host-peer", host, issued.ticket.accessToken],
+      ["player-peer", unavailablePlayer, playerIssued.ticket.accessToken],
+    ] as const) {
+      expect(
+        broker.register(relayClient, {
+          accessToken: ticket,
+          hostKey: "host-key-a",
+          peerId,
+          protocolVersion: 1,
+          tableId: "table-a",
+        }),
+      ).toEqual({ status: "accepted" });
+    }
+
+    const frame = JSON.stringify({
+      envelope: {
+        ciphertext: "opaque",
+        hostKey: "host-key-a",
+        messageId: "recipient-unavailable",
+        protocolVersion: 1,
+        recipientPeerId: "player-peer",
+        senderPeerId: "host-peer",
+        sequence: 1,
+        tableId: "table-a",
+      },
+      type: "envelope",
+    });
+    expect(broker.receive(host.clientId, frame)).toEqual({
+      code: "recipient-unavailable",
+      status: "rejected",
+    });
+  });
+
   it("rejects wrong access, cross-table routing, spoofed senders, and oversized frames", () => {
     const broker = createConnectionBroker({ accessToken: "operator-secret" });
     const first = client("first");
@@ -84,6 +217,7 @@ describe("card-blind Connection Service broker", () => {
       broker.issueSession({
         hostKey: "host-key-a",
         operatorToken: "wrong",
+        peerId: "peer-a",
         protocolVersion: 1,
         tableId: "table-a",
       }),
@@ -91,6 +225,7 @@ describe("card-blind Connection Service broker", () => {
     const issued = broker.issueSession({
       hostKey: "host-key-a",
       operatorToken: "operator-secret",
+      peerId: "peer-a",
       protocolVersion: 1,
       tableId: "table-a",
     });
@@ -98,6 +233,7 @@ describe("card-blind Connection Service broker", () => {
     const secondIssued = broker.issueSession({
       hostKey: "host-key-b",
       operatorToken: "operator-secret",
+      peerId: "peer-b",
       protocolVersion: 1,
       tableId: "table-b",
     });
@@ -161,12 +297,14 @@ describe("card-blind Connection Service broker", () => {
     } as const;
 
     expect(mailbox.take(requestId)).toEqual({ status: "pending" });
-    expect(mailbox.put(requestId, envelope)).toEqual({ status: "stored" });
+    expect(mailbox.put(requestId, envelope, "client-a")).toEqual({
+      status: "stored",
+    });
     expect(mailbox.take(requestId)).toEqual({ envelope, status: "answered" });
     expect(mailbox.take(requestId)).toEqual({ status: "pending" });
 
     currentTime += 31_000;
-    expect(mailbox.put(requestId, envelope)).toEqual({
+    expect(mailbox.put(requestId, envelope, "client-a")).toEqual({
       code: "expired",
       status: "rejected",
     });
@@ -182,6 +320,7 @@ describe("card-blind Connection Service broker", () => {
     const issued = broker.issueSession({
       hostKey: "host-key-a",
       operatorToken: "operator-secret",
+      peerId: "peer-a",
       protocolVersion: 1,
       tableId: "table-a",
     });
@@ -219,6 +358,7 @@ describe("card-blind Connection Service broker", () => {
     const first = broker.issueSession({
       hostKey: "host-key-a",
       operatorToken: "operator-secret",
+      peerId: "peer-a",
       protocolVersion: 1,
       tableId: "table-a",
     });
@@ -228,6 +368,7 @@ describe("card-blind Connection Service broker", () => {
     const renewed = broker.issueSession({
       hostKey: "host-key-a",
       operatorToken: "operator-secret",
+      peerId: "peer-a",
       protocolVersion: 1,
       tableId: "table-a",
     });
@@ -237,6 +378,8 @@ describe("card-blind Connection Service broker", () => {
     expect(renewed.ticket).toEqual({
       accessToken: first.ticket.accessToken,
       expiresAt: 110_000,
+      pairingWriteCapability: first.ticket.pairingWriteCapability,
+      peerId: "peer-a",
     });
 
     currentTime = 75_000;
@@ -271,6 +414,7 @@ describe("card-blind Connection Service broker", () => {
       broker.issueSession({
         hostKey: "",
         operatorToken: "operator-secret",
+        peerId: "peer-a",
         protocolVersion: 1,
         tableId: "table-a",
       }),
@@ -279,6 +423,7 @@ describe("card-blind Connection Service broker", () => {
     const issued = broker.issueSession({
       hostKey: "host-key-a",
       operatorToken: "operator-secret",
+      peerId: "peer-a",
       protocolVersion: 1,
       tableId: "table-a",
     });
@@ -318,18 +463,24 @@ describe("card-blind Connection Service broker", () => {
       iv: "base64-iv",
     } as const;
 
-    expect(mailbox.put("short", envelope)).toEqual({
+    expect(mailbox.put("short", envelope, "client-a")).toEqual({
       code: "invalid-request",
       status: "rejected",
     });
     expect(
-      mailbox.put(firstRequest, {
-        ...envelope,
-        expiresAt: currentTime + 20_000,
-      }),
+      mailbox.put(
+        firstRequest,
+        {
+          ...envelope,
+          expiresAt: currentTime + 20_000,
+        },
+        "client-a",
+      ),
     ).toEqual({ code: "invalid-envelope", status: "rejected" });
-    expect(mailbox.put(firstRequest, envelope)).toEqual({ status: "stored" });
-    expect(mailbox.put(secondRequest, envelope)).toEqual({
+    expect(mailbox.put(firstRequest, envelope, "client-a")).toEqual({
+      status: "stored",
+    });
+    expect(mailbox.put(secondRequest, envelope, "client-a")).toEqual({
       code: "capacity",
       status: "rejected",
     });

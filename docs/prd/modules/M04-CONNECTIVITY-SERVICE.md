@@ -24,7 +24,12 @@ router: ../manifest.yaml
 
 ## Context capsule
 
-This module keeps peers connected without becoming poker authority. The client-side interface maintains one logical authenticated channel while Normal Mode attempts direct P2P, the deployer's private relay, then its optional cloud relay. The optional Connection Service supplies signaling, short-lived relay credentials, opaque checkpoints, and redacted diagnostics only.
+This module keeps peers connected without becoming poker authority. The
+client-side interface maintains one logical authenticated channel while Normal
+Mode attempts direct P2P, the deployer's Cloudflare Workers/Durable Objects
+relay, then the deployer's Mac Connection Service fallback. The optional
+Connection Services supply signaling, short-lived relay credentials, opaque
+checkpoints, and redacted diagnostics only.
 
 ## Problem Statement
 
@@ -38,7 +43,8 @@ The transport interface connects/reconnects an authenticated peer, sends/receive
 
 - Normal Mode bootstrap transport and route state machine.
 - Signaling, ICE/reconnect, network-change handling, and route visibility.
-- Private/cloud relay configuration and short-lived credentials.
+- Cloudflare-primary/Mac-fallback relay configuration and short-lived,
+  endpoint-specific credentials.
 - Card-blind Connection Service schemas, metadata retention, and table isolation.
 - China network test strategy and deployer-specific configuration.
 
@@ -54,7 +60,9 @@ The transport interface connects/reconnects an authenticated peer, sends/receive
 1. As a player, I want route changes to preserve my table/seat identity.
 2. As a host, I want direct P2P preferred and relay paths used only when required.
 3. As Ruihe, I want my Windows desktop or later Mac mini to be the primary private Connection Service.
-4. As a traveler, I want an optional cloud relay if the private machine is unreachable.
+4. As a traveler, I want the deployer's Cloudflare relay to remain available
+   when the Mac Connection Service is asleep, with the Mac path available as a
+   deployer-controlled fallback.
 5. As an open-source deployer, I want my own infrastructure configuration and bill.
 6. As a table, we want reconnection to reconcile authoritative revision rather than guess actions.
 
@@ -66,12 +74,28 @@ The transport interface connects/reconnects an authenticated peer, sends/receive
 - Long-lived TURN/provider secrets remain server-side; clients receive scoped short-lived credentials.
 - Connection Service may observe IP, timing, size, table, and route metadata. “Card-blind” does not mean metadata-blind.
 - Existing direct channels continue if a relay later fails. Each dependent peer reports its own path.
+- Relay selection is sticky for an active peer. After a disconnect or bounded
+  timeout, reconnect attempts serially try Cloudflare first and then Mac; the
+  client never duplicates an envelope across both paths. A recovered relay
+  does not interrupt healthy sessions.
+- A table invitation carries independent Cloudflare and Mac ticket material;
+  it never carries the operator token. Each ticket is bound to the table,
+  host, peer ID, endpoint, protocol, expiry, and nonce. A display-pairing
+  request ID is not a write credential: only the host-held, short-lived pairing
+  capability can write its encrypted response, subject to per-capability
+  pending-entry and rate limits.
 - The Windows/Mac Connection Service and future AI Gateway may share hardware only as separate least-privilege processes with separate identities, data, secrets, ports, and logs.
 - China readiness remains a measured deployment claim. A desktop outside mainland China does not become mainland-hosted merely because a traveler connects, but reachability and legal obligations remain unproven.
 
 ## Testing Decisions
 
-Use an in-memory transport adapter for protocol tests and real browser/network adapters for compatibility. Test hostile signaling substitution, replay, direct/private/cloud fallback, UDP/TCP/TLS TURN, relay loss, network switching, browser background/freeze, reconnect, route timeouts, credential theft/expiry, oversized objects, table isolation, and Connection Service compromise. Measure representative mainland networks before any readiness claim.
+Use an in-memory transport adapter for protocol tests and real browser/network
+adapters for compatibility. Test hostile signaling substitution, replay,
+direct/Cloudflare/Mac fallback, independent-ticket issuance, serial failover
+without duplicate delivery, UDP/TCP/TLS TURN, relay loss, network switching,
+browser background/freeze, reconnect, route timeouts, credential theft/expiry,
+oversized objects, table isolation, and Connection Service compromise. Measure
+representative mainland networks before any readiness claim.
 
 ## Out of Scope
 

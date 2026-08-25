@@ -28,7 +28,17 @@ Direct-connect and relay success rates, latency, traffic cost, TV-browser suppor
 
 ## Decision
 
-Normal Mode bootstraps with QR or the equivalent full URL through signaling. It then tries direct P2P, the deployer's private relay, and the deployer's optional cloud relay. Each deployment supplies its own endpoints and credentials. Connection services are card-blind and never become the poker engine. A table pins its host identity, protocol, rules profile, and compatible release.
+Normal Mode bootstraps with QR or the equivalent full URL through signaling. It
+tries direct P2P first, then the deployer's Cloudflare Workers/Durable Objects
+relay as the primary hosted path, and finally the deployer's Mac Connection
+Service as the fallback path. Each relay receives its own table-scoped,
+short-lived ticket. A host keeps one sticky active relay per peer: failover is
+serial and happens after disconnect/timeout, never by sending one envelope over
+both relays. Existing healthy sessions stay on their current relay; a new or
+reconnecting session prefers Cloudflare when it is available. Each deployment
+supplies its own endpoints and credentials. Connection services are card-blind
+and never become the poker engine. A table pins its host identity, protocol,
+rules profile, and compatible release.
 
 ## Consequences
 
@@ -46,4 +56,7 @@ Invitations authenticate the active host independently of signaling. Relays rece
 
 ## Validation and revisit trigger
 
-Run direct/private/cloud fallback, ICE restart, network-switch, service-compromise, multi-table isolation, and representative mainland-China tests. A material route failure or regulatory/hosting constraint triggers updated research and a superseding ADR.
+Run direct/Cloudflare/Mac fallback, serial failover with no duplicate action,
+ICE restart, network-switch, service-compromise, multi-table isolation, and
+representative mainland-China tests. A material route failure or
+regulatory/hosting constraint triggers updated research and a superseding ADR.

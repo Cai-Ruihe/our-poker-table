@@ -1,0 +1,20 @@
+name = "our-poker-table-relay"
+main = "src/worker.ts"
+compatibility_date = "2026-08-25"
+# A public primary relay needs an explicit workers.dev route.  Do not rely on
+# Wrangler's implicit default because an account can retain this switch as off.
+workers_dev = true
+
+# Set this to the exact HTTPS origin that hosts the Normal Mode application.
+# The operator token is a Wrangler secret, never a repository variable here:
+#   wrangler secret put RELAY_OPERATOR_TOKEN
+[vars]
+RELAY_ALLOWED_ORIGIN = "https://cai-ruihe.github.io"
+
+[[durable_objects.bindings]]
+name = "RELAY_HUB"
+class_name = "RelayHub"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["RelayHub"]

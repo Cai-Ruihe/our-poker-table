@@ -373,7 +373,7 @@ function Home({
           ) : null}
           {relayRequiresOperatorToken ? (
             <label className="relay-token-field">
-              <span>Private relay host token</span>
+              <span>Connection Service host token</span>
               <input
                 autoComplete="off"
                 onChange={(event) => setOperatorToken(event.target.value)}
@@ -1470,7 +1470,7 @@ function RelaySessionCard({
         </p>
       ) : null}
       <label className="relay-token-field">
-        <span>Private relay host token</span>
+        <span>Connection Service host token</span>
         <input
           autoComplete="off"
           onChange={(event) => setOperatorToken(event.target.value)}

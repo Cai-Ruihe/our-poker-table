@@ -17,6 +17,12 @@ const configureScript = path.join(
 );
 const baselineCsp =
   "connect-src 'self' https: wss:; font-src 'self'; form-action 'self'; img-src 'self' data: blob:;";
+const cloudRelayWranglerConfig = path.join(
+  process.cwd(),
+  "services",
+  "cloudflare-connection-service",
+  "wrangler.toml",
+);
 
 async function fixture(): Promise<string> {
   const root = await mkdtemp(path.join(tmpdir(), "html-poker-normal-config-"));
@@ -45,6 +51,12 @@ afterEach(async () => {
 });
 
 describe("Normal release configuration", () => {
+  it("explicitly enables the public workers.dev endpoint for the Cloudflare relay", async () => {
+    const wranglerConfig = await readFile(cloudRelayWranglerConfig, "utf8");
+
+    expect(wranglerConfig).toMatch(/^workers_dev\s*=\s*true$/m);
+  });
+
   it("keeps an unconfigured open-source deployment free of private relay routing", async () => {
     const root = await fixture();
 
@@ -95,6 +107,63 @@ describe("Normal release configuration", () => {
     );
     expect(html).not.toContain("connect-src 'self' https: wss:;");
     expect(html).toContain("img-src 'self' data: blob:;");
+  });
+
+  it("configures Cloudflare as primary and Mac as an independent fallback", async () => {
+    const root = await fixture();
+
+    await execute(process.execPath, [configureScript], {
+      cwd: root,
+      env: {
+        ...process.env,
+        NORMAL_CONNECTION_SERVICE_URL: "",
+        NORMAL_CLOUD_RELAY_URL: "wss://relay.example.test",
+        NORMAL_MAC_RELAY_URL: "wss://mac-relay.example.test",
+      },
+    });
+
+    const [html, config] = await Promise.all([
+      readFile(path.join(root, "dist", "normal", "index.html"), "utf8"),
+      readFile(path.join(root, "dist", "normal", "poker-config.js"), "utf8"),
+    ]);
+    expect(config).toContain('cloudRelay: { url: "wss://relay.example.test" }');
+    expect(config).toContain(
+      'privateRelay: { url: "wss://mac-relay.example.test" }',
+    );
+    const browser = { globalThis: {} as Record<string, unknown> };
+    runInNewContext(config, browser);
+    expect(browser.globalThis).toEqual({
+      __HTML_POKER_CONFIG__: {
+        cloudRelay: { url: "wss://relay.example.test" },
+        privateRelay: { url: "wss://mac-relay.example.test" },
+      },
+    });
+    expect(html).toContain(
+      "connect-src 'self' https://relay.example.test wss://relay.example.test https://mac-relay.example.test wss://mac-relay.example.test;",
+    );
+  });
+
+  it("keeps the legacy URL as the Mac fallback when the new variables are absent", async () => {
+    const root = await fixture();
+
+    await execute(process.execPath, [configureScript], {
+      cwd: root,
+      env: {
+        ...process.env,
+        NORMAL_CLOUD_RELAY_URL: "",
+        NORMAL_MAC_RELAY_URL: "",
+        NORMAL_CONNECTION_SERVICE_URL: "wss://legacy-relay.example.test",
+      },
+    });
+
+    const config = await readFile(
+      path.join(root, "dist", "normal", "poker-config.js"),
+      "utf8",
+    );
+    expect(config).toContain(
+      'privateRelay: { url: "wss://legacy-relay.example.test" }',
+    );
+    expect(config).not.toContain("cloudRelay");
   });
 
   it("rejects an insecure public Connection Service URL", async () => {
@@ -151,7 +220,9 @@ describe("Normal release configuration", () => {
     expect(workflow).toContain(
       "NORMAL_APP_ORIGIN: ${{ vars.NORMAL_APP_ORIGIN || format('https://{0}.github.io', github.repository_owner) }}",
     );
-    expect(workflow).toContain("if: vars.NORMAL_CONNECTION_SERVICE_URL != ''");
+    expect(workflow).toContain(
+      "if: vars.NORMAL_CLOUD_RELAY_URL != '' || vars.NORMAL_MAC_RELAY_URL != '' || vars.NORMAL_CONNECTION_SERVICE_URL != ''",
+    );
     expect(workflow).not.toContain("trycloudflare.com");
   });
 });

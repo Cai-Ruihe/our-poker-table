@@ -91,7 +91,7 @@ test("a stale invitation explains Connection Service recreation", async ({
   try {
     const host = await hostContext.newPage();
     await host.goto("/");
-    await host.getByLabel("Private relay host token").fill(relayToken);
+    await host.getByLabel("Connection Service host token").fill(relayToken);
     await host.getByRole("button", { name: "Create table" }).click();
     const invitation = await host
       .getByLabel("Player invitation link")
@@ -108,7 +108,7 @@ test("a stale invitation explains Connection Service recreation", async ({
       "No route reached the Trusted Host. This table link may be stale after the host or Connection Service restarted. Ask the Trusted Host to refresh the relay ticket and share a new link, or create a new table.",
     );
 
-    await host.getByLabel("Private relay host token").fill(relayToken);
+    await host.getByLabel("Connection Service host token").fill(relayToken);
     await exerciseControl(
       "relay-ticket-refresh",
       host.locator('[data-qa-control="relay-ticket-refresh"]'),

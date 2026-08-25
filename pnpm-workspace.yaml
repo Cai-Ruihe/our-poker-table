@@ -3,6 +3,10 @@ packages:
   - packages/*
   - services/*
 
+allowBuilds:
+  esbuild: true
+  workerd: true
+
 minimumReleaseAge: 1440
 
 minimumReleaseAgeExclude:

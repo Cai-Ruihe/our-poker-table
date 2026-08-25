@@ -176,7 +176,7 @@ interface DirectCandidateMessage {
 type DirectSignalMessage =
   DirectAnswerMessage | DirectCandidateMessage | DirectOfferMessage;
 
-type RoomMessage =
+export type RoomMessage =
   | JoinRequestMessage
   | JoinResponseMessage
   | CapabilityRequestMessage
@@ -186,8 +186,53 @@ type RoomMessage =
   | RouteProbeAckMessage
   | DirectSignalMessage;
 
-type RoomRoute = "airplane" | "direct" | "private-relay" | "cloud-relay";
+export type RoomRoute = "airplane" | "direct" | "private-relay" | "cloud-relay";
 type RelayRoomRoute = "private-relay" | "cloud-relay";
+
+const logicalMessageIds = new WeakMap<object, string>();
+
+function logicalMessageId(message: RoomMessage): string {
+  if ("requestId" in message) return message.requestId;
+  const existing = logicalMessageIds.get(message);
+  if (existing) return existing;
+  const created = makeId("message");
+  logicalMessageIds.set(message, created);
+  return created;
+}
+
+export interface SerialRouteSendResult {
+  readonly messageId: string;
+  readonly route: RoomRoute;
+}
+
+/**
+ * Send one logical message through an ordered route list. A receipt timeout
+ * can cause the next route to be tried after the first relay already
+ * forwarded the frame, so every attempt must carry the same envelope ID.
+ */
+export async function sendWithSerialRouteFallback(
+  message: RoomMessage,
+  routes: readonly RoomRoute[],
+  send: (
+    route: RoomRoute,
+    message: RoomMessage,
+    messageId: string,
+  ) => Promise<void>,
+): Promise<SerialRouteSendResult> {
+  const messageId = logicalMessageId(message);
+  let lastError: unknown;
+  for (const route of routes) {
+    try {
+      await send(route, message, messageId);
+      return { messageId, route };
+    } catch (error) {
+      lastError = error;
+    }
+  }
+  throw lastError instanceof Error
+    ? lastError
+    : new Error("No configured route could send the message.");
+}
 
 interface RoutedRoomMessage {
   readonly message: RoomMessage;
@@ -208,6 +253,9 @@ interface RoomWireFrame {
 interface RelayRuntimeConfig {
   readonly accessToken?: string;
   readonly expiresAt?: number;
+  /** Peer identity this short-lived ticket is authorized to register. */
+  readonly peerId?: string;
+  readonly pairingWriteCapability?: string;
   readonly url: string;
 }
 
@@ -307,6 +355,12 @@ interface HostRecoveryState {
   readonly invitations: readonly Invitation[];
   readonly privacyClass: "host-recovery-secret";
   readonly relayRoutes?: RelayRouteConfiguration;
+  readonly relayRoutesByInvitationToken?: Readonly<
+    Record<string, RelayRouteConfiguration>
+  >;
+  readonly relayRoutesByPeerId?: Readonly<
+    Record<string, RelayRouteConfiguration>
+  >;
   readonly rulesProfile?: RulesProfile;
   readonly schemaVersion: 1;
 }
@@ -460,6 +514,35 @@ function cloneRelayRoutes(
   };
 }
 
+function optionalRelayRoutes(relayRoutes?: RelayRouteConfiguration): {
+  readonly relayRoutes?: RelayRouteConfiguration;
+} {
+  const cloned = cloneRelayRoutes(relayRoutes);
+  return cloned ? { relayRoutes: cloned } : {};
+}
+
+function relayRouteRecord(
+  entries: Iterable<readonly [string, RelayRouteConfiguration]>,
+): Record<string, RelayRouteConfiguration> {
+  const record: Record<string, RelayRouteConfiguration> = {};
+  for (const [key, routes] of entries) {
+    const cloned = cloneRelayRoutes(routes);
+    if (cloned) record[key] = cloned;
+  }
+  return record;
+}
+
+function relayPeerIdForRoutes(
+  relayRoutes: RelayRouteConfiguration | undefined,
+  fallback: string,
+): string {
+  return (
+    relayRoutes?.cloudRelay?.peerId ??
+    relayRoutes?.privateRelay?.peerId ??
+    fallback
+  );
+}
+
 const normalDisplayPairingPrefix = "HTMLPOKER-NORMAL-DISPLAY-1:";
 const normalDisplayPairingTtlMs = 5 * 60 * 1_000;
 
@@ -471,6 +554,9 @@ interface NormalDisplayPairingCode {
   readonly requestId: string;
   readonly requestedRole: NormalDisplayRole;
   readonly secret: string;
+  /** Ordered service endpoints. Cloudflare is first; Mac is the fallback. */
+  readonly serviceUrls?: readonly string[];
+  /** Kept for display QR compatibility with the single-relay format. */
   readonly serviceUrl: string;
 }
 
@@ -509,11 +595,19 @@ function relayServiceEndpoint(
 }
 
 function normalDisplayPairingServiceUrl(): string | undefined {
-  const relay =
-    relayConfigForRoute("private-relay") ?? relayConfigForRoute("cloud-relay");
-  return relay
-    ? relayServiceEndpoint(relay, "/v1/display-pairings")
-    : undefined;
+  return normalDisplayPairingServiceUrls()[0];
+}
+
+function normalDisplayPairingServiceUrls(): string[] {
+  const services: string[] = [];
+  for (const route of ["cloud-relay", "private-relay"] as const) {
+    const relay = relayConfigForRoute(route);
+    const serviceUrl = relay
+      ? relayServiceEndpoint(relay, "/v1/display-pairings")
+      : undefined;
+    if (serviceUrl && !services.includes(serviceUrl)) services.push(serviceUrl);
+  }
+  return services;
 }
 
 export function normalDisplayPairingIsConfigured(): boolean {
@@ -522,72 +616,104 @@ export function normalDisplayPairingIsConfigured(): boolean {
 
 export function normalRelayRequiresOperatorToken(): boolean {
   const relay =
-    relayConfigForRoute("private-relay") ?? relayConfigForRoute("cloud-relay");
+    relayConfigForRoute("cloud-relay") ?? relayConfigForRoute("private-relay");
   return Boolean(relay?.url);
 }
 
 async function provisionHostRelayRoutes(
   binding: PeerBinding,
   operatorToken?: string,
+  peerId = "host",
 ): Promise<RelayRouteConfiguration | undefined> {
-  const privateRelay = relayConfigForRoute("private-relay");
-  const route: RelayRoomRoute = privateRelay ? "private-relay" : "cloud-relay";
-  const relay = privateRelay ?? relayConfigForRoute("cloud-relay");
-  if (!relay?.url) return undefined;
+  const configuredRoutes = (["cloud-relay", "private-relay"] as const).flatMap(
+    (route) => {
+      const relay = relayConfigForRoute(route);
+      return relay?.url ? [{ relay, route }] : [];
+    },
+  );
+  if (configuredRoutes.length === 0) return undefined;
   if (!operatorToken?.trim()) {
     throw new Error(
       "A Connection Service host token is required when a relay is configured.",
     );
   }
-  const endpoint = relayServiceEndpoint(relay, "/v1/table-sessions");
-  if (!endpoint) {
-    throw new Error("The configured Connection Service URL is invalid.");
-  }
-  let response: Response;
-  try {
-    response = await fetch(endpoint, {
-      body: JSON.stringify({
-        hostKey: binding.hostKey,
-        protocolVersion: binding.protocolVersion,
-        tableId: binding.tableId,
-      }),
-      headers: {
-        authorization: `Bearer ${operatorToken.trim()}`,
-        "content-type": "application/json",
-      },
-      method: "POST",
-    });
-  } catch {
+  const settled = await Promise.allSettled(
+    configuredRoutes.map(async ({ relay, route }) => {
+      const endpoint = relayServiceEndpoint(relay, "/v1/table-sessions");
+      if (!endpoint) throw new Error("invalid endpoint");
+      const controller = new AbortController();
+      const timeout = globalThis.setTimeout(() => controller.abort(), 2_500);
+      let response: Response;
+      try {
+        response = await fetch(endpoint, {
+          body: JSON.stringify({
+            hostKey: binding.hostKey,
+            peerId,
+            protocolVersion: binding.protocolVersion,
+            tableId: binding.tableId,
+          }),
+          headers: {
+            authorization: `Bearer ${operatorToken.trim()}`,
+            "content-type": "application/json",
+          },
+          method: "POST",
+          signal: controller.signal,
+        });
+      } finally {
+        globalThis.clearTimeout(timeout);
+      }
+      if (!response.ok) throw new Error("ticket request rejected");
+      const ticket = (await response.json()) as Partial<{
+        accessToken: string;
+        expiresAt: number;
+        pairingWriteCapability: string;
+        peerId: string;
+      }>;
+      if (
+        typeof ticket.accessToken !== "string" ||
+        ticket.accessToken.length < 16 ||
+        ticket.accessToken.length > 512 ||
+        typeof ticket.expiresAt !== "number" ||
+        !Number.isSafeInteger(ticket.expiresAt) ||
+        ticket.expiresAt <= Date.now() ||
+        typeof ticket.pairingWriteCapability !== "string" ||
+        ticket.pairingWriteCapability.length < 16 ||
+        ticket.pairingWriteCapability.length > 512 ||
+        ticket.peerId !== peerId
+      ) {
+        throw new Error("invalid relay ticket");
+      }
+      return {
+        relay: {
+          accessToken: ticket.accessToken,
+          expiresAt: ticket.expiresAt,
+          pairingWriteCapability: ticket.pairingWriteCapability,
+          peerId,
+          url: relay.url,
+        } satisfies RelayRuntimeConfig,
+        route,
+      };
+    }),
+  );
+  const successful = settled.flatMap((result) =>
+    result.status === "fulfilled" ? [result.value] : [],
+  );
+  if (successful.length === 0) {
+    if (configuredRoutes.length === 1) {
+      throw new Error(
+        "The Connection Service is unreachable. Normal Mode needs its relay online. Ask the table owner to restore it, or use Airplane Mode.",
+      );
+    }
     throw new Error(
-      "The Connection Service is unreachable. Normal Mode needs its relay online. Ask the table owner to restore it, or use Airplane Mode.",
+      "Neither the Cloudflare relay nor the Mac fallback could issue a table ticket.",
     );
   }
-  if (!response.ok) {
-    throw new Error("The Connection Service rejected the host operator token.");
-  }
-  const ticket = (await response.json()) as Partial<{
-    accessToken: string;
-    expiresAt: number;
-  }>;
-  const expiresAt = ticket.expiresAt;
-  if (
-    typeof ticket.accessToken !== "string" ||
-    ticket.accessToken.length < 16 ||
-    ticket.accessToken.length > 512 ||
-    typeof expiresAt !== "number" ||
-    !Number.isSafeInteger(expiresAt) ||
-    expiresAt <= Date.now()
-  ) {
-    throw new Error("The Connection Service returned an invalid relay ticket.");
-  }
-  const issuedRelay: RelayRuntimeConfig = {
-    accessToken: ticket.accessToken,
-    expiresAt,
-    url: relay.url,
-  };
-  return route === "private-relay"
-    ? { privateRelay: issuedRelay }
-    : { cloudRelay: issuedRelay };
+  return Object.fromEntries(
+    successful.map(({ relay, route }) => [
+      route === "cloud-relay" ? "cloudRelay" : "privateRelay",
+      relay,
+    ]),
+  ) as RelayRouteConfiguration;
 }
 
 function encodeNormalDisplayPairingCode(
@@ -647,6 +773,26 @@ function decodeNormalDisplayPairingCode(
   } catch {
     throw new Error("The Normal display pairing QR service is invalid.");
   }
+  if (code.serviceUrls !== undefined) {
+    if (
+      !Array.isArray(code.serviceUrls) ||
+      code.serviceUrls.length < 1 ||
+      code.serviceUrls.length > 2 ||
+      code.serviceUrls.some((value) => typeof value !== "string")
+    ) {
+      throw new Error("The Normal display pairing QR services are invalid.");
+    }
+    for (const value of code.serviceUrls) {
+      try {
+        const serviceUrl = new URL(value);
+        if (!["http:", "https:"].includes(serviceUrl.protocol)) {
+          throw new Error("unsupported service protocol");
+        }
+      } catch {
+        throw new Error("The Normal display pairing QR service is invalid.");
+      }
+    }
+  }
   return code as NormalDisplayPairingCode;
 }
 
@@ -673,7 +819,8 @@ function validNormalDisplayPairingResponse(
 export function createNormalDisplayPairingRequest(
   role: NormalDisplayRole,
 ): NormalDisplayPairingRequest {
-  const serviceUrl = normalDisplayPairingServiceUrl();
+  const serviceUrls = normalDisplayPairingServiceUrls();
+  const serviceUrl = serviceUrls[0];
   if (!serviceUrl) {
     throw new Error(
       "This deployment has no Connection Service configured for Normal display pairing.",
@@ -685,6 +832,7 @@ export function createNormalDisplayPairingRequest(
     requestId: makeId("display-request"),
     requestedRole: role,
     secret: makeId("display-pair-secret"),
+    ...(serviceUrls.length > 1 ? { serviceUrls } : {}),
     serviceUrl,
   };
   let cancelled = false;
@@ -697,50 +845,66 @@ export function createNormalDisplayPairingRequest(
     },
     async waitForInvitation() {
       while (!cancelled && Date.now() < code.expiresAt) {
-        const response = await fetch(
-          `${code.serviceUrl}/${encodeURIComponent(code.requestId)}`,
-          { cache: "no-store" },
-        );
-        if (response.status === 204) {
+        let pending = false;
+        for (const service of code.serviceUrls ?? [code.serviceUrl]) {
+          let response: Response;
+          const controller = new AbortController();
+          const timeout = globalThis.setTimeout(
+            () => controller.abort(),
+            2_500,
+          );
+          try {
+            response = await fetch(
+              `${service}/${encodeURIComponent(code.requestId)}`,
+              { cache: "no-store", signal: controller.signal },
+            );
+          } catch {
+            globalThis.clearTimeout(timeout);
+            continue;
+          }
+          globalThis.clearTimeout(timeout);
+          if (response.status === 204) {
+            pending = true;
+            continue;
+          }
+          if (!response.ok) continue;
+          const sealed = (await response.json()) as SealedValue & {
+            readonly expiresAt?: unknown;
+          };
+          if (
+            typeof sealed.expiresAt !== "number" ||
+            sealed.expiresAt !== code.expiresAt
+          ) {
+            throw new Error(
+              "The Normal display pairing response did not match its request.",
+            );
+          }
+          const invitation = await unseal<unknown>(
+            code.secret,
+            sealed,
+            `display-pair:${code.requestId}`,
+          );
+          if (
+            !validNormalDisplayPairingResponse(invitation, code.requestedRole)
+          ) {
+            throw new Error(
+              "The Normal display pairing response was rejected.",
+            );
+          }
+          return {
+            binding: invitation.binding,
+            invitationToken: invitation.invitationToken,
+            ...(invitation.relayRoutes
+              ? { relayRoutes: invitation.relayRoutes }
+              : {}),
+            role: invitation.role,
+          };
+        }
+        if (pending) {
           await new Promise<void>((resolve) => {
             globalThis.setTimeout(resolve, 350);
           });
-          continue;
         }
-        if (!response.ok) {
-          throw new Error(
-            "The Normal display pairing service did not respond.",
-          );
-        }
-        const sealed = (await response.json()) as SealedValue & {
-          readonly expiresAt?: unknown;
-        };
-        if (
-          typeof sealed.expiresAt !== "number" ||
-          sealed.expiresAt !== code.expiresAt
-        ) {
-          throw new Error(
-            "The Normal display pairing response did not match its request.",
-          );
-        }
-        const invitation = await unseal<unknown>(
-          code.secret,
-          sealed,
-          `display-pair:${code.requestId}`,
-        );
-        if (
-          !validNormalDisplayPairingResponse(invitation, code.requestedRole)
-        ) {
-          throw new Error("The Normal display pairing response was rejected.");
-        }
-        return {
-          binding: invitation.binding,
-          invitationToken: invitation.invitationToken,
-          ...(invitation.relayRoutes
-            ? { relayRoutes: invitation.relayRoutes }
-            : {}),
-          role: invitation.role,
-        };
       }
       throw new Error(
         cancelled
@@ -849,6 +1013,10 @@ class RoomEndpoint {
   private readonly localPeerId: string;
   private readonly peerRoutes = new Map<string, RoomRoute>();
   private readonly probeReceipts = new Map<string, () => void>();
+  private readonly relayReceipts = new Map<
+    string,
+    (status: "relayed" | "rejected") => void
+  >();
   private readonly relayConnections = new Map<
     RelayRoomRoute,
     Promise<WebSocket>
@@ -876,7 +1044,7 @@ class RoomEndpoint {
         this.handleIncoming(event.data, "direct");
       },
     );
-    for (const route of ["private-relay", "cloud-relay"] as const) {
+    for (const route of ["cloud-relay", "private-relay"] as const) {
       if (relayConfigForRoute(route, this.relayRoutes)) {
         void this.connectRelay(route).catch(() => undefined);
       }
@@ -888,6 +1056,7 @@ class RoomEndpoint {
     this.closed = true;
     this.listeners.clear();
     this.probeReceipts.clear();
+    this.relayReceipts.clear();
     this.broadcast.close();
     for (const channel of this.airplaneChannels.values()) channel.close();
     this.airplaneChannels.clear();
@@ -916,7 +1085,7 @@ class RoomEndpoint {
   updateRelayRoutes(relayRoutes?: RelayRouteConfiguration): void {
     const previous = this.relayRoutes;
     this.relayRoutes = cloneRelayRoutes(relayRoutes);
-    for (const route of ["private-relay", "cloud-relay"] as const) {
+    for (const route of ["cloud-relay", "private-relay"] as const) {
       const previousConfig = relayConfigForRoute(route, previous);
       const nextConfig = relayConfigForRoute(route, this.relayRoutes);
       const changed =
@@ -942,7 +1111,7 @@ class RoomEndpoint {
   async resume(): Promise<void> {
     if (this.closed) throw new Error("The room route is closed.");
     this.selectedRoute = undefined;
-    const routes = (["private-relay", "cloud-relay"] as const).filter((route) =>
+    const routes = (["cloud-relay", "private-relay"] as const).filter((route) =>
       Boolean(relayConfigForRoute(route, this.relayRoutes)),
     );
     if (routes.length === 0) return;
@@ -996,10 +1165,13 @@ class RoomEndpoint {
 
   async broadcastChange(message: RoomMessage): Promise<void> {
     await this.sendOn("direct", message, "*").catch(() => undefined);
-    for (const [peerId, route] of this.peerRoutes) {
-      if (route === "direct") continue;
-      await this.sendOn(route, message, peerId).catch(() => undefined);
-    }
+    await Promise.all(
+      [...this.peerRoutes]
+        .filter(([, route]) => route !== "direct")
+        .map(([peerId, route]) =>
+          this.sendToKnownPeer(route, message, peerId).catch(() => undefined),
+        ),
+    );
   }
 
   async send(
@@ -1007,13 +1179,14 @@ class RoomEndpoint {
     recipientPeerId: string,
   ): Promise<RoomRoute> {
     const route = await this.selectRoute();
+    const messageId = logicalMessageId(message);
     try {
-      await this.sendOn(route, message, recipientPeerId);
+      await this.sendOn(route, message, recipientPeerId, messageId);
       return route;
     } catch {
       this.selectedRoute = undefined;
       const fallback = await this.selectRoute(route);
-      await this.sendOn(fallback, message, recipientPeerId);
+      await this.sendOn(fallback, message, recipientPeerId, messageId);
       return fallback;
     }
   }
@@ -1022,6 +1195,7 @@ class RoomEndpoint {
     route: RoomRoute,
     message: RoomMessage,
     recipientPeerId: string,
+    messageId = logicalMessageId(message),
   ): Promise<void> {
     if (this.closed) throw new Error("The room route is closed.");
     const frame: RoomWireFrame = {
@@ -1061,24 +1235,28 @@ class RoomEndpoint {
       throw new Error("The configured relay is not open.");
     }
     this.sequence += 1;
-    socket.send(
-      JSON.stringify({
-        envelope: {
-          ciphertext: JSON.stringify(frame.message),
-          hostKey: frame.hostKey,
-          messageId:
-            "requestId" in frame.message
-              ? frame.message.requestId
-              : makeId("message"),
-          protocolVersion: frame.protocolVersion,
-          recipientPeerId,
-          senderPeerId: frame.senderPeerId,
-          sequence: this.sequence,
-          tableId: frame.tableId,
-        },
-        type: "envelope",
-      }),
-    );
+    const receipt = this.waitForRelayReceipt(route, messageId);
+    try {
+      socket.send(
+        JSON.stringify({
+          envelope: {
+            ciphertext: JSON.stringify(frame.message),
+            hostKey: frame.hostKey,
+            messageId,
+            protocolVersion: frame.protocolVersion,
+            recipientPeerId,
+            senderPeerId: frame.senderPeerId,
+            sequence: this.sequence,
+            tableId: frame.tableId,
+          },
+          type: "envelope",
+        }),
+      );
+    } catch (error) {
+      this.completeRelayReceipt(route, messageId, "rejected");
+      throw error;
+    }
+    await receipt;
   }
 
   subscribe(listener: (event: RoutedRoomMessage) => void): () => void {
@@ -1119,7 +1297,7 @@ class RoomEndpoint {
             JSON.stringify({
               accessToken: config.accessToken,
               hostKey: this.binding.hostKey,
-              peerId: this.localPeerId,
+              peerId: config.peerId ?? this.localPeerId,
               protocolVersion: this.binding.protocolVersion,
               tableId: this.binding.tableId,
               type: "register",
@@ -1145,6 +1323,7 @@ class RoomEndpoint {
               readonly senderPeerId?: string;
               readonly tableId?: string;
             };
+            readonly messageId?: string;
             readonly status?: string;
             readonly type?: string;
           };
@@ -1157,6 +1336,14 @@ class RoomEndpoint {
             globalThis.clearTimeout(timeout);
             this.relaySockets.set(route, socket);
             resolve(socket);
+            return;
+          }
+          if (
+            receipt.type === "receipt" &&
+            typeof receipt.messageId === "string" &&
+            (receipt.status === "relayed" || receipt.status === "rejected")
+          ) {
+            this.completeRelayReceipt(route, receipt.messageId, receipt.status);
             return;
           }
           if (receipt.type !== "envelope" || !receipt.envelope) return;
@@ -1199,6 +1386,7 @@ class RoomEndpoint {
           this.relayConnections.delete(route);
         }
         if (!settled) fail();
+        this.rejectRelayReceipts(route);
         if (this.selectedRoute === route) this.selectedRoute = undefined;
       });
     });
@@ -1319,7 +1507,7 @@ class RoomEndpoint {
   }
 
   private async directSignalRoute(): Promise<RelayRoomRoute | undefined> {
-    for (const route of ["private-relay", "cloud-relay"] as const) {
+    for (const route of ["cloud-relay", "private-relay"] as const) {
       if (!relayConfigForRoute(route, this.relayRoutes)) continue;
       try {
         await this.connectRelay(route);
@@ -1452,6 +1640,80 @@ class RoomEndpoint {
     await this.sendOn(route, message, peerId);
   }
 
+  /**
+   * A relay confirms that it accepted and forwarded every opaque frame. If a
+   * Cloudflare socket has become half-open, that bounded receipt wait fails
+   * instead of silently losing a host broadcast. A state notification is safe
+   * to retry through the other relay because receivers refresh by revision.
+   */
+  private async sendToKnownPeer(
+    preferred: RoomRoute,
+    message: RoomMessage,
+    peerId: string,
+  ): Promise<void> {
+    const routes = [
+      preferred,
+      ...(["cloud-relay", "private-relay"] as const).filter(
+        (route) => route !== preferred,
+      ),
+    ];
+    try {
+      const result = await sendWithSerialRouteFallback(
+        message,
+        routes,
+        (route, logicalMessage, messageId) =>
+          this.sendOn(route, logicalMessage, peerId, messageId),
+      );
+      if (result.route !== preferred) {
+        this.peerRoutes.set(peerId, result.route);
+      }
+    } catch (error) {
+      if (this.selectedRoute === preferred) this.selectedRoute = undefined;
+      throw error;
+    }
+  }
+
+  private relayReceiptKey(route: RelayRoomRoute, messageId: string): string {
+    return `${route}:${messageId}`;
+  }
+
+  private waitForRelayReceipt(
+    route: RelayRoomRoute,
+    messageId: string,
+  ): Promise<void> {
+    const key = this.relayReceiptKey(route, messageId);
+    return new Promise((resolve, reject) => {
+      const timeout = globalThis.setTimeout(() => {
+        this.relayReceipts.delete(key);
+        reject(new Error(`${route} delivery receipt timed out.`));
+      }, 900);
+      this.relayReceipts.set(key, (status) => {
+        globalThis.clearTimeout(timeout);
+        this.relayReceipts.delete(key);
+        if (status === "relayed") {
+          resolve();
+          return;
+        }
+        reject(new Error(`${route} rejected the opaque frame.`));
+      });
+    });
+  }
+
+  private completeRelayReceipt(
+    route: RelayRoomRoute,
+    messageId: string,
+    status: "relayed" | "rejected",
+  ): void {
+    this.relayReceipts.get(this.relayReceiptKey(route, messageId))?.(status);
+  }
+
+  private rejectRelayReceipts(route: RelayRoomRoute): void {
+    for (const [key, complete] of this.relayReceipts) {
+      if (!key.startsWith(`${route}:`)) continue;
+      complete("rejected");
+    }
+  }
+
   private async probe(route: RoomRoute): Promise<boolean> {
     if (route === "airplane" && this.airplaneChannels.size === 0) return false;
     if (route === "direct" && this.localPeerId !== "host") {
@@ -1500,8 +1762,8 @@ class RoomEndpoint {
     for (const route of [
       "airplane",
       "direct",
-      "private-relay",
       "cloud-relay",
+      "private-relay",
     ] as const) {
       if (route === exclude) continue;
       if (await this.probe(route)) {
@@ -1709,6 +1971,13 @@ interface HostRuntimeOptions {
   readonly identity: RoomIdentity;
   readonly invitations: readonly Invitation[];
   readonly lease: ExclusiveHostLease;
+  readonly operatorToken?: string;
+  readonly relayRoutesByInvitationToken?: Readonly<
+    Record<string, RelayRouteConfiguration>
+  >;
+  readonly relayRoutesByPeerId?: Readonly<
+    Record<string, RelayRouteConfiguration>
+  >;
   readonly relayRoutes?: RelayRouteConfiguration;
   readonly recoveryRevision: number;
   readonly recoveryStore: AtomicTableStore<HostRecoveryState>;
@@ -1729,6 +1998,10 @@ export class HostTableRuntime {
   private authority: TrustedHostAuthority | undefined;
   private readonly airplanePairings = new Map<string, HostAirplanePairing>();
   private readonly capabilitySecrets = new Map<string, string>();
+  private readonly cachedResponses = new Map<
+    string,
+    JoinResponseMessage | CapabilityResponseMessage
+  >();
   private readonly endpoint: RoomEndpoint;
   private readonly diagnosticSalt: string;
   private error: string | undefined;
@@ -1738,6 +2011,16 @@ export class HostTableRuntime {
   private readonly invitations = new Map<CapabilityRole, Invitation>();
   private readonly lease: ExclusiveHostLease;
   private readonly listeners = new Set<() => void>();
+  /** Kept only in host memory; never persisted or sent to a client. */
+  private operatorToken: string | undefined;
+  private readonly relayRoutesByInvitationToken = new Map<
+    string,
+    RelayRouteConfiguration
+  >();
+  private readonly relayRoutesByPeerId = new Map<
+    string,
+    RelayRouteConfiguration
+  >();
   private operationQueue: Promise<void> = Promise.resolve();
   private projection: PublicProjection | undefined;
   private recoveryRevision: number;
@@ -1753,10 +2036,23 @@ export class HostTableRuntime {
     this.diagnosticSalt = options.diagnosticSalt;
     this.identity = options.identity;
     this.lease = options.lease;
+    this.operatorToken = options.operatorToken?.trim() || undefined;
     this.relayRouteConfiguration = cloneRelayRoutes(options.relayRoutes);
     this.recoveryRevision = options.recoveryRevision;
     this.recoveryStore = options.recoveryStore;
     this.rulesProfile = structuredClone(options.rulesProfile);
+    for (const [token, routes] of Object.entries(
+      options.relayRoutesByInvitationToken ?? {},
+    )) {
+      const cloned = cloneRelayRoutes(routes);
+      if (cloned) this.relayRoutesByInvitationToken.set(token, cloned);
+    }
+    for (const [peerId, routes] of Object.entries(
+      options.relayRoutesByPeerId ?? {},
+    )) {
+      const cloned = cloneRelayRoutes(routes);
+      if (cloned) this.relayRoutesByPeerId.set(peerId, cloned);
+    }
     this.diagnostics = createDiagnosticLog({
       pseudonymSalt: options.diagnosticSalt,
     });
@@ -1791,6 +2087,14 @@ export class HostTableRuntime {
     return cloneRelayRoutes(this.relayRouteConfiguration);
   }
 
+  relayRoutesForInvitation(
+    invitation: Invitation,
+  ): RelayRouteConfiguration | undefined {
+    return cloneRelayRoutes(
+      this.relayRoutesByInvitationToken.get(invitation.token),
+    );
+  }
+
   static async createNew(
     options: HostRuntimeCreateOptions = {},
   ): Promise<HostTableRuntime> {
@@ -1821,6 +2125,9 @@ export class HostTableRuntime {
       identity,
       invitations: [],
       lease: await acquireHostLease(tableId, false),
+      ...(options.operatorToken
+        ? { operatorToken: options.operatorToken }
+        : {}),
       ...(relayRoutes ? { relayRoutes } : {}),
       recoveryRevision: 0,
       recoveryStore: hostRecoveryStore(tableId),
@@ -1853,6 +2160,15 @@ export class HostTableRuntime {
         lease,
         ...(saved.state.relayRoutes
           ? { relayRoutes: saved.state.relayRoutes }
+          : {}),
+        ...(saved.state.relayRoutesByInvitationToken
+          ? {
+              relayRoutesByInvitationToken:
+                saved.state.relayRoutesByInvitationToken,
+            }
+          : {}),
+        ...(saved.state.relayRoutesByPeerId
+          ? { relayRoutesByPeerId: saved.state.relayRoutesByPeerId }
           : {}),
         recoveryRevision: saved.revision,
         recoveryStore,
@@ -1956,11 +2272,27 @@ export class HostTableRuntime {
   async pairNormalDisplay(requestCode: string): Promise<NormalDisplayRole> {
     return this.runExclusive(async () => {
       const request = decodeNormalDisplayPairingCode(requestCode);
-      const configuredServiceUrl = normalDisplayPairingServiceUrl();
-      if (
-        !configuredServiceUrl ||
-        configuredServiceUrl !== request.serviceUrl
-      ) {
+      const configuredServiceUrls = normalDisplayPairingServiceUrls();
+      const requestServiceUrls = request.serviceUrls ?? [request.serviceUrl];
+      const candidateServices = (
+        ["cloud-relay", "private-relay"] as const
+      ).flatMap((route) => {
+        const relay = relayConfigForRoute(route, this.relayRouteConfiguration);
+        const serviceUrl = relay
+          ? relayServiceEndpoint(relay, "/v1/display-pairings")
+          : undefined;
+        if (
+          !relay ||
+          !serviceUrl ||
+          !configuredServiceUrls.includes(serviceUrl) ||
+          !requestServiceUrls.includes(serviceUrl) ||
+          !relay.pairingWriteCapability
+        ) {
+          return [];
+        }
+        return [{ capability: relay.pairingWriteCapability, serviceUrl }];
+      });
+      if (candidateServices.length === 0) {
         throw new Error(
           "This display pairing QR belongs to a different Connection Service.",
         );
@@ -1975,27 +2307,50 @@ export class HostTableRuntime {
           "The display capability invitation could not be created.",
         );
       }
+      const invitationRelayRoutes = this.relayRoutesByInvitationToken.get(
+        invitation.token,
+      );
       const sealed = await seal(
         request.secret,
         {
           binding: { ...this.binding },
           invitationToken: invitation.token,
-          ...(this.relayRouteConfiguration
-            ? { relayRoutes: this.relayRouteConfiguration }
+          ...(invitationRelayRoutes
+            ? { relayRoutes: cloneRelayRoutes(invitationRelayRoutes) }
             : {}),
           role: request.requestedRole,
         },
         `display-pair:${request.requestId}`,
       );
-      const response = await fetch(
-        `${configuredServiceUrl}/${encodeURIComponent(request.requestId)}`,
-        {
-          body: JSON.stringify({ ...sealed, expiresAt: request.expiresAt }),
-          headers: { "content-type": "application/json" },
-          method: "PUT",
-        },
-      );
-      if (!response.ok) {
+      let paired = false;
+      for (const { capability, serviceUrl } of candidateServices) {
+        const controller = new AbortController();
+        const timeout = globalThis.setTimeout(() => controller.abort(), 2_500);
+        try {
+          const response = await fetch(
+            `${serviceUrl}/${encodeURIComponent(request.requestId)}`,
+            {
+              body: JSON.stringify({ ...sealed, expiresAt: request.expiresAt }),
+              headers: {
+                authorization: `Bearer ${capability}`,
+                "content-type": "application/json",
+              },
+              method: "PUT",
+              signal: controller.signal,
+            },
+          );
+          globalThis.clearTimeout(timeout);
+          if (response.ok) {
+            paired = true;
+            break;
+          }
+        } catch {
+          globalThis.clearTimeout(timeout);
+          // Cloudflare being unavailable must not prevent the Mac relay from
+          // receiving the same one-shot display pairing response.
+        }
+      }
+      if (!paired) {
         throw new Error(
           "The Connection Service did not accept this display pairing response.",
         );
@@ -2102,15 +2457,42 @@ export class HostTableRuntime {
 
   async refreshRelaySession(operatorToken: string): Promise<void> {
     await this.runExclusive(async () => {
+      this.operatorToken = operatorToken.trim() || undefined;
       const relayRoutes = await provisionHostRelayRoutes(
         this.binding,
         operatorToken,
+        "host",
       );
       if (!relayRoutes) {
         throw new Error("No Connection Service is configured for this table.");
       }
       this.relayRouteConfiguration = cloneRelayRoutes(relayRoutes);
       this.endpoint.updateRelayRoutes(this.relayRouteConfiguration);
+      for (const invitation of this.invitations.values()) {
+        const existingRoutes = this.relayRoutesByInvitationToken.get(
+          invitation.token,
+        );
+        const peerId = relayPeerIdForRoutes(
+          existingRoutes,
+          `invite-${await digest(invitation.token)}`,
+        );
+        const routes = await provisionHostRelayRoutes(
+          this.binding,
+          operatorToken,
+          peerId,
+        );
+        if (routes)
+          this.relayRoutesByInvitationToken.set(invitation.token, routes);
+      }
+      for (const peerId of this.relayRoutesByPeerId.keys()) {
+        const routes = await provisionHostRelayRoutes(
+          this.binding,
+          operatorToken,
+          peerId,
+        );
+        if (routes) this.relayRoutesByPeerId.set(peerId, routes);
+      }
+      // The supplied token remains only for this live host document.
       await this.persistRecovery();
       // Existing connected clients refresh a sealed capability response and
       // receive the renewed ticket expiry without exposing it to the relay.
@@ -2200,9 +2582,9 @@ export class HostTableRuntime {
   }
 
   snapshot(): HostRuntimeSnapshot {
-    const privateRelay = this.relayRouteConfiguration?.privateRelay;
     const cloudRelay = this.relayRouteConfiguration?.cloudRelay;
-    const relay = privateRelay ?? cloudRelay;
+    const privateRelay = this.relayRouteConfiguration?.privateRelay;
+    const relay = cloudRelay ?? privateRelay;
     return {
       connectionLabel: this.endpoint.connectionLabel(),
       ...(this.error ? { error: this.error } : {}),
@@ -2225,7 +2607,7 @@ export class HostTableRuntime {
         ? {
             relaySession: {
               expiresAt: relay.expiresAt,
-              route: privateRelay ? "private-relay" : "cloud-relay",
+              route: cloudRelay ? "cloud-relay" : "private-relay",
             },
           }
         : {}),
@@ -2389,8 +2771,17 @@ export class HostTableRuntime {
     senderPeerId: string,
     route: RoomRoute,
   ): Promise<void> {
+    const replayKey = `join:${message.invitationDigest}:${message.requestId}`;
+    const cachedResponse = this.cachedResponse(replayKey);
+    if (cachedResponse) {
+      await this.endpoint.sendOn(route, cachedResponse, senderPeerId);
+      return;
+    }
     const invitation = this.invitationByDigest.get(message.invitationDigest);
     if (!invitation) return;
+    const invitationRelayRoutes = this.relayRoutesByInvitationToken.get(
+      invitation.token,
+    );
     const aad = `join:${this.tableId}:${message.requestId}`;
     let payload: JoinRequestPayload;
     try {
@@ -2437,7 +2828,14 @@ export class HostTableRuntime {
     }
 
     if (response.status === "accepted") {
+      if (invitationRelayRoutes) {
+        this.relayRoutesByPeerId.set(
+          senderPeerId,
+          cloneRelayRoutes(invitationRelayRoutes) as RelayRouteConfiguration,
+        );
+      }
       await this.removeInvitation(invitation);
+      this.relayRoutesByInvitationToken.delete(invitation.token);
       if (
         invitation.role === "player" &&
         this.identity.roster().seats.length < 10
@@ -2446,16 +2844,13 @@ export class HostTableRuntime {
       }
       await this.persistRecovery();
     }
-    const sealed = await seal(invitation.token, response, aad);
-    await this.endpoint.sendOn(
-      route,
-      {
-        ...sealed,
-        kind: "join-response",
-        requestId: message.requestId,
-      } satisfies JoinResponseMessage,
-      senderPeerId,
-    );
+    const sealed = {
+      ...(await seal(invitation.token, response, aad)),
+      kind: "join-response",
+      requestId: message.requestId,
+    } satisfies JoinResponseMessage;
+    this.rememberResponse(replayKey, sealed);
+    await this.endpoint.sendOn(route, sealed, senderPeerId);
     this.refreshProjection();
     this.emit();
   }
@@ -2481,6 +2876,12 @@ export class HostTableRuntime {
     senderPeerId: string,
     route: RoomRoute,
   ): Promise<void> {
+    const replayKey = `capability:${message.capabilityId}:${message.requestId}`;
+    const cachedResponse = this.cachedResponse(replayKey);
+    if (cachedResponse) {
+      await this.endpoint.sendOn(route, cachedResponse, senderPeerId);
+      return;
+    }
     const secret = this.capabilitySecrets.get(message.capabilityId);
     if (!secret) return;
     const aad = `cap:${this.tableId}:${message.capabilityId}:${message.requestId}`;
@@ -2538,27 +2939,29 @@ export class HostTableRuntime {
       response = this.capabilityProjection(
         authenticated.role,
         authenticated.seatId,
+        senderPeerId,
       );
       await this.persistRecovery();
       this.emit();
     }
-    const sealed = await seal(secret, response, aad);
-    await this.endpoint.sendOn(
-      route,
-      {
-        ...sealed,
-        capabilityId: message.capabilityId,
-        kind: "capability-response",
-        requestId: message.requestId,
-      } satisfies CapabilityResponseMessage,
-      senderPeerId,
-    );
+    const sealed = {
+      ...(await seal(secret, response, aad)),
+      capabilityId: message.capabilityId,
+      kind: "capability-response",
+      requestId: message.requestId,
+    } satisfies CapabilityResponseMessage;
+    this.rememberResponse(replayKey, sealed);
+    await this.endpoint.sendOn(route, sealed, senderPeerId);
   }
 
   private capabilityProjection(
     role: CapabilityRole,
     seatId?: string,
+    relayPeerId?: string,
   ): CapabilityResponsePayload {
+    const relayRoutes = relayPeerId
+      ? this.relayRoutesByPeerId.get(relayPeerId)
+      : undefined;
     const tableTheme = this.authority
       ? this.authority.project({ kind: "public" }).tableTheme
       : "dark-green";
@@ -2575,9 +2978,7 @@ export class HostTableRuntime {
       if (!this.authority) {
         return {
           futureSittingOut: seat.futureSittingOut,
-          ...(this.relayRouteConfiguration
-            ? { relayRoutes: this.relayRouteConfiguration }
-            : {}),
+          ...optionalRelayRoutes(relayRoutes),
           role,
           seat,
           status: "waiting",
@@ -2595,18 +2996,14 @@ export class HostTableRuntime {
         return {
           futureSittingOut: seat.futureSittingOut,
           projection,
-          ...(this.relayRouteConfiguration
-            ? { relayRoutes: this.relayRouteConfiguration }
-            : {}),
+          ...optionalRelayRoutes(relayRoutes),
           role,
           status: "projection",
         };
       } catch {
         return {
           futureSittingOut: seat.futureSittingOut,
-          ...(this.relayRouteConfiguration
-            ? { relayRoutes: this.relayRouteConfiguration }
-            : {}),
+          ...optionalRelayRoutes(relayRoutes),
           role,
           seat,
           status: "waiting",
@@ -2617,9 +3014,7 @@ export class HostTableRuntime {
     }
     if (!this.authority) {
       return {
-        ...(this.relayRouteConfiguration
-          ? { relayRoutes: this.relayRouteConfiguration }
-          : {}),
+        ...optionalRelayRoutes(relayRoutes),
         role,
         status: "waiting",
         cardStyle,
@@ -2634,9 +3029,7 @@ export class HostTableRuntime {
     }
     return {
       projection,
-      ...(this.relayRouteConfiguration
-        ? { relayRoutes: this.relayRouteConfiguration }
-        : {}),
+      ...optionalRelayRoutes(relayRoutes),
       role,
       status: "projection",
     };
@@ -2766,6 +3159,25 @@ export class HostTableRuntime {
     role: CapabilityRole,
     seatId?: string,
   ): Promise<void> {
+    let relayRoutes: RelayRouteConfiguration | undefined;
+    let relayPeerId: string | undefined;
+    if (this.relayRouteConfiguration) {
+      if (!this.operatorToken) {
+        throw new Error(
+          "A host operator token is required to issue a new Normal Mode invitation.",
+        );
+      }
+      // Allocate the relay ticket before mutating identity. A transient relay
+      // outage must not revoke the previous invitation and leave the join
+      // window with a link that has no authorized peer ticket.
+      relayPeerId = makeId("invite-peer");
+      relayRoutes = await provisionHostRelayRoutes(
+        this.binding,
+        this.operatorToken,
+        relayPeerId,
+      );
+      if (!relayRoutes) throw new Error("No Connection Service is configured.");
+    }
     const invitation = this.identity.issueInvitation({
       role,
       ...(seatId ? { seatId } : {}),
@@ -2773,6 +3185,9 @@ export class HostTableRuntime {
     });
     this.invitations.set(role, invitation);
     this.invitationByDigest.set(await digest(invitation.token), invitation);
+    if (relayRoutes && relayPeerId) {
+      this.relayRoutesByInvitationToken.set(invitation.token, relayRoutes);
+    }
   }
 
   private async persistRecovery(): Promise<void> {
@@ -2791,6 +3206,18 @@ export class HostTableRuntime {
         privacyClass: "host-recovery-secret",
         ...(this.relayRouteConfiguration
           ? { relayRoutes: this.relayRouteConfiguration }
+          : {}),
+        ...(this.relayRoutesByInvitationToken.size > 0
+          ? {
+              relayRoutesByInvitationToken: relayRouteRecord(
+                this.relayRoutesByInvitationToken,
+              ),
+            }
+          : {}),
+        ...(this.relayRoutesByPeerId.size > 0
+          ? {
+              relayRoutesByPeerId: relayRouteRecord(this.relayRoutesByPeerId),
+            }
           : {}),
         rulesProfile: structuredClone(this.rulesProfile),
         schemaVersion: 1,
@@ -2828,6 +3255,24 @@ export class HostTableRuntime {
   private async rebuildInvitationDigests(): Promise<void> {
     for (const invitation of this.invitations.values()) {
       this.invitationByDigest.set(await digest(invitation.token), invitation);
+    }
+  }
+
+  private cachedResponse(
+    key: string,
+  ): JoinResponseMessage | CapabilityResponseMessage | undefined {
+    return this.cachedResponses.get(key);
+  }
+
+  private rememberResponse(
+    key: string,
+    response: JoinResponseMessage | CapabilityResponseMessage,
+  ): void {
+    this.cachedResponses.set(key, response);
+    while (this.cachedResponses.size > 512) {
+      const oldestKey = this.cachedResponses.keys().next().value;
+      if (typeof oldestKey !== "string") return;
+      this.cachedResponses.delete(oldestKey);
     }
   }
 
@@ -3049,7 +3494,7 @@ export class TableClientRuntime {
     this.status = options.credential ? "waiting" : "joining";
     this.endpoint = new RoomEndpoint(
       this.binding,
-      this.clientInstanceId,
+      relayPeerIdForRoutes(this.relayRoutes, this.clientInstanceId),
       this.relayRoutes,
     );
     if (options.airplanePairing) {
@@ -3483,10 +3928,51 @@ function bindingFromParameters(
 function relayRoutesFromParameters(
   parameters: URLSearchParams,
 ): RelayRouteConfiguration | null | undefined {
+  const parseRoute = (
+    prefix: "cloud-relay" | "private-relay",
+  ): RelayRuntimeConfig | null | undefined => {
+    const url = parameters.get(`${prefix}-url`);
+    const accessToken = parameters.get(`${prefix}-token`);
+    const expiresAt = parameters.get(`${prefix}-expires`);
+    const peerId = parameters.get(`${prefix}-peer`);
+    if (!url && !accessToken && !expiresAt) return undefined;
+    if (!url || !accessToken || accessToken.length > 512) return null;
+    try {
+      const relayUrl = new URL(url);
+      if (!["ws:", "wss:"].includes(relayUrl.protocol)) return null;
+    } catch {
+      return null;
+    }
+    if (
+      expiresAt &&
+      (!Number.isSafeInteger(Number(expiresAt)) ||
+        Number(expiresAt) <= Date.now())
+    ) {
+      return null;
+    }
+    return {
+      accessToken,
+      ...(expiresAt ? { expiresAt: Number(expiresAt) } : {}),
+      ...(peerId ? { peerId } : {}),
+      url,
+    };
+  };
+  const cloudRelay = parseRoute("cloud-relay");
+  const privateRelay = parseRoute("private-relay");
+  if (cloudRelay === null || privateRelay === null) return null;
+  if (cloudRelay || privateRelay) {
+    return {
+      ...(cloudRelay ? { cloudRelay } : {}),
+      ...(privateRelay ? { privateRelay } : {}),
+    };
+  }
+
+  // Parse the original single-relay invitation format for old links.
   const route = parameters.get("relay-route");
   const url = parameters.get("relay-url");
   const accessToken = parameters.get("relay-token");
   const expiresAt = parameters.get("relay-expires");
+  const peerId = parameters.get("relay-peer");
   if (!route && !url && !accessToken && !expiresAt) return undefined;
   if (
     (route !== "private-relay" && route !== "cloud-relay") ||
@@ -3512,6 +3998,7 @@ function relayRoutesFromParameters(
   const relay: RelayRuntimeConfig = {
     accessToken,
     ...(expiresAt ? { expiresAt: Number(expiresAt) } : {}),
+    ...(peerId ? { peerId } : {}),
     url,
   };
   return route === "private-relay"
@@ -3593,18 +4080,37 @@ export function invitationUrl(
     role: invitation.role,
     table: runtime.tableId,
   });
-  const privateRelay = runtime.relayRoutes?.privateRelay;
-  const cloudRelay = runtime.relayRoutes?.cloudRelay;
-  const relay = privateRelay ?? cloudRelay;
-  if (relay?.accessToken) {
-    parameters.set(
-      "relay-route",
-      privateRelay ? "private-relay" : "cloud-relay",
-    );
+  const relayRoutes = runtime.relayRoutesForInvitation(invitation);
+  const cloudRelay = relayRoutes?.cloudRelay;
+  const privateRelay = relayRoutes?.privateRelay;
+  const routes = [
+    ...(cloudRelay?.accessToken
+      ? [{ relay: cloudRelay, route: "cloud-relay" as const }]
+      : []),
+    ...(privateRelay?.accessToken
+      ? [{ relay: privateRelay, route: "private-relay" as const }]
+      : []),
+  ];
+  const onlyRoute = routes[0];
+  if (onlyRoute && routes.length === 1) {
+    const { relay, route } = onlyRoute;
+    if (!relay.accessToken) throw new Error("The relay ticket is unavailable.");
+    parameters.set("relay-route", route);
     parameters.set("relay-url", relay.url);
     parameters.set("relay-token", relay.accessToken);
-    if (relay.expiresAt) {
+    if (relay.peerId) parameters.set("relay-peer", relay.peerId);
+    if (relay.expiresAt)
       parameters.set("relay-expires", String(relay.expiresAt));
+  } else {
+    for (const { relay, route } of routes) {
+      if (!relay.accessToken) continue;
+      const prefix = route === "cloud-relay" ? "cloud-relay" : "private-relay";
+      parameters.set(`${prefix}-url`, relay.url);
+      parameters.set(`${prefix}-token`, relay.accessToken);
+      if (relay.peerId) parameters.set(`${prefix}-peer`, relay.peerId);
+      if (relay.expiresAt) {
+        parameters.set(`${prefix}-expires`, String(relay.expiresAt));
+      }
     }
   }
   url.hash = parameters.toString();

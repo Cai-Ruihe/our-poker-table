@@ -13,9 +13,11 @@ import {
 import { exerciseControl } from "./control-qa";
 
 const relayPort = 18_787;
+const macRelayPort = 18_789;
 const relayToken = "phase-1-test-operator-token";
 const appOrigin = `http://127.0.0.1:${process.env.HTML_POKER_TEST_PORT ?? "4173"}`;
 let relay: ChildProcess | undefined;
+let macRelay: ChildProcess | undefined;
 
 test.describe.configure({ mode: "serial" });
 
@@ -29,11 +31,11 @@ function dataUrlFile(source: string, name: string) {
   };
 }
 
-async function waitForRelay(): Promise<void> {
+async function waitForRelay(port: number): Promise<void> {
   const deadline = Date.now() + 5_000;
   while (Date.now() < deadline) {
     try {
-      const response = await fetch(`http://127.0.0.1:${relayPort}/health`);
+      const response = await fetch(`http://127.0.0.1:${port}/health`);
       if (response.ok) return;
     } catch {
       // The bounded readiness loop retries while the service starts.
@@ -43,12 +45,48 @@ async function waitForRelay(): Promise<void> {
   throw new Error("The test Connection Service did not become ready.");
 }
 
-async function rejectedWebSocketUpgrade(): Promise<number | undefined> {
+async function startRelay(port: number): Promise<ChildProcess> {
+  const relayProcess = spawn(
+    process.execPath,
+    ["services/connection-service/dist/server.js"],
+    {
+      cwd: process.cwd(),
+      env: {
+        ...process.env,
+        POKER_CONNECTION_ACCESS_TOKEN: relayToken,
+        POKER_CONNECTION_ALLOWED_ORIGIN: appOrigin,
+        POKER_CONNECTION_HOST: "127.0.0.1",
+        POKER_CONNECTION_PORT: String(port),
+      },
+      stdio: "ignore",
+    },
+  );
+  await waitForRelay(port);
+  return relayProcess;
+}
+
+async function stopRelay(
+  relayProcess: ChildProcess | undefined,
+): Promise<void> {
+  if (!relayProcess || relayProcess.exitCode !== null) return;
+  await new Promise<void>((resolve) => {
+    const timeout = setTimeout(resolve, 2_000);
+    relayProcess.once("exit", () => {
+      clearTimeout(timeout);
+      resolve();
+    });
+    relayProcess.kill("SIGTERM");
+  });
+}
+
+async function rejectedWebSocketUpgrade(
+  origin: string | undefined = "https://untrusted.example.invalid",
+): Promise<number | undefined> {
   return new Promise((resolve, reject) => {
     const request = httpRequest({
       headers: {
         connection: "Upgrade",
-        origin: "https://untrusted.example.invalid",
+        ...(origin ? { origin } : {}),
         "sec-websocket-key": Buffer.alloc(16, 7).toString("base64"),
         "sec-websocket-version": "13",
         upgrade: "websocket",
@@ -97,17 +135,23 @@ function skipInsecureLocalRelayOnMobileWebKit(testInfo: TestInfo): void {
 async function configuredContext(
   browser: Browser,
   disableDirectWebRtc = false,
+  relayUrls: {
+    readonly cloudUrl?: string;
+    readonly macUrl?: string;
+  } = { macUrl: `ws://127.0.0.1:${relayPort}` },
 ): Promise<BrowserContext> {
   const context = await browser.newContext({ bypassCSP: true });
   await context.addInitScript(
-    ({ disableDirect, url }) => {
+    ({ cloudUrl, disableDirect, macUrl }) => {
       const configuredGlobal = globalThis as typeof globalThis & {
         __HTML_POKER_CONFIG__?: {
-          privateRelay: { url: string };
+          cloudRelay?: { url: string };
+          privateRelay?: { url: string };
         };
       };
       configuredGlobal.__HTML_POKER_CONFIG__ = {
-        privateRelay: { url },
+        ...(cloudUrl ? { cloudRelay: { url: cloudUrl } } : {}),
+        ...(macUrl ? { privateRelay: { url: macUrl } } : {}),
       };
       if (disableDirect) {
         Object.defineProperty(globalThis, "RTCPeerConnection", {
@@ -118,7 +162,8 @@ async function configuredContext(
     },
     {
       disableDirect: disableDirectWebRtc,
-      url: `ws://127.0.0.1:${relayPort}`,
+      cloudUrl: relayUrls.cloudUrl,
+      macUrl: relayUrls.macUrl,
     },
   );
   return context;
@@ -126,7 +171,7 @@ async function configuredContext(
 
 async function createConfiguredTable(host: Page): Promise<void> {
   await host.goto("/");
-  await host.getByLabel("Private relay host token").fill(relayToken);
+  await host.getByLabel("Connection Service host token").fill(relayToken);
   await host.getByRole("button", { name: "Create table" }).click();
 }
 
@@ -149,26 +194,12 @@ async function joinPlayer(
 test.beforeAll(async ({ browserName }, testInfo) => {
   void browserName;
   if (testInfo.project.name === "mobile-webkit") return;
-  relay = spawn(
-    process.execPath,
-    ["services/connection-service/dist/server.js"],
-    {
-      cwd: process.cwd(),
-      env: {
-        ...process.env,
-        POKER_CONNECTION_ACCESS_TOKEN: relayToken,
-        POKER_CONNECTION_ALLOWED_ORIGIN: appOrigin,
-        POKER_CONNECTION_HOST: "127.0.0.1",
-        POKER_CONNECTION_PORT: String(relayPort),
-      },
-      stdio: "ignore",
-    },
-  );
-  await waitForRelay();
+  relay = await startRelay(relayPort);
+  macRelay = await startRelay(macRelayPort);
 });
 
-test.afterAll(() => {
-  relay?.kill("SIGTERM");
+test.afterAll(async () => {
+  await Promise.all([stopRelay(relay), stopRelay(macRelay)]);
 });
 
 test("the configured Connection Service rejects a different WebSocket origin", async ({
@@ -177,6 +208,7 @@ test("the configured Connection Service rejects a different WebSocket origin", a
   void browserName;
   skipInsecureLocalRelayOnMobileWebKit(testInfo);
   await expect(rejectedWebSocketUpgrade()).resolves.toBe(403);
+  await expect(rejectedWebSocketUpgrade(undefined)).resolves.toBe(403);
 });
 
 test("the Connection Service allows its POST ticket preflight", async ({
@@ -203,7 +235,7 @@ test("an unreachable Connection Service produces actionable host guidance", asyn
   try {
     const host = await context.newPage();
     await host.goto("/");
-    await host.getByLabel("Private relay host token").fill(relayToken);
+    await host.getByLabel("Connection Service host token").fill(relayToken);
     await host.getByRole("button", { name: "Create table" }).click();
     await expect(host.getByRole("alert")).toHaveText(
       "The Connection Service is unreachable. Normal Mode needs its relay online. Ask the table owner to restore it, or use Airplane Mode.",
@@ -252,7 +284,7 @@ test("a host can renew its table-scoped relay ticket without exposing the operat
     await createConfiguredTable(host);
     await joinPlayer(host, aliceContext, "Alice");
 
-    await host.getByLabel("Private relay host token").fill(relayToken);
+    await host.getByLabel("Connection Service host token").fill(relayToken);
     await host.getByRole("button", { name: "Refresh relay ticket" }).click();
     await expect(
       host.getByText("Relay ticket refreshed", { exact: true }),
@@ -345,6 +377,118 @@ test("isolated devices fall back to the operator private relay when direct WebRT
       aliceContext.close(),
       bobContext.close(),
     ]);
+  }
+});
+
+test("dual relay invitations carry Cloudflare first and Mac fallback tickets", async ({
+  browser,
+}, testInfo) => {
+  skipInsecureLocalRelayOnMobileWebKit(testInfo);
+  const relayUrls = {
+    cloudUrl: `ws://127.0.0.1:${relayPort}`,
+    macUrl: `ws://127.0.0.1:${macRelayPort}`,
+  };
+  const hostContext = await configuredContext(browser, true, relayUrls);
+  const playerContext = await configuredContext(browser, true, relayUrls);
+  try {
+    const host = await hostContext.newPage();
+    await createConfiguredTable(host);
+    const invitation = await host
+      .getByLabel("Player invitation link")
+      .inputValue();
+    const parameters = new URL(invitation).hash.slice(1);
+    const parsed = new URLSearchParams(parameters);
+    expect(parsed.get("cloud-relay-url")).toBe(`ws://127.0.0.1:${relayPort}`);
+    expect(parsed.get("cloud-relay-token")).toBeTruthy();
+    expect(parsed.get("private-relay-url")).toBe(
+      `ws://127.0.0.1:${macRelayPort}`,
+    );
+    expect(parsed.get("private-relay-token")).toBeTruthy();
+
+    const player = await playerContext.newPage();
+    await player.goto(invitation);
+    await player.getByLabel("Display name").fill("Dual relay probe");
+    await player.getByRole("button", { name: "Join table" }).click();
+    await expect(
+      player.getByRole("heading", { name: "You have a seat" }),
+    ).toBeVisible();
+  } finally {
+    await Promise.all([hostContext.close(), playerContext.close()]);
+  }
+});
+
+test("a relay-only player continues through Mac after Cloudflare fails", async ({
+  browser,
+}, testInfo) => {
+  skipInsecureLocalRelayOnMobileWebKit(testInfo);
+  const relayUrls = {
+    cloudUrl: `ws://127.0.0.1:${relayPort}`,
+    macUrl: `ws://127.0.0.1:${macRelayPort}`,
+  };
+  const hostContext = await configuredContext(browser, true, relayUrls);
+  const playerContext = await configuredContext(browser, true, relayUrls);
+  const secondPlayerContext = await configuredContext(browser, true, relayUrls);
+  let cloudStopped = false;
+  try {
+    const host = await hostContext.newPage();
+    await createConfiguredTable(host);
+    const player = await joinPlayer(host, playerContext, "Failover player");
+    await joinPlayer(host, secondPlayerContext, "Failover partner");
+    await host.getByRole("button", { name: "Deal first hand" }).click();
+    await expect(player.locator("[data-private-card]")).toHaveCount(2);
+
+    await stopRelay(relay);
+    relay = undefined;
+    cloudStopped = true;
+    await player.getByRole("button", { name: "Fold" }).click();
+    await host.getByRole("button", { name: "Deal the flop" }).click();
+    await expect(player.locator("[data-board-card]")).toHaveCount(3);
+  } finally {
+    await Promise.all([
+      hostContext.close(),
+      playerContext.close(),
+      secondPlayerContext.close(),
+    ]);
+    if (cloudStopped) relay = await startRelay(relayPort);
+  }
+});
+
+test("the host sends a state change through Mac after Cloudflare fails", async ({
+  browser,
+}, testInfo) => {
+  skipInsecureLocalRelayOnMobileWebKit(testInfo);
+  const relayUrls = {
+    cloudUrl: `ws://127.0.0.1:${relayPort}`,
+    macUrl: `ws://127.0.0.1:${macRelayPort}`,
+  };
+  const hostContext = await configuredContext(browser, true, relayUrls);
+  const playerContext = await configuredContext(browser, true, relayUrls);
+  const secondPlayerContext = await configuredContext(browser, true, relayUrls);
+  let cloudStopped = false;
+  try {
+    const host = await hostContext.newPage();
+    await createConfiguredTable(host);
+    const player = await joinPlayer(
+      host,
+      playerContext,
+      "Host failover player",
+    );
+    await joinPlayer(host, secondPlayerContext, "Host failover partner");
+    await host.getByRole("button", { name: "Deal first hand" }).click();
+    await expect(player.locator("[data-private-card]")).toHaveCount(2);
+
+    await stopRelay(relay);
+    relay = undefined;
+    cloudStopped = true;
+    await host.getByRole("button", { name: "Deal the flop" }).click();
+    await expect(player.locator("[data-board-card]")).toHaveCount(3);
+  } finally {
+    await Promise.all([
+      hostContext.close(),
+      playerContext.close(),
+      secondPlayerContext.close(),
+    ]);
+    if (cloudStopped) relay = await startRelay(relayPort);
   }
 });
 

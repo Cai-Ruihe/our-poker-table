@@ -6,7 +6,7 @@ const scriptPath = fileURLToPath(import.meta.url);
 const broadConnectPolicy = "connect-src 'self' https: wss:;";
 const localQrImagePolicy = "img-src 'self' data: blob:;";
 
-function validatedServiceUrl(candidate) {
+function validatedServiceUrl(candidate, variableName) {
   if (!candidate) {
     return undefined;
   }
@@ -14,10 +14,10 @@ function validatedServiceUrl(candidate) {
   try {
     service = new URL(candidate);
   } catch {
-    throw new Error("The Normal Connection Service URL is invalid.");
+    throw new Error(`The ${variableName} is invalid.`);
   }
   if (service.protocol !== "wss:") {
-    throw new Error("The Normal Connection Service must use wss://.");
+    throw new Error(`The ${variableName} must use wss://.`);
   }
   if (
     service.username ||
@@ -26,16 +26,15 @@ function validatedServiceUrl(candidate) {
     service.search ||
     service.hash
   ) {
-    throw new Error(
-      "The Normal Connection Service URL must contain only its wss:// origin.",
-    );
+    throw new Error(`The ${variableName} must contain only its wss:// origin.`);
   }
   return service.origin;
 }
 
 export async function configureNormalBuild(
   root = process.cwd(),
-  candidate = process.env.NORMAL_CONNECTION_SERVICE_URL,
+  legacyCandidate = process.env.NORMAL_CONNECTION_SERVICE_URL,
+  fallbackCandidate = process.env.NORMAL_MAC_RELAY_URL,
 ) {
   const normalDirectory = path.join(root, "dist", "normal");
   const htmlPath = path.join(normalDirectory, "index.html");
@@ -51,28 +50,59 @@ export async function configureNormalBuild(
       "The Normal artifact CSP must allow blob: images for local QR scans.",
     );
   }
-  const serviceOrigin = validatedServiceUrl(candidate);
-  if (!serviceOrigin) {
+  const cloudCandidate = process.env.NORMAL_CLOUD_RELAY_URL?.trim();
+  const macCandidate = fallbackCandidate?.trim() || legacyCandidate?.trim();
+  const cloudOrigin = validatedServiceUrl(
+    cloudCandidate,
+    "NORMAL_CLOUD_RELAY_URL",
+  );
+  const macOrigin = validatedServiceUrl(
+    macCandidate,
+    fallbackCandidate?.trim()
+      ? "NORMAL_MAC_RELAY_URL"
+      : "NORMAL_CONNECTION_SERVICE_URL",
+  );
+  if (!cloudOrigin && !macOrigin) {
     return { configured: false };
   }
-  const httpsOrigin = serviceOrigin.replace(/^wss:/u, "https:");
+  const origins = [cloudOrigin, macOrigin].filter(Boolean);
+  const connectOrigins = origins
+    .flatMap((origin) => [origin.replace(/^wss:/u, "https:"), origin])
+    .join(" ");
   const configuredHtml = html.replace(
     broadConnectPolicy,
-    `connect-src 'self' ${httpsOrigin} ${serviceOrigin};`,
+    `connect-src 'self' ${connectOrigins};`,
   );
-  const config = `/* Generated at deployment. Contains no operator secret. */\nglobalThis.__HTML_POKER_CONFIG__ = {\n  privateRelay: { url: ${JSON.stringify(serviceOrigin)} },\n};\n`;
+  const configLines = [
+    "/* Generated at deployment. Contains no operator secret. */",
+    "globalThis.__HTML_POKER_CONFIG__ = {",
+    cloudOrigin
+      ? `  cloudRelay: { url: ${JSON.stringify(cloudOrigin)} },`
+      : undefined,
+    macOrigin
+      ? `  privateRelay: { url: ${JSON.stringify(macOrigin)} },`
+      : undefined,
+    "};",
+    "",
+  ].filter((line) => line !== undefined);
+  const config = configLines.join("\n");
   await Promise.all([
     writeFile(htmlPath, configuredHtml, "utf8"),
     writeFile(configPath, config, "utf8"),
   ]);
-  return { configured: true, httpsOrigin, serviceOrigin };
+  return {
+    configured: true,
+    cloudOrigin,
+    macOrigin,
+    origins,
+  };
 }
 
 async function main() {
   const result = await configureNormalBuild();
   process.stdout.write(
     result.configured
-      ? `Configured Normal build for ${result.serviceOrigin}\n`
+      ? `Configured Normal build for ${result.origins.join(", ")}\n`
       : "Normal build left without a relay configuration.\n",
   );
 }
