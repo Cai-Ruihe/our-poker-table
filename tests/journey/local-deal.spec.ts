@@ -504,7 +504,9 @@ test("a one-use player replacement preserves the seat and revokes the old device
   ).toBeVisible();
   await expect(replacement.locator("[data-private-card]")).toHaveCount(2);
 
-  await dragPlayerShow(alice);
+  // Replacing a device revokes the old session asynchronously. Do not begin a
+  // separate card-show interaction on an element that the revocation itself
+  // is permitted to unmount; the assertion below is the replacement contract.
   await expect(
     alice.getByRole("heading", { name: "This seat could not be opened" }),
   ).toBeVisible();
