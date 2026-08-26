@@ -602,7 +602,10 @@ test("Player catches up to new hands, can return from sit-out, and can leave per
   ).toBeVisible();
 
   const staleSeat = await context.newPage();
-  await staleSeat.goto(recoveryUrl);
+  // The rejection page is its own proof of completion. Waiting for the page's
+  // full `load` event makes this recovery check depend on mobile WebKit's
+  // secondary resource timing rather than the revoked-credential behaviour.
+  await staleSeat.goto(recoveryUrl, { waitUntil: "commit" });
   await expect(
     staleSeat.getByRole("heading", { name: "This seat could not be opened" }),
   ).toBeVisible();

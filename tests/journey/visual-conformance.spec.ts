@@ -441,9 +441,11 @@ test("Tablet quiet and quick-control states conform to approved geometry", async
   const fullscreenExitLauncher = host.getByRole("button", {
     name: "Open table controls from upper left",
   });
-  const fullscreenExitLauncherBox = await box(fullscreenExitLauncher);
-  expect(fullscreenExitLauncherBox.x).toBeGreaterThanOrEqual(72);
-  expect(fullscreenExitLauncherBox.y).toBeGreaterThanOrEqual(72);
+  await expectFlushToPhysicalCorner(
+    fullscreenExitLauncher,
+    "upper left",
+    "fullscreen Tablet upper-left launcher",
+  );
   for (const corner of ["upper right", "lower left", "lower right"] as const) {
     await expectFlushToPhysicalCorner(
       host.getByRole("button", { name: `Open table controls from ${corner}` }),

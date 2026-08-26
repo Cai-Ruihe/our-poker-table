@@ -157,15 +157,22 @@ button:disabled {
   min-height: 100svh;
 }
 
-/* The first-screen language switch must read as a deliberate page control,
-   not a piece of the brand bar or a target flush against the browser edge.
-   It overlays only the left introduction panel, so the right creation card
-   begins immediately after the brand bar. */
 .home-language-control {
   position: absolute;
   z-index: 2;
-  top: calc(4.4rem + clamp(0.8rem, 1.7vw, 1.25rem));
-  left: clamp(1rem, 3vw, 3rem);
+  top: calc(4.4rem + 0.75rem);
+  right: 0;
+  left: 0;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  min-height: 3.7rem;
+  padding: 0.62rem clamp(1rem, 3vw, 3rem);
+  background: var(--canvas);
+}
+
+.home-language-control .language-switch {
+  margin: 0;
 }
 
 .home-layout {
@@ -2897,6 +2904,10 @@ button:disabled {
     min-height: auto;
   }
 
+  .home-intro {
+    padding-top: 5rem;
+  }
+
   .start-panel {
     border-top: 1px solid var(--rule);
     border-left: 0;
@@ -2957,6 +2968,13 @@ button:disabled {
 }
 
 @media (max-width: 620px) {
+  .home-language-control {
+    justify-content: center;
+    min-height: 3.55rem;
+    padding-right: max(1rem, env(safe-area-inset-right));
+    padding-left: max(1rem, env(safe-area-inset-left));
+  }
+
   .host-device-switcher {
     gap: 0.2rem;
     padding-right: max(0.4rem, env(safe-area-inset-right));
