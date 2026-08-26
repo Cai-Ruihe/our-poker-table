@@ -27,7 +27,7 @@ test("hostile names stay inert and private cards stop at the seat projection", a
     page.on("pageerror", (error) => pageErrors.push(error.message)),
   );
   host.on("pageerror", (error) => pageErrors.push(error.message));
-  // Keep the payload within Normal Mode's 24-character display-name limit so
+  // Keep the payload within Table-side Mode's 24-character display-name limit so
   // the assertion checks the rendered value rather than input truncation.
   const hostileName = "<img src=x onerror=pwn>";
 

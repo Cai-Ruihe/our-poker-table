@@ -1,6 +1,6 @@
 # RevK card-face sets
 
-This folder contains two complete SVG face sets for the Normal Mode of Our
+This folder contains two complete SVG face sets for the Table-side Mode of Our
 Poker Table:
 
 - `classic/faces/`: 52 RevK faces using the traditional red/black palette.
@@ -28,7 +28,7 @@ project's own brand documentation.
 ## Integration and review
 
 Open `review/index.html` to compare every face at a consistent physical ratio.
-The Normal build copies both sets into its deployed assets for Tablet/TV shared
+The Table-side build copies both sets into its deployed assets for Tablet/TV shared
 cards and phone-private cards. Compact Host Controls and phone-community cards
 continue to use the lightweight rank-and-suit renderer. Airplane Mode is
 unchanged and does not consume this asset set.

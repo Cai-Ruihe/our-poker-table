@@ -64,7 +64,7 @@ At table creation, the host selects either the Phase 1 Deal-Only Profile or the 
 - Differentially test hand evaluation and representative settlement vectors against an independent implementation.
 - Prove public/personal/diagnostic exports obey distinct card policies.
 - Re-run recovery and idempotency fault tests with balance events and `SettlementPending`.
-- Run the digital profile through both Normal and actual standalone Airplane artifacts without weakening the Phase 1 physical-chip profile.
+- Run the digital profile through both Table-side and actual standalone Airplane artifacts without weakening the Phase 1 physical-chip profile.
 
 ## Out of Scope
 

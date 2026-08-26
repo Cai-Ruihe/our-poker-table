@@ -25,7 +25,7 @@ router: ../manifest.yaml
 ## Context capsule
 
 This module keeps peers connected without becoming poker authority. The
-client-side interface maintains one logical authenticated channel while Normal
+client-side interface maintains one logical authenticated channel while Table-side
 Mode attempts direct P2P, the deployer's Cloudflare Workers/Durable Objects
 relay, then the deployer's Mac Connection Service fallback. The optional
 Connection Services supply signaling, short-lived relay credentials, opaque
@@ -41,7 +41,7 @@ The transport interface connects/reconnects an authenticated peer, sends/receive
 
 ### Owns
 
-- Normal Mode bootstrap transport and route state machine.
+- Table-side Mode bootstrap transport and route state machine.
 - Signaling, ICE/reconnect, network-change handling, and route visibility.
 - Cloudflare-primary/Mac-fallback relay configuration and short-lived,
   endpoint-specific credentials.
@@ -70,7 +70,7 @@ The transport interface connects/reconnects an authenticated peer, sends/receive
 
 - The requested route order is a product `ConnectivityStrategy`; do not assume browser ICE automatically exposes that exact sequence.
 - Authenticate the active host key through QR/full URL independently of signaling before seat activation/private delivery.
-- For Normal Mode reverse-display pairing, signaling carries the return path after the host scans the display's ephemeral request QR; the request itself grants no role or table authority.
+- For Table-side Mode reverse-display pairing, signaling carries the return path after the host scans the display's ephemeral request QR; the request itself grants no role or table authority.
 - Long-lived TURN/provider secrets remain server-side; clients receive scoped short-lived credentials.
 - Connection Service may observe IP, timing, size, table, and route metadata. “Card-blind” does not mean metadata-blind.
 - Existing direct channels continue if a relay later fails. Each dependent peer reports its own path.
@@ -78,6 +78,17 @@ The transport interface connects/reconnects an authenticated peer, sends/receive
   timeout, reconnect attempts serially try Cloudflare first and then Mac; the
   client never duplicates an envelope across both paths. A recovered relay
   does not interrupt healthy sessions.
+- Table-side liveness is separate from catch-up projection retrieval. A client
+  silently retries its first two consecutive missed authenticated liveness
+  attempts. Only a third consecutive miss without any valid authenticated Host
+  frame may present Host-unavailable guidance; any valid Host frame clears the
+  miss count and guidance immediately.
+- Liveness probes are small, authenticated, and read-only. They never create a
+  poker event, change authority, or persist recovery state. Do not introduce a
+  player-count-aware or globally coordinated polling algorithm. Retry
+  randomization remains deferred until physical-device evidence demonstrates a
+  burst-induced queue; if then needed, use established independent randomized
+  backoff/jitter rather than a custom scheduling system.
 - A table invitation carries independent Cloudflare and Mac ticket material;
   it never carries the operator token. Each ticket is bound to the table,
   host, peer ID, endpoint, protocol, expiry, and nonce. A display-pairing
@@ -97,10 +108,16 @@ browser background/freeze, reconnect, route timeouts, credential theft/expiry,
 oversized objects, table isolation, and Connection Service compromise. Measure
 representative mainland networks before any readiness claim.
 
+Liveness tests must prove that the first two missed attempts are silent, the
+third without a valid Host frame is actionable, and any subsequent valid Host
+event or projection clears the state immediately. Exercise two and ten players,
+including a new mid-hand join, across direct and both relay routes; physical
+devices must cover foreground/background Host scheduling.
+
 ## Out of Scope
 
 Central poker engine, built-in public relay subsidy, universal China guarantee, Airplane transport, provider AI invocation, and automatic host election.
 
 ## Further Notes
 
-Airplane Mode is the no-internet fallback and has its own PRD. Normal Mode must remain optional enough that failure of all services never invalidates the standalone product direction.
+Airplane Mode is the no-internet fallback and has its own PRD. Table-side Mode must remain optional enough that failure of all services never invalidates the standalone product direction.

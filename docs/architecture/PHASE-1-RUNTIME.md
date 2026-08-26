@@ -18,7 +18,7 @@ flowchart LR
   H --> S
   P --> S
   H <-->|"same-browser development"| B
-  H <-->|"preferred Normal path"| W
+  H <-->|"preferred Table-side path"| W
   H <-->|"sealed application messages"| R
   R <-->|"signaling / opaque frames"| P
   R <-->|"signaling / opaque frames"| D
@@ -30,7 +30,7 @@ flowchart LR
 
 The diagram is a route map, not a claim that every route is available on every network. Game Core, Card Custody, identity/capabilities, persistence, diagnostics, and presentation remain separate packages; `apps/web` composes their browser adapters.
 
-## Normal Mode
+## Table-side Mode
 
 1. The host creates a binding containing the table ID, host key, build version, and protocol version.
 2. When a deployer configures one or both relay URLs, the host sends its private operator token directly to each configured `/v1/table-sessions` endpoint to receive independent random, table-and-peer-bound relay tickets. The static web configuration contains URLs only.

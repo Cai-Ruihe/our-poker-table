@@ -16,7 +16,7 @@ All notable project changes will be documented here. The format follows [Keep a 
   instead of accepting browser/OS dark-mode recolouring, and versioned the
   opaque iOS Home Screen icon URL so repaired shortcuts fetch a new source.
 
-- Replaced browser-native Normal Mode network errors with actionable relay recovery guidance, and blocked configured Pages publication when the selected relay fails DNS, health, exact-origin CORS, or invalid-token rejection checks.
+- Replaced browser-native Table-side Mode network errors with actionable relay recovery guidance, and blocked configured Pages publication when the selected relay fails DNS, health, exact-origin CORS, or invalid-token rejection checks.
 - Rebuilt the approved Tablet quick controls with the exact short custom slider, continuous four-pixel gold thread, equal four-corner orientation, and centered complete secondary panel; removed the native-range artifact and incomplete strip that escaped the earlier interaction-only gate.
 - Connected Tablet **Players & seats** and **Displays & pairing** to the real host administration surface and added a machine-enforced action inventory whose journeys invoke every available secondary action and assert its result.
 - Added automatic player catch-up for new hands, an explicit refresh fallback, return-from-sit-out, and permanent credential-revoking leave; corrected the hand-end synchronization bug that could silently cancel a player's return choice.
@@ -28,7 +28,7 @@ All notable project changes will be documented here. The format follows [Keep a 
   execution.
 - Removed Host toolbar and administration-drawer overlaps that blocked dealer
   and close actions on iPhone-sized WebKit viewports.
-- Replaced the generic Normal Mode route failure with restart-aware instructions, and added a regression that refreshes the host's relay ticket and joins through the regenerated invitation after an in-memory Connection Service restart.
+- Replaced the generic Table-side Mode route failure with restart-aware instructions, and added a regression that refreshes the host's relay ticket and joins through the regenerated invitation after an in-memory Connection Service restart.
 - Replaced the iPhone-only slide-to-peek gesture—which could accidentally publish a hand—with a one-tap **Reveal my cards privately** control, automatic cover on visibility loss, and a separate **Show cards to table** action.
 - Serialized client recovery commits so overlapping table updates and `pagehide` cannot race into `Client recovery commit failed: revision-conflict`.
 - Preserved a live client endpoint across restorable `pagehide` events and reconnect presence on `pageshow`, instead of converting every temporary mobile suspension into a forced disconnect.
@@ -59,11 +59,11 @@ All notable project changes will be documented here. The format follows [Keep a 
 - Bumped the visible Phase 1 build identity to `0.1.2-phase1` so older table invitations fail compatibility checks instead of silently mixing the two player-decision interfaces.
 - Bumped the visible Phase 1 build identity to `0.1.1-phase1`, added best-effort active-table screen wake locks, and verified Airplane replacement of a closed phone into the same active seat and cards.
 - Added an owner-authorized GitHub Pages field-build deployment that runs only after the complete CI and browser journey gate succeeds.
-- Added a CI-packaged `/normal/` field build whose deploy-time configuration requires one exact WSS service origin and narrows browser connections to that origin.
+- Added a CI-packaged `/table-side/` field build whose deploy-time configuration requires one exact WSS service origin and narrows browser connections to that origin.
 
 ### Added
 
-- Added a fork-safe Normal Mode self-hosting kit: locked multi-stage Connection Service image, hardened loopback-only Compose recipe, file-mounted private operator token, non-overwriting token generator, live relay doctor, deployed-config read-back, and symptom-based operator runbook.
+- Added a fork-safe Table-side Mode self-hosting kit: locked multi-stage Connection Service image, hardened loopback-only Compose recipe, file-mounted private operator token, non-overwriting token generator, live relay doctor, deployed-config read-back, and symptom-based operator runbook.
 - Added the repository-owned QA registry, feedback ledger, corrective specification, physical-device matrix, deterministic visual baselines, exact geometry checks, responsive/text-size checks, artifact performance budgets, and release-blocking Chromium/Mobile WebKit journeys.
 
 - Added four equal Tablet corner entries, orientation-correct upper controls, a
@@ -75,7 +75,7 @@ All notable project changes will be documented here. The format follows [Keep a 
 - Added a single-page host-device flow: **Join my own table on this device** redeems an ordinary Player credential, then **Host Controls**, **My Hand**, and **Table View** switch among authority, private, and public projections without relying on a background iOS tab.
 - Began Phase 2 with an optional Digital Chips profile: a deep accounting module, exact seat-private actions, betting-driven street progression, derived settlement proposals, host-confirmed balance updates, encrypted recovery, and a two-player browser tracer. This is development scope, not a Phase 2 release claim.
 - Complete Phase 1 trusted-host dealer slice: two-to-ten seat capabilities, one-use/revocable invitations, Player/TV/Public Table/Tablet projections, hand lifecycle controls, seat replacement/reorder/dealer relocation, void/correction records, encrypted recovery, and redacted diagnostics.
-- Normal Mode route implementation with local browser channel, direct WebRTC after private signaling, card-blind private relay fallback, table-scoped four-hour relay tickets, host-side ticket renewal, and host-approved reverse display pairing.
+- Table-side Mode route implementation with local browser channel, direct WebRTC after private signaling, card-blind private relay fallback, table-scoped four-hour relay tickets, host-side ticket renewal, and host-approved reverse display pairing.
 - Standalone Airplane Mode artifact with fully bundled assets, restrictive offline CSP, two-way QR offer/answer pairing, local `iceServers: []` WebRTC, native saved-image detection plus bundled ZXing/jsQR fallbacks, and artifact request regression coverage.
 - Phase 1 operations, runtime architecture, automated privacy-red-team, and local release-candidate records that distinguish demonstrated local evidence from device/network/release gates.
 - Release provenance tooling for two-build artifact-digest reproducibility checks and a clean-worktree SHA-256 manifest.
@@ -102,4 +102,4 @@ All notable project changes will be documented here. The format follows [Keep a 
 - Made custody state opaque outside its owning module, isolated projection arrays from authoritative state, required active Hand IDs on hand-scoped commands, rejected post-completion exposure, and made storage exceptions fail closed.
 - Replayed the committed receipt for concurrent retries carrying the same idempotency key.
 - Added browser red-team regression coverage for hostile names, cross-seat/public DOM isolation, transient browser storage, and runtime page errors.
-- Added a restrictive static Content Security Policy and no-referrer policy for the Normal preview; deployment headers remain a release concern.
+- Added a restrictive static Content Security Policy and no-referrer policy for the Table-side preview; deployment headers remain a release concern.

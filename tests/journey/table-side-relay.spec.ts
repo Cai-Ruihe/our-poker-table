@@ -238,7 +238,7 @@ test("an unreachable Connection Service produces actionable host guidance", asyn
     await host.getByLabel("Connection Service host token").fill(relayToken);
     await host.getByRole("button", { name: "Create table" }).click();
     await expect(host.getByRole("alert")).toHaveText(
-      "The Connection Service is unreachable. Normal Mode needs its relay online. Ask the table owner to restore it, or use Airplane Mode.",
+      "The Connection Service is unreachable. Table-side Mode needs its relay online. Ask the table owner to restore it, or use Airplane Mode.",
     );
   } finally {
     await context.close();
@@ -315,7 +315,7 @@ test("isolated devices prefer a direct WebRTC channel after private signaling", 
       alice.getByRole("region", { name: "Your cards" }),
     ).toBeVisible();
     await expect(bob.getByRole("region", { name: "Your cards" })).toBeVisible();
-    // Normal player surfaces intentionally expose the user-facing seat state
+    // Table-side player surfaces intentionally expose the user-facing seat state
     // rather than the transport implementation. "Playing" proves the
     // private channel is connected; the relay/WebRTC mechanism is an
     // implementation detail and should not be a UI contract.
@@ -492,6 +492,52 @@ test("the host sends a state change through Mac after Cloudflare fails", async (
   }
 });
 
+test("Table-side liveness stays quiet for two misses and recovers after a third", async ({
+  browser,
+}, testInfo) => {
+  test.setTimeout(60_000);
+  skipInsecureLocalRelayOnMobileWebKit(testInfo);
+  const hostContext = await configuredContext(browser, true);
+  const playerContext = await configuredContext(browser, true);
+  const secondPlayerContext = await configuredContext(browser, true);
+  try {
+    const host = await hostContext.newPage();
+    await createConfiguredTable(host);
+    const player = await joinPlayer(host, playerContext, "Liveness player");
+    await joinPlayer(host, secondPlayerContext, "Liveness partner");
+    await host.getByRole("button", { name: "Deal first hand" }).click();
+    await expect(player.locator("[data-private-card]")).toHaveCount(2);
+    await expect(player.getByRole("alert")).toHaveCount(0);
+
+    // Keep both relay sockets available while pausing only the Trusted Host
+    // document. This models a browser scheduling pause, not Wi-Fi loss.
+    const hostStall = host.evaluate(() => {
+      const deadline = performance.now() + 25_000;
+      while (performance.now() < deadline) {
+        // Deliberately block only this page's JavaScript event loop.
+      }
+    });
+
+    await player.waitForTimeout(8_500);
+    await expect(player.getByRole("alert")).toHaveCount(0);
+    await expect(player.getByRole("alert")).toHaveText(
+      "Connection did not resume. Check the network and choose Reconnect to table.",
+      { timeout: 8_000 },
+    );
+
+    await hostStall;
+    await host.getByRole("button", { name: "Deal the flop" }).click();
+    await expect(player.locator("[data-board-card]")).toHaveCount(3);
+    await expect(player.getByRole("alert")).toHaveCount(0, { timeout: 5_000 });
+  } finally {
+    await Promise.all([
+      hostContext.close(),
+      playerContext.close(),
+      secondPlayerContext.close(),
+    ]);
+  }
+});
+
 test("a Tablet surface catches up automatically after its browser returns online", async ({
   browser,
 }, testInfo) => {
@@ -544,7 +590,7 @@ test("a Tablet surface catches up automatically after its browser returns online
   }
 });
 
-test("an unpaired Normal TV receives its requested role only after host scan-pairing", async ({
+test("an unpaired Table-side TV receives its requested role only after host scan-pairing", async ({
   browser,
 }, testInfo) => {
   skipInsecureLocalRelayOnMobileWebKit(testInfo);
@@ -606,8 +652,8 @@ test("an unpaired Normal TV receives its requested role only after host scan-pai
     await expect(tv.getByLabel("Dealer controls")).toHaveCount(0);
 
     await exerciseControl(
-      "normal-display-pair-file",
-      host.locator('[data-qa-control="normal-display-pair-file"]'),
+      "table-side-display-pair-file",
+      host.locator('[data-qa-control="table-side-display-pair-file"]'),
       (target) =>
         target.setInputFiles(
           dataUrlFile(requestSource, "tv-pairing-request.png"),

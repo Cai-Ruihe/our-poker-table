@@ -6,7 +6,7 @@ Use this checklist for a release candidate; do not mark an item complete without
 
 - [ ] Release owner and approvers are named.
 - [ ] Target commit is reviewed, protected, and corresponds to the intended phase/scope.
-- [ ] Public pointers use `Cai-Ruihe/our-poker-table` and the `https://cai-ruihe.github.io/our-poker-table/` Pages root; former `html-poker-app` Pages paths are not emitted as fallbacks.
+- [ ] Public pointers use `Cai-Ruihe/our-poker-table` and the `https://ourpokertable.com/` production root; former `html-poker-app` and GitHub Pages paths are not emitted as fallbacks.
 - [ ] PRD decision register, ADR index, roadmap, changelog, and user documentation are reconciled.
 - [ ] `pnpm qa:registry` imports every PRD story/testing decision and every stable product, Tablet, and field-feedback ID without an untracked requirement.
 - [ ] No unapproved feature, experiment, telemetry, provider, or third-party runtime appears in the artifact.
@@ -14,7 +14,7 @@ Use this checklist for a release candidate; do not mark an item complete without
 ## Build and supply chain
 
 - [ ] Build starts from a clean checkout and locked dependencies/toolchain.
-- [ ] Normal and Airplane artifacts are immutable and self-contained for their declared mode.
+- [ ] Table-side and Airplane artifacts are immutable and self-contained for their declared mode.
 - [ ] `pnpm release:reproducibility` passes and a `pnpm release:manifest` / `pnpm release:verify` receipt records every artifact digest from the tagged commit.
 - [ ] Artifact digests and provenance/signature receipts are recorded.
 - [ ] The deployed manifest's build version and source revision match the intended candidate; a repository or Pages-route rename is not accepted as release evidence.
@@ -44,9 +44,9 @@ Use this checklist for a release candidate; do not mark an item complete without
 ## Operations and handoff
 
 - [ ] Deployment configuration never defaults to Ruihe's private endpoints or credentials.
-- [ ] The unconfigured-fork contract, deployer-owned Compose recipe, token-file handling, and self-hosting documentation pass `tests/contract/normal-self-hosting.test.ts` and `tests/contract/normal-release-config.test.ts`.
-- [ ] For configured Normal Mode, `pnpm qa:live-relay` proves public DNS, `/health`, exact-origin CORS preflight, and invalid-token rejection before manifest creation or Pages deployment; the owner-only token acceptance check passes without logging credentials.
-- [ ] The deployed `normal/poker-config.js` is read back and contains the same verified WSS URL; a dead or different URL is a rollback/block condition.
+- [ ] The unconfigured-fork contract, deployer-owned Compose recipe, token-file handling, and self-hosting documentation pass `tests/contract/table-side-self-hosting.test.ts` and `tests/contract/table-side-release-config.test.ts`.
+- [ ] For configured Table-side Mode, `pnpm qa:live-relay` proves public DNS, `/health`, exact-origin CORS preflight, and invalid-token rejection before manifest creation or Pages deployment; the owner-only token acceptance check passes without logging credentials.
+- [ ] The deployed `table-side/poker-config.js` is read back and contains the same verified WSS URL; a dead or different URL is a rollback/block condition.
 - [ ] Rollback and last-known-good artifacts are available without changing a live table mid-game.
 - [ ] Retention/deletion behavior is verified, including the 30-day diagnostic maximum.
 - [ ] Release notes name breaking changes, migration, supported matrix, known limitations, and evidence summary.

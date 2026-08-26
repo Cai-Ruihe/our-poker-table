@@ -40,7 +40,7 @@ const stylesheetMatch = html.match(
 );
 if (!moduleMatch?.[1] || !stylesheetMatch?.[1]) {
   throw new Error(
-    "The Normal build did not contain the expected local assets.",
+    "The Table-side build did not contain the expected local assets.",
   );
 }
 

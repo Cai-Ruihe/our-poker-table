@@ -168,7 +168,7 @@ async function attachCompactCardReviewImage(
   testInfo: TestInfo,
   viewport: { readonly height: number; readonly width: number },
 ): Promise<void> {
-  const name = `normal-compact-six-${testInfo.project.name}-${viewport.width}`;
+  const name = `table-side-compact-six-${testInfo.project.name}-${viewport.width}`;
   const path = testInfo.outputPath(`${name}.png`);
   await page.screenshot({ fullPage: true, path });
   await testInfo.attach(name, { contentType: "image/png", path });
@@ -994,7 +994,7 @@ test("Phone host cards stay compact while Table View shown cards are full, and s
   await screenshotIfChromium(host, testInfo, "tablet-private-card-status");
 });
 
-test("Normal Player Show is compact, aligned with Fold, and still guarded", async ({
+test("Table-side Player Show is compact, aligned with Fold, and still guarded", async ({
   context,
   page: host,
 }, testInfo) => {
@@ -1110,7 +1110,7 @@ test("Normal Player Show is compact, aligned with Fold, and still guarded", asyn
   await expect(host.locator("[data-shown-card]")).toHaveCount(2);
 });
 
-test("PLAYER-TABLE-STATUS-001 / PLAYER-PHONE-STATUS-002: Normal Player keeps only their seat, position, and described state above the hand", async ({
+test("PLAYER-TABLE-STATUS-001 / PLAYER-PHONE-STATUS-002: Table-side Player keeps only their seat, position, and described state above the hand", async ({
   context,
   page: host,
 }, testInfo) => {
@@ -1413,7 +1413,7 @@ test("PLAYER-TABLE-STATUS-001 / PLAYER-PHONE-STATUS-002: Normal Player keeps onl
   );
 });
 
-test("PLAYER-PHONE-HAND-LAYOUT-001: Normal Player hand fits real phone widths without a visible title", async ({
+test("PLAYER-PHONE-HAND-LAYOUT-001: Table-side Player hand fits real phone widths without a visible title", async ({
   context,
   page: host,
 }, testInfo) => {
@@ -1586,7 +1586,7 @@ test("SHOWDOWN-CARD-SELECTION-003: only the winner's selected private cards stay
   await attachReviewScreenshot(winner, testInfo, "phone-player-selected-hand");
 });
 
-test("Normal Mode limits display-name entry to a readable table label", async ({
+test("Table-side Mode limits display-name entry to a readable table label", async ({
   context,
   page: host,
 }) => {
@@ -1716,7 +1716,7 @@ test("DECK-APPEARANCE-001: Trusted Host synchronizes the built-in deck appearanc
   }, expectedFourColour);
   expect(allSuitColours).toEqual(expectedFourColour);
 
-  // Normal Mode uses the approved full face set for private phone cards and
+  // Table-side Mode uses the approved full face set for private phone cards and
   // the shared-table community rail. The compact phone board remains the
   // intentionally separate rank-and-suit reading rail above.
   const fourColourPrivateFaces = alice.locator(
@@ -1811,7 +1811,7 @@ test("DECK-APPEARANCE-001: Trusted Host synchronizes the built-in deck appearanc
   await screenshotIfChromium(alice, testInfo, "phone-deck-appearance");
 });
 
-test("PHONE-CROSS-BROWSER-CARD-001: the actual Normal Mode six shares the compact group baseline", async ({
+test("PHONE-CROSS-BROWSER-CARD-001: the actual Table-side Mode six shares the compact group baseline", async ({
   context,
   page: host,
 }, testInfo: TestInfo) => {
@@ -2018,7 +2018,7 @@ test("Trusted Host can dissolve a table and its saved authority cannot be recove
   ).toBeVisible();
 });
 
-test("Normal Host can dissolve a table from the Players control drawer", async ({
+test("Table-side Host can dissolve a table from the Players control drawer", async ({
   context,
   page: host,
 }, testInfo) => {
@@ -2061,7 +2061,7 @@ test("Normal Host can dissolve a table from the Players control drawer", async (
   );
 });
 
-test("Normal Host makes player invitations and replacements visible in the Players sheet", async ({
+test("Table-side Host makes player invitations and replacements visible in the Players sheet", async ({
   context,
   page: host,
 }, testInfo: TestInfo) => {

@@ -65,11 +65,15 @@ Expose an atomic `commit accepted transition`, `load latest valid state`, `repla
 - Host recovery proves exclusivity, loads a valid snapshot, replays later events through the same reducer, and compares state digest. Uncertain exclusivity, corruption, missing custody, or unsupported version fails closed.
 - Remote success appears only after exact server acknowledgment and ciphertext hash; distinguish local saved, remote pending, and remote verified.
 - Completed-hand remote checkpoints strip folded/unrevealed cards, legacy-mucked cards, and active custody material. Recovery secret is separate from storage.
+- Authenticated liveness probes and their retry counters are non-authoritative
+  transient state: they do not write recovery, change a seat, or alter the
+  authoritative event history. A genuine reconnect, disconnect, or accepted
+  command retains its existing durable semantics.
 - Diagnostic storage has a separate quota and may evict before authoritative recovery data.
 
 ## Testing Decisions
 
-Fault every transaction boundary, ack race, quota exhaustion, browser freeze/discard, duplicate/reorder, snapshot point, stale checkpoint, corrupted/missing key, two-host resume, version migration, and remote timeout. Replay from genesis and every snapshot. Verify privacy class and secret scans for every export. Test replacement-device revocation and disconnect-through-hand-end sit-out.
+Fault every transaction boundary, ack race, quota exhaustion, browser freeze/discard, duplicate/reorder, snapshot point, stale checkpoint, corrupted/missing key, two-host resume, version migration, and remote timeout. Replay from genesis and every snapshot. Verify privacy class and secret scans for every export. Test replacement-device revocation and disconnect-through-hand-end sit-out. Verify that liveness-only traffic leaves recovery revision and authoritative state unchanged.
 
 ## Out of Scope
 

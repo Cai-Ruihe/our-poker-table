@@ -54,8 +54,8 @@ requirement_imports:
       [
         tests/contract/connection-service.test.ts,
         tests/contract/live-relay-release-gate.test.ts,
-        tests/contract/normal-self-hosting.test.ts,
-        tests/journey/normal-relay.spec.ts,
+        tests/contract/table-side-self-hosting.test.ts,
+        tests/journey/table-side-relay.spec.ts,
         tests/journey/relay-restart.spec.ts,
       ]
   M05:
@@ -95,8 +95,8 @@ requirement_imports:
       [
         tools/release,
         tests/contract/live-relay-release-gate.test.ts,
-        tests/contract/normal-release-config.test.ts,
-        tests/contract/normal-self-hosting.test.ts,
+        tests/contract/table-side-release-config.test.ts,
+        tests/contract/table-side-self-hosting.test.ts,
         docs/releasing/RELEASE-CHECKLIST.md,
       ]
   M10:
@@ -140,13 +140,13 @@ live_relay_contract:
   optional_owner_check: operator-token-acceptance
 
 self_hosting_contract:
-  guide: docs/operations/NORMAL-MODE-SELF-HOSTING.md
-  compose: deploy/normal/compose.yaml
-  environment_template: deploy/normal/.env.example
+  guide: docs/operations/TABLE-SIDE-MODE-SELF-HOSTING.md
+  compose: deploy/table-side/compose.yaml
+  environment_template: deploy/table-side/.env.example
   dockerfile: services/connection-service/Dockerfile
   token_tool: tools/operations/create-relay-token.mjs
-  test: tests/contract/normal-self-hosting.test.ts
-  configuration_test: tests/contract/normal-release-config.test.ts
+  test: tests/contract/table-side-self-hosting.test.ts
+  configuration_test: tests/contract/table-side-release-config.test.ts
   token_script: relay:create-token
   doctor_script: relay:doctor
   unconfigured_behavior: no-relay
@@ -364,7 +364,7 @@ deck_appearance:
   source: packages/presentation/src/index.tsx
   evidence:
     - tests/journey/feedback-regressions.spec.ts
-  normal_mode_controls:
+  table_side_mode_controls:
     - card-style-classic
     - card-style-four-colour
 
@@ -395,7 +395,7 @@ control_contract:
       expected_result: After explicit confirmation, the Trusted Host closes the table, revokes invitations and credentials, erases recoverable authority state, and returns home.
       evidence: tests/journey/feedback-regressions.spec.ts
     host-dissolve-table-drawer:
-      surface: Normal Host Players drawer
+      surface: Table-side Host Players drawer
       expected_result: The always-visible drawer-header action requests explicit confirmation; after confirmation, the Trusted Host closes the table, revokes invitations and credentials, erases recoverable authority state, and returns home.
       evidence: tests/journey/feedback-regressions.spec.ts
     home-create-table:
@@ -407,9 +407,9 @@ control_contract:
       expected_result: The player Airplane pairing flow opens.
       evidence: tests/journey/control-conformance.spec.ts
     home-pair-display:
-      surface: Normal Mode Home
+      surface: Table-side Mode Home
       expected_result: The display-role pairing flow opens.
-      evidence: tests/journey/normal-relay.spec.ts
+      evidence: tests/journey/table-side-relay.spec.ts
     home-open-invitation:
       surface: Home
       expected_result: The pasted invitation opens the join form.
@@ -447,7 +447,7 @@ control_contract:
       evidence: tests/journey/control-conformance.spec.ts
     host-open-join-window:
       surface: Host administration
-      expected_result: The Normal Host exposes an in-view Add a player QR and fresh one-use link.
+      expected_result: The Table-side Host exposes an in-view Add a player QR and fresh one-use link.
       evidence:
         [
           tests/journey/control-conformance.spec.ts,
@@ -481,17 +481,17 @@ control_contract:
       expected_result: The Trusted Host reuses its current document as the selected quiet display without minting or upgrading a capability.
       variants: [tv, table-control]
       evidence: tests/journey/control-conformance.spec.ts
-    normal-display-pair-file:
+    table-side-display-pair-file:
       surface: Host displays
       expected_result: A saved display request is decoded or rejected visibly.
-      evidence: tests/journey/normal-relay.spec.ts
+      evidence: tests/journey/table-side-relay.spec.ts
     relay-ticket-refresh:
       surface: Host recovery
       expected_result: A fresh table-limited relay ticket is installed.
       evidence: tests/journey/relay-restart.spec.ts
     roster-join-window-toggle:
       surface: Host roster
-      expected_result: The Normal Host's explicit New players switch changes between Locked and Open and exposes the matching invitation result.
+      expected_result: The Table-side Host's explicit New players switch changes between Locked and Open and exposes the matching invitation result.
       evidence:
         [
           tests/journey/control-conformance.spec.ts,
@@ -609,15 +609,15 @@ control_contract:
     display-pair-cancel:
       surface: Display pairing
       expected_result: Pairing is discarded and Home returns.
-      evidence: tests/journey/normal-relay.spec.ts
+      evidence: tests/journey/table-side-relay.spec.ts
     display-pair-public:
       surface: Display pairing
       expected_result: A Public Table request QR is rendered.
-      evidence: tests/journey/normal-relay.spec.ts
+      evidence: tests/journey/table-side-relay.spec.ts
     display-pair-tv:
       surface: Display pairing
       expected_result: A TV request QR is rendered.
-      evidence: tests/journey/normal-relay.spec.ts
+      evidence: tests/journey/table-side-relay.spec.ts
     recovery-return-home:
       surface: Host recovery stop
       expected_result: The stale recovery fragment is removed and Home opens.
@@ -657,8 +657,8 @@ control_contract:
       variants: [dark-green, black-gold, deep-navy]
       evidence: tests/journey/control-conformance.spec.ts
     table-reconnect:
-      surface: Normal Player community-card utility row or Tablet recovery
-      expected_result: Normal Player places Reconnect to table beside See your table position below the community-card rail, keeps it grey and disabled while recovery is not required, enables after a recovery-required state, and then pulls the current table revision successfully.
+      surface: Table-side Player community-card utility row or Tablet recovery
+      expected_result: Table-side Player places Reconnect to table beside See your table position below the community-card rail, keeps it grey and disabled while recovery is not required, enables after a recovery-required state, and then pulls the current table revision successfully.
       evidence: tests/journey/control-conformance.spec.ts
     tablet-corner-open:
       surface: Tablet quiet view
@@ -763,19 +763,19 @@ control_contract:
           tests/journey/feedback-regressions.spec.ts,
         ]
     player-table-position-open:
-      surface: Normal Player community-card utility row
+      surface: Table-side Player community-card utility row
       expected_result: The centered, below-community-cards See your table position button sits beside Reconnect to table after a deliberate divider and gap, opens a private physical-table map with the player's own current seat highlighted, and is not placed in the topbar.
       evidence: tests/journey/control-conformance.spec.ts
     player-table-position-close:
-      surface: Normal Player physical-table map
+      surface: Table-side Player physical-table map
       expected_result: The private table-position drawer closes and returns to the player hand.
       evidence: tests/journey/control-conformance.spec.ts
     player-sit-out-toggle:
-      surface: Normal Player leave-options drawer
+      surface: Table-side Player leave-options drawer
       expected_result: The visible switch updates future sitting-out state.
       evidence: tests/journey/control-conformance.spec.ts
     player-leave-options-open:
-      surface: Normal Player hand
+      surface: Table-side Player hand
       expected_result: The compact top-right Leave icon opens the step-away pop-out without changing table state.
       evidence:
         [
@@ -783,7 +783,7 @@ control_contract:
           tests/journey/feedback-regressions.spec.ts,
         ]
     player-leave-options-close:
-      surface: Normal Player leave-options drawer
+      surface: Table-side Player leave-options drawer
       expected_result: The leave-options drawer closes without changing table state.
       evidence: tests/journey/control-conformance.spec.ts
     player-leave-active:
@@ -791,7 +791,7 @@ control_contract:
       expected_result: A centered completed red custom-standard permanent-leave slider, 84% of its drawer width and separated from Sit out by a divider, opens the destructive confirmation; a partial slide does not.
       evidence: tests/journey/control-conformance.spec.ts
     tablet-player-names-toggle:
-      surface: Normal Tablet Table controls
+      surface: Table-side Tablet Table controls
       expected_result: The host can opt Table View into or out of player names; TV names are always visible.
       evidence: tests/journey/control-conformance.spec.ts
     host-manage-players:
@@ -858,9 +858,9 @@ control_contract:
 
 performance_contract:
   artifacts:
-    normal_javascript_raw_bytes: 1100000
-    normal_javascript_gzip_bytes: 330000
-    normal_css_raw_bytes: 100000
+    table_side_javascript_raw_bytes: 1100000
+    table_side_javascript_gzip_bytes: 330000
+    table_side_css_raw_bytes: 100000
     airplane_html_raw_bytes: 1350000
   browser_interaction_timeout_ms: 5000
 

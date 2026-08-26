@@ -5,9 +5,9 @@ This roadmap is ordered by capability and evidence gates, not calendar dates. A 
 ## Foundation — public repository and field build established; release gates remain
 
 - Established modular product requirements, decision history, architecture records, contribution policy, governance, security policy, and release gates.
-- Selected the strict TypeScript browser monorepo, browser baseline, test toolchain, and static Normal build in [ADR-0007](docs/adr/0007-typescript-browser-monorepo-toolchain.md).
+- Selected the strict TypeScript browser monorepo, browser baseline, test toolchain, and static Table-side build in [ADR-0007](docs/adr/0007-typescript-browser-monorepo-toolchain.md).
 - Added locked dependencies, automated documentation checks, contract tests, real-browser journey tests, and a clean-build CI workflow.
-- The canonical public project is **Our Poker Table** at [`Cai-Ruihe/our-poker-table`](https://github.com/Cai-Ruihe/our-poker-table), with Pages field builds at `https://cai-ruihe.github.io/our-poker-table/` and `/normal/`. The local `html-poker-app` workspace and `@html-poker/*` package/protocol names deliberately remain compatibility identifiers.
+- The canonical public project is **Our Poker Table** at [`Cai-Ruihe/our-poker-table`](https://github.com/Cai-Ruihe/our-poker-table), with production field builds at `https://ourpokertable.com/` and `/table-side/`. The local `html-poker-app` workspace and `@html-poker/*` package/protocol names deliberately remain compatibility identifiers.
 - The repository/Pages rename is not an application release. Branch protection, release signing, a candidate-matched deployed manifest, physical/network qualification, and Official Release approval remain separate gates.
 
 ## Phase 1 — Trusted-Host dealer (local release candidate; external gates open)

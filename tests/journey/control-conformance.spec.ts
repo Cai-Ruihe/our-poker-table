@@ -810,7 +810,7 @@ test("Physical-player and dealer controls commit the advertised state transition
   );
 });
 
-test("Normal Player Show reveals only after slider completion", async ({
+test("Table-side Player Show reveals only after slider completion", async ({
   context,
   page: host,
 }) => {
@@ -834,7 +834,7 @@ test("Normal Player Show reveals only after slider completion", async ({
   await expect(host.locator("[data-shown-card]")).toHaveCount(2);
 });
 
-test("Normal Player can cancel sitting out before the next hand", async ({
+test("Table-side Player can cancel sitting out before the next hand", async ({
   context,
   page: host,
 }) => {

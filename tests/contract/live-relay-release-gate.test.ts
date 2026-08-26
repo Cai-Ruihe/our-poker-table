@@ -201,8 +201,8 @@ describe("live relay release gate", () => {
     const result = await execute(process.execPath, [checker.pathname], {
       env: {
         ...process.env,
-        NORMAL_APP_ORIGIN: appOrigin,
-        NORMAL_CONNECTION_SERVICE_URL: `http://127.0.0.1:${port}`,
+        TABLE_SIDE_APP_ORIGIN: appOrigin,
+        TABLE_SIDE_CONNECTION_SERVICE_URL: `http://127.0.0.1:${port}`,
         RELAY_CHECK_ALLOW_HTTP_LOOPBACK: "1",
       },
     });
@@ -227,8 +227,8 @@ describe("live relay release gate", () => {
     const result = await execute(process.execPath, [checker.pathname], {
       env: {
         ...process.env,
-        NORMAL_APP_ORIGIN: appOrigin,
-        NORMAL_CONNECTION_SERVICE_URL: `http://127.0.0.1:${port}`,
+        TABLE_SIDE_APP_ORIGIN: appOrigin,
+        TABLE_SIDE_CONNECTION_SERVICE_URL: `http://127.0.0.1:${port}`,
         RELAY_CHECK_ALLOW_HTTP_LOOPBACK: "1",
         RELAY_OPERATOR_TOKEN_FILE: tokenFile,
       },
@@ -282,8 +282,8 @@ describe("live relay release gate", () => {
       execute(process.execPath, [checker.pathname], {
         env: {
           ...process.env,
-          NORMAL_APP_ORIGIN: appOrigin,
-          NORMAL_CONNECTION_SERVICE_URL: `http://127.0.0.1:${redirectPort}`,
+          TABLE_SIDE_APP_ORIGIN: appOrigin,
+          TABLE_SIDE_CONNECTION_SERVICE_URL: `http://127.0.0.1:${redirectPort}`,
           RELAY_CHECK_ALLOW_HTTP_LOOPBACK: "1",
         },
       }),
@@ -297,8 +297,8 @@ describe("live relay release gate", () => {
       execute(process.execPath, [checker.pathname], {
         env: {
           ...process.env,
-          NORMAL_APP_ORIGIN: "https://example.test",
-          NORMAL_CONNECTION_SERVICE_URL:
+          TABLE_SIDE_APP_ORIGIN: "https://example.test",
+          TABLE_SIDE_CONNECTION_SERVICE_URL:
             "wss://embedded:credential@relay.example.test/private-path",
         },
       }),

@@ -24,7 +24,7 @@ afterEach(async () => {
   );
 });
 
-describe("Normal Mode self-hosting kit", () => {
+describe("Table-side Mode self-hosting kit", () => {
   it("creates a private operator-token file without printing its secret", async () => {
     const root = await mkdtemp(path.join(tmpdir(), "our-poker-relay-token-"));
     temporaryRoots.push(root);
@@ -80,7 +80,7 @@ describe("Normal Mode self-hosting kit", () => {
   it("ships a deployer-owned container recipe with no project-owner endpoint or secret", async () => {
     const [composeSource, dockerfile] = await Promise.all([
       readFile(
-        path.join(process.cwd(), "deploy", "normal", "compose.yaml"),
+        path.join(process.cwd(), "deploy", "table-side", "compose.yaml"),
         "utf8",
       ),
       readFile(
@@ -112,7 +112,7 @@ describe("Normal Mode self-hosting kit", () => {
     });
     expect(service?.environment).toMatchObject({
       POKER_CONNECTION_ACCESS_TOKEN_FILE: "/run/secrets/operator_token",
-      POKER_CONNECTION_ALLOWED_ORIGIN: "${NORMAL_APP_ORIGIN:?required}",
+      POKER_CONNECTION_ALLOWED_ORIGIN: "${TABLE_SIDE_APP_ORIGIN:?required}",
     });
     expect(service?.ports).toEqual([
       "127.0.0.1:${POKER_CONNECTION_PORT:-8787}:8787",

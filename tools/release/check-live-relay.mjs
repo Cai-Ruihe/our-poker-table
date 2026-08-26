@@ -13,7 +13,7 @@ const serviceRequire = createRequire(
 );
 const { WebSocket } = serviceRequire("ws");
 
-const appOrigin = process.env.NORMAL_APP_ORIGIN?.trim();
+const appOrigin = process.env.TABLE_SIDE_APP_ORIGIN?.trim();
 const allowHttpLoopback = process.env.RELAY_CHECK_ALLOW_HTTP_LOOPBACK === "1";
 const operatorTokenFile = process.env.RELAY_OPERATOR_TOKEN_FILE?.trim();
 const timeoutCandidate = Number.parseInt(
@@ -161,12 +161,12 @@ function closeWebSocket(socket) {
 }
 
 async function main() {
-  if (!appOrigin) fail("NORMAL_APP_ORIGIN is required.");
+  if (!appOrigin) fail("TABLE_SIDE_APP_ORIGIN is required.");
   let applicationUrl;
   try {
     applicationUrl = new URL(appOrigin);
   } catch {
-    fail("NORMAL_APP_ORIGIN must be one exact HTTPS origin.");
+    fail("TABLE_SIDE_APP_ORIGIN must be one exact HTTPS origin.");
   }
   if (
     applicationUrl.protocol !== "https:" ||
@@ -176,23 +176,26 @@ async function main() {
     applicationUrl.search ||
     applicationUrl.hash
   ) {
-    fail("NORMAL_APP_ORIGIN must be one exact HTTPS origin.");
+    fail("TABLE_SIDE_APP_ORIGIN must be one exact HTTPS origin.");
   }
   const origin = applicationUrl.origin;
   const configuredRelays = [
-    ["NORMAL_CLOUD_RELAY_URL", process.env.NORMAL_CLOUD_RELAY_URL?.trim()],
-    ["NORMAL_MAC_RELAY_URL", process.env.NORMAL_MAC_RELAY_URL?.trim()],
+    [
+      "TABLE_SIDE_CLOUD_RELAY_URL",
+      process.env.TABLE_SIDE_CLOUD_RELAY_URL?.trim(),
+    ],
+    ["TABLE_SIDE_MAC_RELAY_URL", process.env.TABLE_SIDE_MAC_RELAY_URL?.trim()],
   ];
   if (!configuredRelays.some(([, value]) => value)) {
     configuredRelays.push([
-      "NORMAL_CONNECTION_SERVICE_URL",
-      process.env.NORMAL_CONNECTION_SERVICE_URL?.trim(),
+      "TABLE_SIDE_CONNECTION_SERVICE_URL",
+      process.env.TABLE_SIDE_CONNECTION_SERVICE_URL?.trim(),
     ]);
   }
   const activeRelays = configuredRelays.filter(([, value]) => value);
   if (activeRelays.length === 0) {
     fail(
-      "one of NORMAL_CLOUD_RELAY_URL, NORMAL_MAC_RELAY_URL, or NORMAL_CONNECTION_SERVICE_URL is required.",
+      "one of TABLE_SIDE_CLOUD_RELAY_URL, TABLE_SIDE_MAC_RELAY_URL, or TABLE_SIDE_CONNECTION_SERVICE_URL is required.",
     );
   }
 

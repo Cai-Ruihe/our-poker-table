@@ -154,7 +154,7 @@ function renderSmallestCards(cardStyle: "classic" | "four-colour"): string {
     .join("");
 }
 
-test("Normal compact community cards keep rank and suit readable on phone engines", async ({
+test("Table-side compact community cards keep rank and suit readable on phone engines", async ({
   page,
 }, testInfo) => {
   // Six complete CSS layouts (three phone widths × two deck styles) are

@@ -14,10 +14,10 @@ The architecture is coherent only with a deliberately narrow security claim:
 
 The accepted baseline is:
 
-1. Normal Mode tries **direct peer-to-peer → deployer private relay → deployer cloud relay**. Each deployment owns its endpoints, credentials, and costs.
+1. Table-side Mode tries **direct peer-to-peer → deployer private relay → deployer cloud relay**. Each deployment owns its endpoints, credentials, and costs.
 2. Every QR or equivalent full-URL invitation authenticates the host independently of signaling. Transport encryption without peer binding is insufficient.
 3. The Connection Service is card-blind, not metadata-blind. It may signal, relay ciphertext, store opaque checkpoints, and retain allowlisted redacted diagnostics; it never runs poker rules.
-4. Official Normal and Airplane artifacts are immutable, dependency-locked, provenance-verifiable, and free of runtime third-party code. A live table never changes build or protocol.
+4. Official Table-side and Airplane artifacts are immutable, dependency-locked, provenance-verifiable, and free of runtime third-party code. A live table never changes build or protocol.
 5. Airplane Mode is a preloaded, self-contained artifact using a trusted non-isolating local network and two-way on-screen QR. It makes zero external requests during play.
 6. China-ready operation is a goal, not a current claim. Online routes require dated field evidence; Airplane Mode is the worst-case fallback.
 7. Connection Service and future AI Gateway processes may share one Windows or Mac only with separate least-privilege identities, secrets, state, logs, and network policy. Administrator or operating-system compromise remains common fate.
@@ -103,7 +103,7 @@ See [ADR-0001](../adr/0001-trusted-host-now-mental-poker-seam.md), [ADR-0005](..
 
 ### Inference and accepted default
 
-- Build deterministic or provenance-verifiable, immutable Normal and Airplane artifacts from exact dependency and toolchain locks.
+- Build deterministic or provenance-verifiable, immutable Table-side and Airplane artifacts from exact dependency and toolchain locks.
 - Bundle every runtime script, evaluator, QR library, font, card asset, and skin validator locally. Do not load executable code or mutable assets from a CDN in the card origin.
 - Publish an artifact digest, signed release metadata, source revision, dependency inventory/SBOM, provenance, build ID, and supported protocol/schema range.
 - Treat CSP, Trusted Types, and SRI as defense in depth. The separately authenticated Official Release artifact is the trust root.
@@ -120,7 +120,7 @@ The exact package manager, signer custody, build platform, reproducibility targe
 - invalid, revoked, missing, or mismatched release metadata;
 - downgrade, freeze, mix-and-match, and stale-cache behavior;
 - worker activation or database migration during an active table;
-- incompatible Normal/Airplane builds and protocol boundaries;
+- incompatible Table-side/Airplane builds and protocol boundaries;
 - rollback to a known-good artifact without mutating the current table.
 
 ## 2. Airplane Mode and mainland-China operation
@@ -135,7 +135,7 @@ The exact package manager, signer custody, build platform, reproducibility targe
 
 ### Inference and accepted default
 
-- Normal Mode implements a tested `ConnectivityStrategy`: direct WebRTC first, then the deployer's private relay, then its optional cloud relay. ICE alone must not be assumed to enforce this business order in every situation.
+- Table-side Mode implements a tested `ConnectivityStrategy`: direct WebRTC first, then the deployer's private relay, then its optional cloud relay. ICE alone must not be assumed to enforce this business order in every situation.
 - In Airplane Mode, exchange offer/answer bootstrap data through two-way on-screen QR rather than relying on an internet signaling service.
 - A private relay physically outside mainland China does not become mainland-hosted merely because a traveler connects to it. That narrow hosting fact does not establish reachability, performance, content legality, data-transfer compliance, or every registration obligation.
 - A mainland-hosted relay is not a required baseline. If a deployer chooses one, provider eligibility, registration, content, data handling, and operations require a deployment-specific review.
@@ -170,7 +170,7 @@ Airplane Mode is a fallback path, not a promise that every aircraft network or p
 
 ### Inference and accepted default
 
-- Every Normal or Airplane invitation contains a one-use high-entropy capability and a cryptographic binding over table ID, active host public key, role/scope, protocol version, expiry, and nonce.
+- Every Table-side or Airplane invitation contains a one-use high-entropy capability and a cryptographic binding over table ID, active host public key, role/scope, protocol version, expiry, and nonce.
 - The joining client verifies that binding independently of signaling before seat activation or private-card delivery. The full QR/URL does this automatically; there is no extra approval screen or short human comparison code.
 - Signaling accepts size-limited, schema-validated rendezvous objects. It cannot select a different authenticated host, escalate role scope, or replay an expired invitation.
 - Relays see addresses, timing, sizes, connection identifiers, and availability patterns. They can delay, drop, replay, or deny ciphertext unless the application detects stale/replayed state. “Card-blind” therefore never means “metadata-blind” or “availability-neutral.”

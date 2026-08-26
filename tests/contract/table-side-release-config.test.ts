@@ -13,7 +13,7 @@ const configureScript = path.join(
   process.cwd(),
   "tools",
   "release",
-  "configure-normal.mjs",
+  "configure-table-side.mjs",
 );
 const baselineCsp =
   "connect-src 'self' https: wss:; font-src 'self'; form-action 'self'; img-src 'self' data: blob:;";
@@ -25,18 +25,20 @@ const cloudRelayWranglerConfig = path.join(
 );
 
 async function fixture(): Promise<string> {
-  const root = await mkdtemp(path.join(tmpdir(), "html-poker-normal-config-"));
+  const root = await mkdtemp(
+    path.join(tmpdir(), "html-poker-table-side-config-"),
+  );
   roots.push(root);
-  const normal = path.join(root, "dist", "normal");
-  await mkdir(normal, { recursive: true });
+  const tableSide = path.join(root, "dist", "table-side");
+  await mkdir(tableSide, { recursive: true });
   await Promise.all([
     writeFile(
-      path.join(normal, "index.html"),
+      path.join(tableSide, "index.html"),
       `<meta http-equiv="Content-Security-Policy" content="${baselineCsp}">`,
       "utf8",
     ),
     writeFile(
-      path.join(normal, "poker-config.js"),
+      path.join(tableSide, "poker-config.js"),
       "globalThis.__HTML_POKER_CONFIG__ ??= {};\n",
       "utf8",
     ),
@@ -50,7 +52,7 @@ afterEach(async () => {
   );
 });
 
-describe("Normal release configuration", () => {
+describe("Table-side release configuration", () => {
   it("explicitly enables the public workers.dev endpoint for the Cloudflare relay", async () => {
     const wranglerConfig = await readFile(cloudRelayWranglerConfig, "utf8");
 
@@ -64,13 +66,16 @@ describe("Normal release configuration", () => {
       cwd: root,
       env: {
         ...process.env,
-        NORMAL_CONNECTION_SERVICE_URL: "",
+        TABLE_SIDE_CONNECTION_SERVICE_URL: "",
       },
     });
 
     const [html, config] = await Promise.all([
-      readFile(path.join(root, "dist", "normal", "index.html"), "utf8"),
-      readFile(path.join(root, "dist", "normal", "poker-config.js"), "utf8"),
+      readFile(path.join(root, "dist", "table-side", "index.html"), "utf8"),
+      readFile(
+        path.join(root, "dist", "table-side", "poker-config.js"),
+        "utf8",
+      ),
     ]);
     expect(config).toBe("globalThis.__HTML_POKER_CONFIG__ ??= {};\n");
     expect(config).not.toContain("wss://");
@@ -84,13 +89,16 @@ describe("Normal release configuration", () => {
       cwd: root,
       env: {
         ...process.env,
-        NORMAL_CONNECTION_SERVICE_URL: "wss://relay.example.test",
+        TABLE_SIDE_CONNECTION_SERVICE_URL: "wss://relay.example.test",
       },
     });
 
     const [html, config] = await Promise.all([
-      readFile(path.join(root, "dist", "normal", "index.html"), "utf8"),
-      readFile(path.join(root, "dist", "normal", "poker-config.js"), "utf8"),
+      readFile(path.join(root, "dist", "table-side", "index.html"), "utf8"),
+      readFile(
+        path.join(root, "dist", "table-side", "poker-config.js"),
+        "utf8",
+      ),
     ]);
     expect(config).toContain(
       'privateRelay: { url: "wss://relay.example.test" }',
@@ -116,15 +124,18 @@ describe("Normal release configuration", () => {
       cwd: root,
       env: {
         ...process.env,
-        NORMAL_CONNECTION_SERVICE_URL: "",
-        NORMAL_CLOUD_RELAY_URL: "wss://relay.example.test",
-        NORMAL_MAC_RELAY_URL: "wss://mac-relay.example.test",
+        TABLE_SIDE_CONNECTION_SERVICE_URL: "",
+        TABLE_SIDE_CLOUD_RELAY_URL: "wss://relay.example.test",
+        TABLE_SIDE_MAC_RELAY_URL: "wss://mac-relay.example.test",
       },
     });
 
     const [html, config] = await Promise.all([
-      readFile(path.join(root, "dist", "normal", "index.html"), "utf8"),
-      readFile(path.join(root, "dist", "normal", "poker-config.js"), "utf8"),
+      readFile(path.join(root, "dist", "table-side", "index.html"), "utf8"),
+      readFile(
+        path.join(root, "dist", "table-side", "poker-config.js"),
+        "utf8",
+      ),
     ]);
     expect(config).toContain('cloudRelay: { url: "wss://relay.example.test" }');
     expect(config).toContain(
@@ -143,25 +154,25 @@ describe("Normal release configuration", () => {
     );
   });
 
-  it("keeps the legacy URL as the Mac fallback when the new variables are absent", async () => {
+  it("uses the single-relay URL as the Mac fallback when the dedicated variable is absent", async () => {
     const root = await fixture();
 
     await execute(process.execPath, [configureScript], {
       cwd: root,
       env: {
         ...process.env,
-        NORMAL_CLOUD_RELAY_URL: "",
-        NORMAL_MAC_RELAY_URL: "",
-        NORMAL_CONNECTION_SERVICE_URL: "wss://legacy-relay.example.test",
+        TABLE_SIDE_CLOUD_RELAY_URL: "",
+        TABLE_SIDE_MAC_RELAY_URL: "",
+        TABLE_SIDE_CONNECTION_SERVICE_URL: "wss://single-relay.example.test",
       },
     });
 
     const config = await readFile(
-      path.join(root, "dist", "normal", "poker-config.js"),
+      path.join(root, "dist", "table-side", "poker-config.js"),
       "utf8",
     );
     expect(config).toContain(
-      'privateRelay: { url: "wss://legacy-relay.example.test" }',
+      'privateRelay: { url: "wss://single-relay.example.test" }',
     );
     expect(config).not.toContain("cloudRelay");
   });
@@ -174,7 +185,7 @@ describe("Normal release configuration", () => {
         cwd: root,
         env: {
           ...process.env,
-          NORMAL_CONNECTION_SERVICE_URL: "ws://relay.example.test",
+          TABLE_SIDE_CONNECTION_SERVICE_URL: "ws://relay.example.test",
         },
       }),
     ).rejects.toMatchObject({
@@ -184,7 +195,7 @@ describe("Normal release configuration", () => {
 
   it("rejects an artifact that would block a locally selected QR image", async () => {
     const root = await fixture();
-    const indexPath = path.join(root, "dist", "normal", "index.html");
+    const indexPath = path.join(root, "dist", "table-side", "index.html");
     await writeFile(
       indexPath,
       `<meta http-equiv="Content-Security-Policy" content="${baselineCsp.replace(" blob:", "")}">`,
@@ -196,7 +207,7 @@ describe("Normal release configuration", () => {
         cwd: root,
         env: {
           ...process.env,
-          NORMAL_CONNECTION_SERVICE_URL: "wss://relay.example.test",
+          TABLE_SIDE_CONNECTION_SERVICE_URL: "wss://relay.example.test",
         },
       }),
     ).rejects.toMatchObject({
@@ -209,7 +220,7 @@ describe("Normal release configuration", () => {
       path.join(process.cwd(), ".github", "workflows", "ci.yml"),
       "utf8",
     );
-    const configure = workflow.indexOf("Configure hosted Normal Mode");
+    const configure = workflow.indexOf("Configure hosted Table-side Mode");
     const liveGate = workflow.indexOf("Verify configured live relay");
     const deploy = workflow.indexOf("Deploy GitHub Pages");
 
@@ -218,11 +229,20 @@ describe("Normal release configuration", () => {
     expect(deploy).toBeGreaterThan(liveGate);
     expect(workflow).toContain("pnpm qa:live-relay");
     expect(workflow).toContain(
-      "NORMAL_APP_ORIGIN: ${{ vars.NORMAL_APP_ORIGIN || format('https://{0}.github.io', github.repository_owner) }}",
+      "TABLE_SIDE_APP_ORIGIN: ${{ vars.TABLE_SIDE_APP_ORIGIN || format('https://{0}.github.io', github.repository_owner) }}",
     );
     expect(workflow).toContain(
-      "if: vars.NORMAL_CLOUD_RELAY_URL != '' || vars.NORMAL_MAC_RELAY_URL != '' || vars.NORMAL_CONNECTION_SERVICE_URL != ''",
+      "if: vars.TABLE_SIDE_CLOUD_RELAY_URL != '' || vars.TABLE_SIDE_MAC_RELAY_URL != '' || vars.TABLE_SIDE_CONNECTION_SERVICE_URL != ''",
     );
     expect(workflow).not.toContain("trycloudflare.com");
+    expect(workflow).toContain(
+      "cp apps/landing/root-redirect.html _site/index.html",
+    );
+    expect(workflow).toContain(
+      "cp dist/airplane/poker-airplane.html _site/poker-airplane.html",
+    );
+    expect(workflow).not.toContain(
+      "cp dist/airplane/poker-airplane.html _site/index.html",
+    );
   });
 });

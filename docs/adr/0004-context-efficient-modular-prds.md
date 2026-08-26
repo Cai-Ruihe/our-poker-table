@@ -28,7 +28,7 @@ Actual agent context usage and document drift rates must be measured during impl
 
 ## Decision
 
-Use one Master PRD for product direction and routing, one PRD per delivery phase, one PRD per deep module, a decision register for settled choices, and a YAML manifest for dependencies and task context packs. Normal tasks load the Master, exactly one active phase, one primary module, at most two declared dependencies, and only cited decision rows. Document word budgets are enforced.
+Use one Master PRD for product direction and routing, one PRD per delivery phase, one PRD per deep module, a decision register for settled choices, and a YAML manifest for dependencies and task context packs. Ordinary tasks load the Master, exactly one active phase, one primary module, at most two declared dependencies, and only cited decision rows. Document word budgets are enforced.
 
 ## Consequences
 

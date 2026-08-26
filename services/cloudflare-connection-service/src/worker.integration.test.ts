@@ -151,7 +151,7 @@ beforeEach(async () => {
 });
 
 describe("Cloudflare Worker HTTP integration", () => {
-  it("serves health and applies the exact Normal Mode CORS contract", async () => {
+  it("serves health and applies the exact Table-side Mode CORS contract", async () => {
     const response = await SELF.fetch("https://relay.test/health", {
       headers: { origin: ALLOWED_ORIGIN },
     });

@@ -1,11 +1,11 @@
 Our Poker Table - Third-Party Licenses
 
-This notice bundle accompanies the Normal static build and is embedded in the
+This notice bundle accompanies the Table-side static build and is embedded in the
 Airplane artifact. Review the locked production inventory with:
 
   pnpm licenses:prod
 
-Browser/runtime packages in this Normal static build:
+Browser/runtime packages in this Table-side static build:
 
 - React, React DOM, and Scheduler 19.2.8 — MIT
 - qrcode 1.5.4, dijkstrajs 1.0.3, pngjs 5.0.0, and fflate 0.8.3 — MIT

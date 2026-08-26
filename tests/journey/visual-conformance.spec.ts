@@ -393,7 +393,7 @@ test("Tablet quiet and quick-control states conform to approved geometry", async
     await expectFlushToPhysicalCorner(
       host.getByRole("button", { name: `Open table controls from ${corner}` }),
       corner,
-      `normal Tablet ${corner} launcher`,
+      `table-side Tablet ${corner} launcher`,
     );
   }
 
@@ -423,7 +423,7 @@ test("Tablet quiet and quick-control states conform to approved geometry", async
     await expectFlushToPhysicalCorner(
       panel,
       corner,
-      `normal Tablet ${corner} quick panel`,
+      `table-side Tablet ${corner} quick panel`,
     );
     if (corner === "upper right") {
       await screenshotIfChromium(host, testInfo, "tablet-quick-upper-right");

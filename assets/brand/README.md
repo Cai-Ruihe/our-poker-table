@@ -45,7 +45,7 @@ clearspace, contrast, and misuse guidance are in the
 These canonical files are not automatically copied into the application. Add
 only the chosen runtime assets to `apps/web/public/` or import them from source
 when the product integration is separately authorized. This prevents unused
-marketing and high-resolution files from increasing every Normal and Airplane
+marketing and high-resolution files from increasing every Table-side and Airplane
 build.
 
 ## Source limitation

@@ -9,9 +9,9 @@ const cardSetRoot = fileURLToPath(
   new URL("../../assets/skins/revk-card-sets", import.meta.url),
 );
 
-function normalCardFaceAssets(): Plugin {
+function tableSideCardFaceAssets(): Plugin {
   return {
-    name: "normal-card-face-assets",
+    name: "table-side-card-face-assets",
     generateBundle() {
       for (const deck of ["classic", "four-colour"]) {
         const faceDirectory = resolve(cardSetRoot, deck, "faces");
@@ -34,12 +34,12 @@ export default defineConfig(() => {
     base: "./",
     build: {
       emptyOutDir: true,
-      outDir: process.env.HTML_POKER_OUTPUT_DIR ?? "../../dist/normal",
+      outDir: process.env.HTML_POKER_OUTPUT_DIR ?? "../../dist/table-side",
       target: "baseline-widely-available",
     },
     define: {
       __HTML_POKER_AIRPLANE_BUILD__: JSON.stringify(airplaneBuild),
     },
-    plugins: [react(), ...(airplaneBuild ? [] : [normalCardFaceAssets()])],
+    plugins: [react(), ...(airplaneBuild ? [] : [tableSideCardFaceAssets()])],
   };
 });

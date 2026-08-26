@@ -28,15 +28,15 @@ iOS/iPadOS file origins, camera permissions, storage durability, multi-peer scal
 
 ## Decision
 
-Ship an immutable, self-contained Airplane Mode artifact that is downloaded before travel. Devices join the same trusted, non-isolating local Wi-Fi/hotspot and exchange bootstrap data through two-way QR scanning. It uses the same Game Core, Card Custody, protocol, and presentation modules as Normal Mode through different adapters. No external service is required during play.
+Ship an immutable, self-contained Airplane Mode artifact that is downloaded before travel. Devices join the same trusted, non-isolating local Wi-Fi/hotspot and exchange bootstrap data through two-way QR scanning. It uses the same Game Core, Card Custody, protocol, and presentation modules as Table-side Mode through different adapters. No external service is required during play.
 
 ## Consequences
 
-Airplane play does not depend on public networks or the owner's infrastructure. Pairing is more deliberate than Normal Mode, every device must have a compatible artifact, and unsupported browser/security policies may prevent operation. Manual typed code, connection files, and Bluetooth remain deferred rather than crowding the main design.
+Airplane play does not depend on public networks or the owner's infrastructure. Pairing is more deliberate than Table-side Mode, every device must have a compatible artifact, and unsupported browser/security policies may prevent operation. Manual typed code, connection files, and Bluetooth remain deferred rather than crowding the main design.
 
 ## Alternatives considered
 
-- **Single normal join URL:** unavailable without a reachable signaling path.
+- **Single hosted join URL:** unavailable without a reachable signaling path.
 - **Six-digit connection description:** too little entropy/capacity for a complete secure two-way bootstrap without another service.
 - **Bluetooth first:** deferred because web Bluetooth and background support are not universal, especially across iOS/TV browsers.
 - **Bundled native app:** conflicts with the universal browser objective.

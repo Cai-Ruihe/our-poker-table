@@ -16,7 +16,7 @@ The implementation stack is controlled by [ADR-0007](docs/adr/0007-typescript-br
 - This is play-chip-only software. Real-money, payment, rake, cash-out, and gambling-account features are out of scope.
 - Hidden-card privacy is the highest security property. Never place unrevealed cards, deck order, credentials, or session keys in public projections, URLs, analytics, logs, crash reports, screenshots, or cloud backups.
 - The active host is trusted in Phase 1. Do not make a stronger claim in code or documentation.
-- Normal play must not depend on the project owner's computer, cloud account, analytics, AI provider, or other central poker engine.
+- Table-side play must not depend on the project owner's computer, cloud account, analytics, AI provider, or other central poker engine.
 - Airplane Mode and the base human game must not depend on AI or internet services.
 - Community skins must be data-only. Executable community code requires a separate, explicitly accepted security design.
 - Bold Poker may inspire interaction behavior; do not copy its code, artwork, branding, text, sounds, or exact interface expression.

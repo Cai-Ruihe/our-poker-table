@@ -72,7 +72,7 @@ The interface opens/closes invitation scopes, redeems a one-use invitation into 
 - One active private browser instance per seat is supported. Replacement revokes/rotates; no account-free system claims one physical human/device or prevents collusion.
 - A player who has folded may set future-hand sit-out state immediately; the current hand remains folded and unchanged.
 - Public/display capabilities cannot mint or self-upgrade into Table-Control. Control links are powerful short-lived bearer capabilities with roster visibility and immediate revoke/rotate.
-- Normal Mode may reverse the display bootstrap: an untrusted display request shows an ephemeral QR, and an authorized host/admin device scans it to issue only the selected Public, TV, or Table-Control capability. That scan is the bootstrap; mode switching later adds no approval prompt and no stronger authority.
+- Table-side Mode may reverse the display bootstrap: an untrusted display request shows an ephemeral QR, and an authorized host/admin device scans it to issue only the selected Public, TV, or Table-Control capability. That scan is the bootstrap; mode switching later adds no approval prompt and no stronger authority.
 - Join invitations bind the active host key independently of signaling. Typed codes/files remain deferred.
 - Joining on the host device redeems the same ordinary one-use Player invitation and creates the same revocable Seat Credential as an external player. The host recovery URL may reference the local player slot, but the credential secret remains in encrypted browser recovery storage.
 - Visual `displayPosition` never changes logical seat/dealer/blind order.

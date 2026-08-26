@@ -31,6 +31,9 @@ test("the accepted Our Poker Table identity is used on entry and host surfaces",
       name: "Our Poker Table",
     }),
   ).toBeVisible();
+  await expect(
+    host.getByRole("link", { name: "Open Our Poker Table introduction" }),
+  ).toHaveAttribute("href", "../intro/");
   await expect(host.locator(".brand-bar")).not.toContainText("HTML Poker");
   await expect(host.locator('head link[rel="icon"]')).toHaveAttribute(
     "href",

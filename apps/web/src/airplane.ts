@@ -8,6 +8,7 @@ import type {
 
 const airplanePrefix = "HTMLPOKER-AIRPLANE-1:";
 const maximumPairingCodeLength = 16_384;
+export type AirplanePresentationLanguage = "en" | "zh";
 
 interface AirplaneOfferPayload {
   readonly binding: PeerBinding;
@@ -15,6 +16,7 @@ interface AirplaneOfferPayload {
   readonly formatVersion: 1;
   readonly invitation: Invitation;
   readonly kind: "offer";
+  readonly presentationLanguage?: AirplanePresentationLanguage;
   readonly offerId: string;
   readonly sdp: string;
 }
@@ -48,6 +50,7 @@ export interface ClientAirplanePairing {
   readonly channel: RTCDataChannel;
   readonly clientPeerId: string;
   readonly invitation: Invitation;
+  readonly presentationLanguage?: AirplanePresentationLanguage;
   close(): void;
 }
 
@@ -113,6 +116,18 @@ function decodePayload(code: string): AirplanePairingPayload {
     !["offer", "answer"].includes(String(candidate.kind))
   ) {
     throw new Error("The Airplane QR payload schema is invalid.");
+  }
+  const presentationLanguage = (
+    candidate as {
+      readonly presentationLanguage?: unknown;
+    }
+  ).presentationLanguage;
+  if (
+    presentationLanguage !== undefined &&
+    presentationLanguage !== "en" &&
+    presentationLanguage !== "zh"
+  ) {
+    throw new Error("The Airplane QR presentation language is invalid.");
   }
   return candidate as AirplanePairingPayload;
 }
@@ -197,6 +212,7 @@ function waitForChannelOpen(
 export async function createHostAirplanePairing(input: {
   readonly binding: PeerBinding;
   readonly invitation: Invitation;
+  readonly presentationLanguage?: AirplanePresentationLanguage;
 }): Promise<HostAirplanePairing> {
   const connection = new RTCPeerConnection({ iceServers: [] });
   const offerId = randomId("airplane-offer");
@@ -219,6 +235,9 @@ export async function createHostAirplanePairing(input: {
     invitation: { ...input.invitation },
     kind: "offer",
     offerId,
+    ...(input.presentationLanguage
+      ? { presentationLanguage: input.presentationLanguage }
+      : {}),
     sdp,
   });
   let answered = false;
@@ -305,6 +324,9 @@ export async function acceptHostAirplaneOffer(
       connection.close();
     },
     invitation: { ...offer.invitation },
+    ...(offer.presentationLanguage
+      ? { presentationLanguage: offer.presentationLanguage }
+      : {}),
   };
 }
 

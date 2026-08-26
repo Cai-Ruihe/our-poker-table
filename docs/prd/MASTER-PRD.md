@@ -26,7 +26,7 @@ router: manifest.yaml
 
 ## Context capsule
 
-Build **Our Poker Table**, an elegant, account-free HTML Texas Hold'em table for nearby social play. Phones hold private cards; a tablet, TV, or computer may show and control the public table. The active browser host is the Phase 1 poker authority. Normal Mode connects through direct peer-to-peer, then the deployer's Cloudflare Workers/Durable Objects relay, then the deployer's Mac Connection Service fallback. Airplane Mode works from a preloaded standalone HTML artifact on a private local Wi-Fi network. Play chips never represent money.
+Build **Our Poker Table**, an elegant, account-free HTML Texas Hold'em table for nearby social play. Phones hold private cards; a tablet, TV, or computer may show and control the public table. The active browser host is the Phase 1 poker authority. Table-side Mode connects through direct peer-to-peer, then the deployer's Cloudflare Workers/Durable Objects relay, then the deployer's Mac Connection Service fallback. Airplane Mode works from a preloaded standalone HTML artifact on a private local Wi-Fi network. Play chips never represent money.
 
 This document routes work. Load the relevant [Phase PRD](#roadmap) and [Module PRD](#module-map) for details.
 
@@ -59,7 +59,7 @@ Hidden-card privacy is the security floor. Within that floor, Airplane Mode, Chi
 
 | Phase | Outcome | PRD |
 |---|---|---|
-| Phase 1 | Trusted-Host digital dealer with physical chips, Normal Mode, Airplane Mode, recovery, and privacy baseline | [PRD-P1](phases/P1-TRUSTED-HOST-DEALER.md) |
+| Phase 1 | Trusted-Host digital dealer with physical chips, Table-side Mode, Airplane Mode, recovery, and privacy baseline | [PRD-P1](phases/P1-TRUSTED-HOST-DEALER.md) |
 | Phase 2 | Optional digital play-chip accounting, machine-readable actions/history, and remote Public Table View | [PRD-P2](phases/P2-DIGITAL-ACCOUNTING.md) |
 | Phase 3 | Safe Community Skins and optional multi-model AI training players | [PRD-P3](phases/P3-SKINS-AND-AI.md) |
 

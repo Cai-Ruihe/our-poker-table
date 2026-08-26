@@ -9,6 +9,7 @@ decision_ids:
   - NET-BLUETOOTH
   - JOIN-MANUAL-CODE
   - NET-AIRPLANE
+  - UI-LOCALIZATION
   - NET-CHINA
   - NET-VERSION
   - HOST-CAPABILITY-PREFLIGHT
@@ -26,11 +27,11 @@ Airplane Mode packages the same Phase 1 core as one preloaded standalone HTML ar
 
 ## Problem Statement
 
-Normal web delivery and signaling can fail on aircraft, during travel, behind restrictive networks, or when private/cloud services are unreachable. A cached web app is insufficient if joining still needs a server or runtime assets.
+Table-side web delivery and signaling can fail on aircraft, during travel, behind restrictive networks, or when private/cloud services are unreachable. A cached web app is insufficient if joining still needs a server or runtime assets.
 
 ## Solution and Interface
 
-The module supplies a self-contained release artifact and a local pairing adapter that exchanges authenticated offer/answer payloads through two-way QR. It satisfies the same transport interface as Normal Mode and exposes capability diagnostics before a table starts.
+The module supplies a self-contained release artifact and a local pairing adapter that exchanges authenticated offer/answer payloads through two-way QR. It satisfies the same transport interface as Table-side Mode and exposes capability diagnostics before a table starts.
 
 ### Owns
 
@@ -43,7 +44,7 @@ The module supplies a self-contained release artifact and a local pairing adapte
 ### Does not own
 
 - Poker behavior ([M01](M01-GAME-CORE.md)).
-- General Normal Mode routing ([M04](M04-CONNECTIVITY-SERVICE.md)).
+- General Table-side Mode routing ([M04](M04-CONNECTIVITY-SERVICE.md)).
 - Release signing/provenance ([M09](M09-RELEASE-DISTRIBUTION.md)).
 - Typed-code, file-transfer, Bluetooth, or OS sharing paths.
 
@@ -51,22 +52,26 @@ The module supplies a self-contained release artifact and a local pairing adapte
 
 1. As a traveler, I want to open a previously downloaded file with no internet.
 2. As a host, I want another device to join through QR without typing long network data.
-3. As a player, I want the same seat/privacy/interaction behavior as Normal Mode.
+3. As a player, I want the same seat/privacy/interaction behavior as Table-side Mode.
 4. As a group, we want a clear diagnosis when hotspot client isolation blocks peer traffic.
 5. As a maintainer, I want mixed/incompatible files rejected before private delivery.
 6. As a privacy reviewer, I want observed proof of zero external requests.
 
 ## Implementation Decisions
 
-- Airplane and Normal Modes share domain modules; only delivery/bootstrap/transport adapters change.
+- Airplane and Table-side Modes share domain modules; only delivery/bootstrap/transport adapters change.
 - Current initial bootstrap is two-way QR. Manual codes, pairing files, and copy/paste are deferred; Bluetooth is future-only.
 - Pairing data binds format/protocol, table, authenticated host key, authority epoch, role, nonce, creation time, and expiry. Stale/replayed/wrong-host payloads fail before seat recovery.
 - The artifact contains all runtime code/assets and never self-updates or expires online. Update it before travel; pin it during play.
 - Airplane pairing may need one device to display while another scans in each direction; unsupported camera/display combinations fail clearly.
+- Airplane shares the product's English/Simplified-Chinese presentation and
+  device-local language override. Locale storage, Host defaults, and translated
+  copy must remain entirely inside the artifact and may not create an online
+  request, relay requirement, or pairing-field change.
 
 ## Testing Decisions
 
-Run from the actual downloaded file—not a development server—on target iOS/iPadOS, Android, macOS, Windows, tablets, and selected TVs. Disable WAN, use `iceServers: []`, inspect network traffic, pair 2–10 player seats plus the host and at least one Public Table device, deny camera, enable client isolation, refresh/re-pair a player, test stale/wrong/mixed-version QR, background/freeze tabs, and import local host recovery where supported. Record the support matrix; do not generalize from one device.
+Run from the actual downloaded file—not a development server—on target iOS/iPadOS, Android, macOS, Windows, tablets, and selected TVs. Disable WAN, use `iceServers: []`, inspect network traffic, pair 2–10 player seats plus the host and at least one Public Table device, deny camera, enable client isolation, refresh/re-pair a player, test stale/wrong/mixed-version QR, background/freeze tabs, and import local host recovery where supported. Verify English/Simplified-Chinese switching and local override without an external request or changed pairing payload. Record the support matrix; do not generalize from one device.
 
 ## Out of Scope
 

@@ -78,7 +78,7 @@ export interface ConnectionBrokerOptions {
 }
 
 /**
- * An opaque response to an unpaired Normal Mode display. The Connection
+ * An opaque response to an unpaired Table-side Mode display. The Connection
  * Service stores only this encrypted envelope; the display QR carries the
  * decryption secret and the host chooses the requested role by scanning it.
  */

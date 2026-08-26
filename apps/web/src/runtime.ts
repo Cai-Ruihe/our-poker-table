@@ -41,6 +41,7 @@ import {
   acceptHostAirplaneOffer,
   airplaneAnswerOfferId,
   createHostAirplanePairing,
+  type AirplanePresentationLanguage,
   type ClientAirplanePairing,
   type HostAirplanePairing,
 } from "./airplane";
@@ -140,6 +141,22 @@ interface CapabilityResponseMessage {
   readonly requestId: string;
 }
 
+interface LivenessRequestMessage {
+  readonly capabilityId: string;
+  readonly ciphertext: string;
+  readonly iv: string;
+  readonly kind: "liveness-request";
+  readonly requestId: string;
+}
+
+interface LivenessResponseMessage {
+  readonly capabilityId: string;
+  readonly ciphertext: string;
+  readonly iv: string;
+  readonly kind: "liveness-response";
+  readonly requestId: string;
+}
+
 interface TableChangedMessage {
   readonly kind: "table-changed";
   readonly revision: number;
@@ -181,6 +198,8 @@ export type RoomMessage =
   | JoinResponseMessage
   | CapabilityRequestMessage
   | CapabilityResponseMessage
+  | LivenessRequestMessage
+  | LivenessResponseMessage
   | TableChangedMessage
   | RouteProbeMessage
   | RouteProbeAckMessage
@@ -190,7 +209,7 @@ export type RoomRoute = "airplane" | "direct" | "private-relay" | "cloud-relay";
 type RelayRoomRoute = "private-relay" | "cloud-relay";
 
 /**
- * Normal Mode projection refreshes can complete out of order when a table
+ * Table-side Mode projection refreshes can complete out of order when a table
  * change races a Player action response. A stale result must never replace
  * newer table state.
  */
@@ -328,6 +347,17 @@ type CapabilityRequestPayload =
       readonly credentialToken: string;
       readonly type: "dealer-action";
     };
+
+interface LivenessRequestPayload {
+  readonly clientInstanceId: string;
+  readonly credentialToken: string;
+  readonly type: "liveness";
+}
+
+interface LivenessResponsePayload {
+  readonly role: CapabilityRole;
+  readonly status: "alive";
+}
 
 type CapabilityResponsePayload =
   | {
@@ -484,6 +514,8 @@ function isRoomMessage(value: unknown): value is RoomMessage {
     "join-response",
     "capability-request",
     "capability-response",
+    "liveness-request",
+    "liveness-response",
     "table-changed",
     "route-probe",
     "route-probe-ack",
@@ -555,16 +587,16 @@ function relayPeerIdForRoutes(
   );
 }
 
-const normalDisplayPairingPrefix = "HTMLPOKER-NORMAL-DISPLAY-1:";
-const normalDisplayPairingTtlMs = 5 * 60 * 1_000;
+const tableSideDisplayPairingPrefix = "HTMLPOKER-TABLE-SIDE-DISPLAY-1:";
+const tableSideDisplayPairingTtlMs = 5 * 60 * 1_000;
 
-type NormalDisplayRole = "public-table" | "tv";
+type TableSideDisplayRole = "public-table" | "tv";
 
-interface NormalDisplayPairingCode {
+interface TableSideDisplayPairingCode {
   readonly expiresAt: number;
   readonly formatVersion: 1;
   readonly requestId: string;
-  readonly requestedRole: NormalDisplayRole;
+  readonly requestedRole: TableSideDisplayRole;
   readonly secret: string;
   /** Ordered service endpoints. Cloudflare is first; Mac is the fallback. */
   readonly serviceUrls?: readonly string[];
@@ -572,17 +604,17 @@ interface NormalDisplayPairingCode {
   readonly serviceUrl: string;
 }
 
-interface NormalDisplayPairingResponse {
+interface TableSideDisplayPairingResponse {
   readonly binding: PeerBinding;
   readonly invitationToken: string;
   readonly relayRoutes?: RelayRouteConfiguration;
-  readonly role: NormalDisplayRole;
+  readonly role: TableSideDisplayRole;
 }
 
-export interface NormalDisplayPairingRequest {
+export interface TableSideDisplayPairingRequest {
   readonly code: string;
   readonly expiresAt: number;
-  readonly role: NormalDisplayRole;
+  readonly role: TableSideDisplayRole;
   cancel(): void;
   waitForInvitation(): Promise<InvitationDetails>;
 }
@@ -606,11 +638,11 @@ function relayServiceEndpoint(
   return serviceUrl.toString().replace(/\/$/u, "");
 }
 
-function normalDisplayPairingServiceUrl(): string | undefined {
-  return normalDisplayPairingServiceUrls()[0];
+function tableSideDisplayPairingServiceUrl(): string | undefined {
+  return tableSideDisplayPairingServiceUrls()[0];
 }
 
-function normalDisplayPairingServiceUrls(): string[] {
+function tableSideDisplayPairingServiceUrls(): string[] {
   const services: string[] = [];
   for (const route of ["cloud-relay", "private-relay"] as const) {
     const relay = relayConfigForRoute(route);
@@ -622,11 +654,11 @@ function normalDisplayPairingServiceUrls(): string[] {
   return services;
 }
 
-export function normalDisplayPairingIsConfigured(): boolean {
-  return Boolean(normalDisplayPairingServiceUrl());
+export function tableSideDisplayPairingIsConfigured(): boolean {
+  return Boolean(tableSideDisplayPairingServiceUrl());
 }
 
-export function normalRelayRequiresOperatorToken(): boolean {
+export function tableSideRelayRequiresOperatorToken(): boolean {
   const relay =
     relayConfigForRoute("cloud-relay") ?? relayConfigForRoute("private-relay");
   return Boolean(relay?.url);
@@ -713,7 +745,7 @@ async function provisionHostRelayRoutes(
   if (successful.length === 0) {
     if (configuredRoutes.length === 1) {
       throw new Error(
-        "The Connection Service is unreachable. Normal Mode needs its relay online. Ask the table owner to restore it, or use Airplane Mode.",
+        "The Connection Service is unreachable. Table-side Mode needs its relay online. Ask the table owner to restore it, or use Airplane Mode.",
       );
     }
     throw new Error(
@@ -728,10 +760,10 @@ async function provisionHostRelayRoutes(
   ) as RelayRouteConfiguration;
 }
 
-function encodeNormalDisplayPairingCode(
-  value: NormalDisplayPairingCode,
+function encodeTableSideDisplayPairingCode(
+  value: TableSideDisplayPairingCode,
 ): string {
-  return `${normalDisplayPairingPrefix}${bytesToBase64(
+  return `${tableSideDisplayPairingPrefix}${bytesToBase64(
     new TextEncoder().encode(JSON.stringify(value)),
   )
     .replaceAll("+", "-")
@@ -739,13 +771,16 @@ function encodeNormalDisplayPairingCode(
     .replace(/=+$/u, "")}`;
 }
 
-function decodeNormalDisplayPairingCode(
+function decodeTableSideDisplayPairingCode(
   value: string,
-): NormalDisplayPairingCode {
-  if (!value.startsWith(normalDisplayPairingPrefix) || value.length > 4_096) {
-    throw new Error("This is not a supported Normal display pairing QR.");
+): TableSideDisplayPairingCode {
+  if (
+    !value.startsWith(tableSideDisplayPairingPrefix) ||
+    value.length > 4_096
+  ) {
+    throw new Error("This is not a supported Table-side display pairing QR.");
   }
-  const encoded = value.slice(normalDisplayPairingPrefix.length);
+  const encoded = value.slice(tableSideDisplayPairingPrefix.length);
   const normalized = encoded
     .replaceAll("-", "+")
     .replaceAll("_", "/")
@@ -756,12 +791,12 @@ function decodeNormalDisplayPairingCode(
       new TextDecoder().decode(base64ToBytes(normalized)),
     ) as unknown;
   } catch {
-    throw new Error("The Normal display pairing QR is damaged.");
+    throw new Error("The Table-side display pairing QR is damaged.");
   }
   if (!candidate || typeof candidate !== "object") {
-    throw new Error("The Normal display pairing QR is invalid.");
+    throw new Error("The Table-side display pairing QR is invalid.");
   }
-  const code = candidate as Partial<NormalDisplayPairingCode>;
+  const code = candidate as Partial<TableSideDisplayPairingCode>;
   if (
     code.formatVersion !== 1 ||
     typeof code.requestId !== "string" ||
@@ -775,7 +810,7 @@ function decodeNormalDisplayPairingCode(
     typeof code.expiresAt !== "number" ||
     !Number.isSafeInteger(code.expiresAt)
   ) {
-    throw new Error("The Normal display pairing QR schema is invalid.");
+    throw new Error("The Table-side display pairing QR schema is invalid.");
   }
   try {
     const serviceUrl = new URL(code.serviceUrl);
@@ -783,7 +818,7 @@ function decodeNormalDisplayPairingCode(
       throw new Error("unsupported service protocol");
     }
   } catch {
-    throw new Error("The Normal display pairing QR service is invalid.");
+    throw new Error("The Table-side display pairing QR service is invalid.");
   }
   if (code.serviceUrls !== undefined) {
     if (
@@ -792,7 +827,9 @@ function decodeNormalDisplayPairingCode(
       code.serviceUrls.length > 2 ||
       code.serviceUrls.some((value) => typeof value !== "string")
     ) {
-      throw new Error("The Normal display pairing QR services are invalid.");
+      throw new Error(
+        "The Table-side display pairing QR services are invalid.",
+      );
     }
     for (const value of code.serviceUrls) {
       try {
@@ -801,19 +838,21 @@ function decodeNormalDisplayPairingCode(
           throw new Error("unsupported service protocol");
         }
       } catch {
-        throw new Error("The Normal display pairing QR service is invalid.");
+        throw new Error(
+          "The Table-side display pairing QR service is invalid.",
+        );
       }
     }
   }
-  return code as NormalDisplayPairingCode;
+  return code as TableSideDisplayPairingCode;
 }
 
-function validNormalDisplayPairingResponse(
+function validTableSideDisplayPairingResponse(
   value: unknown,
-  expectedRole: NormalDisplayRole,
-): value is NormalDisplayPairingResponse {
+  expectedRole: TableSideDisplayRole,
+): value is TableSideDisplayPairingResponse {
   if (!value || typeof value !== "object") return false;
-  const candidate = value as Partial<NormalDisplayPairingResponse>;
+  const candidate = value as Partial<TableSideDisplayPairingResponse>;
   const binding = candidate.binding;
   return (
     candidate.role === expectedRole &&
@@ -828,18 +867,18 @@ function validNormalDisplayPairingResponse(
   );
 }
 
-export function createNormalDisplayPairingRequest(
-  role: NormalDisplayRole,
-): NormalDisplayPairingRequest {
-  const serviceUrls = normalDisplayPairingServiceUrls();
+export function createTableSideDisplayPairingRequest(
+  role: TableSideDisplayRole,
+): TableSideDisplayPairingRequest {
+  const serviceUrls = tableSideDisplayPairingServiceUrls();
   const serviceUrl = serviceUrls[0];
   if (!serviceUrl) {
     throw new Error(
-      "This deployment has no Connection Service configured for Normal display pairing.",
+      "This deployment has no Connection Service configured for Table-side display pairing.",
     );
   }
-  const code: NormalDisplayPairingCode = {
-    expiresAt: Date.now() + normalDisplayPairingTtlMs,
+  const code: TableSideDisplayPairingCode = {
+    expiresAt: Date.now() + tableSideDisplayPairingTtlMs,
     formatVersion: 1,
     requestId: makeId("display-request"),
     requestedRole: role,
@@ -849,7 +888,7 @@ export function createNormalDisplayPairingRequest(
   };
   let cancelled = false;
   return {
-    code: encodeNormalDisplayPairingCode(code),
+    code: encodeTableSideDisplayPairingCode(code),
     expiresAt: code.expiresAt,
     role,
     cancel() {
@@ -888,7 +927,7 @@ export function createNormalDisplayPairingRequest(
             sealed.expiresAt !== code.expiresAt
           ) {
             throw new Error(
-              "The Normal display pairing response did not match its request.",
+              "The Table-side display pairing response did not match its request.",
             );
           }
           const invitation = await unseal<unknown>(
@@ -897,10 +936,13 @@ export function createNormalDisplayPairingRequest(
             `display-pair:${code.requestId}`,
           );
           if (
-            !validNormalDisplayPairingResponse(invitation, code.requestedRole)
+            !validTableSideDisplayPairingResponse(
+              invitation,
+              code.requestedRole,
+            )
           ) {
             throw new Error(
-              "The Normal display pairing response was rejected.",
+              "The Table-side display pairing response was rejected.",
             );
           }
           return {
@@ -920,8 +962,8 @@ export function createNormalDisplayPairingRequest(
       }
       throw new Error(
         cancelled
-          ? "The Normal display pairing was cancelled."
-          : "The Normal display pairing QR expired before a host scanned it.",
+          ? "The Table-side display pairing was cancelled."
+          : "The Table-side display pairing QR expired before a host scanned it.",
       );
     },
   };
@@ -2091,6 +2133,12 @@ export class HostTableRuntime {
             event.route,
           ),
         ).catch((error) => this.captureError(error));
+      } else if (message.kind === "liveness-request") {
+        void this.handleLivenessRequest(
+          message,
+          event.senderPeerId,
+          event.route,
+        ).catch((error) => this.captureError(error));
       }
     });
   }
@@ -2256,6 +2304,7 @@ export class HostTableRuntime {
 
   async createAirplaneOffer(
     role: CapabilityRole,
+    presentationLanguage?: AirplanePresentationLanguage,
   ): Promise<AirplaneOfferDetails> {
     return this.runExclusive(async () => {
       let invitation = this.invitations.get(role);
@@ -2269,6 +2318,7 @@ export class HostTableRuntime {
       const pairing = await createHostAirplanePairing({
         binding: this.binding,
         invitation,
+        ...(presentationLanguage ? { presentationLanguage } : {}),
       });
       this.airplanePairings.set(pairing.offerId, pairing);
       this.emit();
@@ -2281,10 +2331,12 @@ export class HostTableRuntime {
     });
   }
 
-  async pairNormalDisplay(requestCode: string): Promise<NormalDisplayRole> {
+  async pairTableSideDisplay(
+    requestCode: string,
+  ): Promise<TableSideDisplayRole> {
     return this.runExclusive(async () => {
-      const request = decodeNormalDisplayPairingCode(requestCode);
-      const configuredServiceUrls = normalDisplayPairingServiceUrls();
+      const request = decodeTableSideDisplayPairingCode(requestCode);
+      const configuredServiceUrls = tableSideDisplayPairingServiceUrls();
       const requestServiceUrls = request.serviceUrls ?? [request.serviceUrl];
       const candidateServices = (
         ["cloud-relay", "private-relay"] as const
@@ -2966,6 +3018,53 @@ export class HostTableRuntime {
     await this.endpoint.sendOn(route, sealed, senderPeerId);
   }
 
+  private async handleLivenessRequest(
+    message: LivenessRequestMessage,
+    senderPeerId: string,
+    route: RoomRoute,
+  ): Promise<void> {
+    const secret = this.capabilitySecrets.get(message.capabilityId);
+    if (!secret) return;
+    const aad = `liveness:${this.tableId}:${message.capabilityId}:${message.requestId}`;
+    let request: LivenessRequestPayload;
+    try {
+      request = await unseal<LivenessRequestPayload>(secret, message, aad);
+    } catch {
+      return;
+    }
+    if (
+      request.type !== "liveness" ||
+      typeof request.clientInstanceId !== "string" ||
+      typeof request.credentialToken !== "string"
+    ) {
+      return;
+    }
+    const authenticated = this.identity.authenticate({
+      binding: this.binding,
+      clientInstanceId: request.clientInstanceId,
+      credentialToken: request.credentialToken,
+    });
+    if (authenticated.status === "rejected") return;
+    const response = await seal(
+      secret,
+      {
+        role: authenticated.role,
+        status: "alive",
+      } satisfies LivenessResponsePayload,
+      aad,
+    );
+    await this.endpoint.sendOn(
+      route,
+      {
+        ...response,
+        capabilityId: message.capabilityId,
+        kind: "liveness-response",
+        requestId: message.requestId,
+      } satisfies LivenessResponseMessage,
+      senderPeerId,
+    );
+  }
+
   private capabilityProjection(
     role: CapabilityRole,
     seatId?: string,
@@ -3176,7 +3275,7 @@ export class HostTableRuntime {
     if (this.relayRouteConfiguration) {
       if (!this.operatorToken) {
         throw new Error(
-          "A host operator token is required to issue a new Normal Mode invitation.",
+          "A host operator token is required to issue a new Table-side Mode invitation.",
         );
       }
       // Allocate the relay ticket before mutating identity. A transient relay
@@ -3470,8 +3569,15 @@ export class TableClientRuntime {
   private readonly listeners = new Set<() => void>();
   private readonly pending = new Map<
     string,
-    (message: JoinResponseMessage | CapabilityResponseMessage) => void
+    (
+      message:
+        | JoinResponseMessage
+        | CapabilityResponseMessage
+        | LivenessResponseMessage,
+    ) => void
   >();
+  private hostLivenessMisses = 0;
+  private hostUnavailable = false;
   private presencePaused = false;
   private projection: PublicProjection | SeatProjection | undefined;
   private recoveryCommitTail: Promise<void> = Promise.resolve();
@@ -3518,8 +3624,16 @@ export class TableClientRuntime {
     this.endpoint.subscribe((event) => {
       const message = event.message;
       if (
+        this.credential &&
+        (message.kind === "capability-response" ||
+          message.kind === "liveness-response")
+      ) {
+        void this.observeAuthenticatedHostFrame(message);
+      }
+      if (
         (message.kind === "join-response" ||
-          message.kind === "capability-response") &&
+          message.kind === "capability-response" ||
+          message.kind === "liveness-response") &&
         this.pending.has(message.requestId)
       ) {
         this.pending.get(message.requestId)?.(message);
@@ -3551,6 +3665,7 @@ export class TableClientRuntime {
 
   static async fromAirplaneOffer(offerCode: string): Promise<{
     readonly answerCode: string;
+    readonly presentationLanguage?: AirplanePresentationLanguage;
     readonly runtime: TableClientRuntime;
   }> {
     const pairing = await acceptHostAirplaneOffer(offerCode);
@@ -3572,7 +3687,13 @@ export class TableClientRuntime {
       role: pairing.invitation.role,
       slotId: makeId("slot"),
     });
-    return { answerCode: pairing.answerCode, runtime };
+    return {
+      answerCode: pairing.answerCode,
+      ...(pairing.presentationLanguage
+        ? { presentationLanguage: pairing.presentationLanguage }
+        : {}),
+      runtime,
+    };
   }
 
   static async recover(
@@ -3800,6 +3921,7 @@ export class TableClientRuntime {
       message,
       aad,
     );
+    this.resetHostLiveness();
     if (response.status === "rejected") {
       this.error = response.code;
       this.status = "rejected";
@@ -3847,10 +3969,79 @@ export class TableClientRuntime {
     this.emit();
   }
 
+  private async livenessRequest(): Promise<void> {
+    const credential = this.credential;
+    if (!credential) throw new Error("The capability has not joined.");
+    const requestId = makeId("liveness");
+    const aad = `liveness:${this.binding.tableId}:${credential.capabilityId}:${requestId}`;
+    const sealed = await seal(
+      credential.token,
+      {
+        clientInstanceId: this.clientInstanceId,
+        credentialToken: credential.token,
+        type: "liveness",
+      } satisfies LivenessRequestPayload,
+      aad,
+    );
+    const message = await this.waitForResponse<LivenessResponseMessage>(
+      requestId,
+      async () => {
+        await this.endpoint.send(
+          {
+            ...sealed,
+            capabilityId: credential.capabilityId,
+            kind: "liveness-request",
+            requestId,
+          } satisfies LivenessRequestMessage,
+          "host",
+        );
+      },
+    );
+    const response = await unseal<LivenessResponsePayload>(
+      credential.token,
+      message,
+      aad,
+    );
+    if (response.status !== "alive" || response.role !== this.role) {
+      throw new Error("The Trusted Host liveness response was invalid.");
+    }
+    this.resetHostLiveness();
+  }
+
+  private async observeAuthenticatedHostFrame(
+    message: CapabilityResponseMessage | LivenessResponseMessage,
+  ): Promise<void> {
+    const credential = this.credential;
+    if (!credential) return;
+    const aadPrefix = message.kind === "liveness-response" ? "liveness" : "cap";
+    const aad = `${aadPrefix}:${this.binding.tableId}:${credential.capabilityId}:${message.requestId}`;
+    try {
+      await unseal<unknown>(credential.token, message, aad);
+    } catch {
+      return;
+    }
+    this.resetHostLiveness();
+  }
+
   private captureError(error: unknown): void {
     this.error =
       error instanceof Error ? error.message : "The table did not respond.";
     this.emit();
+  }
+
+  private resetHostLiveness(): void {
+    this.hostLivenessMisses = 0;
+    if (!this.hostUnavailable) return;
+    this.hostUnavailable = false;
+    this.error = undefined;
+    this.emit();
+  }
+
+  private recordHostLivenessMiss(): boolean {
+    this.hostLivenessMisses = Math.min(this.hostLivenessMisses + 1, 3);
+    if (this.hostLivenessMisses < 3) return false;
+    this.hostUnavailable = true;
+    return true;
   }
 
   private updateRelayRoutes(relayRoutes: RelayRouteConfiguration): void {
@@ -3892,6 +4083,14 @@ export class TableClientRuntime {
 
   private async refresh(): Promise<void> {
     if (!this.credential) return;
+    if (!this.airplanePairing) {
+      try {
+        await this.livenessRequest();
+      } catch (error) {
+        if (!this.recordHostLivenessMiss()) return;
+        throw error;
+      }
+    }
     await this.capabilityRequest({
       clientInstanceId: this.clientInstanceId,
       credentialToken: this.credential.token,
@@ -3900,7 +4099,8 @@ export class TableClientRuntime {
   }
 
   private waitForResponse<
-    T extends JoinResponseMessage | CapabilityResponseMessage,
+    T extends
+      JoinResponseMessage | CapabilityResponseMessage | LivenessResponseMessage,
   >(requestId: string, send: () => Promise<void>): Promise<T> {
     return new Promise((resolve, reject) => {
       const timeout = globalThis.setTimeout(() => {

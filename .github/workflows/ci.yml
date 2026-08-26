@@ -83,29 +83,30 @@ jobs:
       - name: Install locked dependencies
         run: pnpm install --frozen-lockfile
       - name: Build release artifacts
-        run: pnpm build:normal && pnpm build:cloudflare-relay && pnpm build:airplane
-      - name: Configure hosted Normal Mode
+        run: pnpm build:landing && pnpm build:table-side && pnpm build:cloudflare-relay && pnpm build:airplane
+      - name: Configure hosted Table-side Mode
         env:
-          NORMAL_CLOUD_RELAY_URL: ${{ vars.NORMAL_CLOUD_RELAY_URL }}
-          NORMAL_MAC_RELAY_URL: ${{ vars.NORMAL_MAC_RELAY_URL }}
-          NORMAL_CONNECTION_SERVICE_URL: ${{ vars.NORMAL_CONNECTION_SERVICE_URL }}
-        run: pnpm release:configure-normal
+          TABLE_SIDE_CLOUD_RELAY_URL: ${{ vars.TABLE_SIDE_CLOUD_RELAY_URL }}
+          TABLE_SIDE_MAC_RELAY_URL: ${{ vars.TABLE_SIDE_MAC_RELAY_URL }}
+          TABLE_SIDE_CONNECTION_SERVICE_URL: ${{ vars.TABLE_SIDE_CONNECTION_SERVICE_URL }}
+        run: pnpm release:configure-table-side
       - name: Verify configured live relay
-        if: vars.NORMAL_CLOUD_RELAY_URL != '' || vars.NORMAL_MAC_RELAY_URL != '' || vars.NORMAL_CONNECTION_SERVICE_URL != ''
+        if: vars.TABLE_SIDE_CLOUD_RELAY_URL != '' || vars.TABLE_SIDE_MAC_RELAY_URL != '' || vars.TABLE_SIDE_CONNECTION_SERVICE_URL != ''
         env:
-          NORMAL_APP_ORIGIN: ${{ vars.NORMAL_APP_ORIGIN || format('https://{0}.github.io', github.repository_owner) }}
-          NORMAL_CLOUD_RELAY_URL: ${{ vars.NORMAL_CLOUD_RELAY_URL }}
-          NORMAL_MAC_RELAY_URL: ${{ vars.NORMAL_MAC_RELAY_URL }}
-          NORMAL_CONNECTION_SERVICE_URL: ${{ vars.NORMAL_CONNECTION_SERVICE_URL }}
+          TABLE_SIDE_APP_ORIGIN: ${{ vars.TABLE_SIDE_APP_ORIGIN || format('https://{0}.github.io', github.repository_owner) }}
+          TABLE_SIDE_CLOUD_RELAY_URL: ${{ vars.TABLE_SIDE_CLOUD_RELAY_URL }}
+          TABLE_SIDE_MAC_RELAY_URL: ${{ vars.TABLE_SIDE_MAC_RELAY_URL }}
+          TABLE_SIDE_CONNECTION_SERVICE_URL: ${{ vars.TABLE_SIDE_CONNECTION_SERVICE_URL }}
         run: pnpm qa:live-relay
       - name: Create release receipt
         run: pnpm release:manifest
       - name: Package canonical party site
         run: |
-          mkdir -p _site/normal
-          cp dist/airplane/poker-airplane.html _site/index.html
+          mkdir -p _site/intro _site/table-side
+          cp apps/landing/root-redirect.html _site/index.html
           cp dist/airplane/poker-airplane.html _site/poker-airplane.html
-          cp -R dist/normal/. _site/normal/
+          cp -R dist/intro/. _site/intro/
+          cp -R dist/table-side/. _site/table-side/
           cp dist/release/phase-1-manifest.json _site/phase-1-manifest.json
       - name: Configure GitHub Pages
         uses: actions/configure-pages@45bfe0192ca1faeb007ade9deae92b16b8254a0d # v6.0.0

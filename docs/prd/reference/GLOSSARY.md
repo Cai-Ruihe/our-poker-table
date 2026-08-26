@@ -19,7 +19,7 @@ Use these terms consistently across PRDs, tickets, code, tests, and UI copy.
 | Join Window | Host-controlled interval during which an active invitation may create a new player seat. |
 | Seat Credential | Room-scoped, revocable credential used to authenticate and recover one seat. It is not an account or display name. |
 | Seat Controller | Narrow source of one seat's proposals. A human connection and future AI adapter use the same seam. |
-| Normal Mode | QR/full-URL bootstrap plus direct P2P, deployer Cloudflare Workers/Durable Objects relay, then deployer Mac Connection Service fallback; active relay selection is sticky and failover is serial. |
+| Table-side Mode | QR/full-URL bootstrap plus direct P2P, deployer Cloudflare Workers/Durable Objects relay, then deployer Mac Connection Service fallback; active relay selection is sticky and failover is serial. |
 | Airplane Mode | Preloaded standalone HTML, private non-isolating local Wi-Fi, two-way QR pairing, and no internet services. |
 | Connection Service | Optional deployer-owned, card-blind signaling, relay-credential, opaque-checkpoint, and redacted-diagnostic process. |
 | AI Gateway | Optional deployer-owned process that protects provider credentials and invokes a remote AI for one authorized seat. It is separate from the Connection Service. |

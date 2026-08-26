@@ -22,6 +22,8 @@ ADRs record decisions that are cross-cutting, difficult to reverse, security-rel
 | [0006](0006-standalone-airplane-mode.md) | Accepted | Preloaded standalone Airplane artifact over private local Wi-Fi |
 | [0007](0007-typescript-browser-monorepo-toolchain.md) | Accepted | Strict TypeScript, pnpm workspaces, React/Vite, Vitest, and Playwright |
 | [0008](0008-traceable-release-blocking-qa.md) | Accepted | Machine-readable requirement traceability plus release-blocking functional and visual QA |
+| [0009](0009-host-liveness-without-single-timeout-alerts.md) | Accepted | Lightweight Host liveness with a three-miss threshold and no custom polling coordinator |
+| [0010](0010-localized-table-presentation.md) | Accepted | Host-default, device-overridable bilingual presentation without changing Airplane transport |
 
 ## Creating or changing an ADR
 

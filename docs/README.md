@@ -30,7 +30,7 @@ The documentation is deliberately split by authority and reading purpose. Start 
 - [Quality gates](quality/QUALITY-GATES.md) — checks required at contribution, phase, and release boundaries.
 - [Phase 1 local release candidate](releases/PHASE-1-LOCAL-RC.md) — implemented scope, local evidence, and explicit external release blockers.
 - [Release checklist](releasing/RELEASE-CHECKLIST.md) — evidence required before an official release.
-- [Normal Mode operations](operations/NORMAL-MODE.md), [Normal Mode self-hosting](operations/NORMAL-MODE-SELF-HOSTING.md), and [Airplane Mode operations](operations/AIRPLANE-MODE.md) — operator-facing use, deployer-owned server, diagnostics, and recovery instructions.
+- [Table-side Mode operations](operations/TABLE-SIDE-MODE.md), [Table-side Mode self-hosting](operations/TABLE-SIDE-MODE-SELF-HOSTING.md), and [Airplane Mode operations](operations/AIRPLANE-MODE.md) — operator-facing use, deployer-owned server, diagnostics, and recovery instructions.
 - [Card Privacy automated red-team record](security/PHASE-1-CARD-PRIVACY-RED-TEAM.md) — regression evidence and what it does not prove.
 - [Security policy](../SECURITY.md) — trust limits, invariants, and private reporting.
 - [Roadmap](../ROADMAP.md) — phase outcomes and evidence gates.

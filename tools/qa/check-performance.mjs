@@ -39,8 +39,8 @@ function assertBudget(label, actual, maximum) {
 }
 
 const [javascript, css, airplane] = await Promise.all([
-  artifactSet("dist/normal/assets", ".js"),
-  artifactSet("dist/normal/assets", ".css"),
+  artifactSet("dist/table-side/assets", ".js"),
+  artifactSet("dist/table-side/assets", ".css"),
   readFile(path.join(root, "dist/airplane/poker-airplane.html")),
 ]);
 
@@ -55,16 +55,20 @@ const javascriptGzipBytes = javascript.reduce(
 const cssRawBytes = css.reduce((total, bytes) => total + bytes.byteLength, 0);
 
 assertBudget(
-  "Normal JavaScript raw",
+  "Table-side JavaScript raw",
   javascriptRawBytes,
-  budgets.normal_javascript_raw_bytes,
+  budgets.table_side_javascript_raw_bytes,
 );
 assertBudget(
-  "Normal JavaScript gzip",
+  "Table-side JavaScript gzip",
   javascriptGzipBytes,
-  budgets.normal_javascript_gzip_bytes,
+  budgets.table_side_javascript_gzip_bytes,
 );
-assertBudget("Normal CSS raw", cssRawBytes, budgets.normal_css_raw_bytes);
+assertBudget(
+  "Table-side CSS raw",
+  cssRawBytes,
+  budgets.table_side_css_raw_bytes,
+);
 assertBudget(
   "Airplane HTML raw",
   airplane.byteLength,

@@ -31,36 +31,37 @@ function validatedServiceUrl(candidate, variableName) {
   return service.origin;
 }
 
-export async function configureNormalBuild(
+export async function configureTableSideBuild(
   root = process.cwd(),
-  legacyCandidate = process.env.NORMAL_CONNECTION_SERVICE_URL,
-  fallbackCandidate = process.env.NORMAL_MAC_RELAY_URL,
+  singleRelayCandidate = process.env.TABLE_SIDE_CONNECTION_SERVICE_URL,
+  fallbackCandidate = process.env.TABLE_SIDE_MAC_RELAY_URL,
 ) {
-  const normalDirectory = path.join(root, "dist", "normal");
-  const htmlPath = path.join(normalDirectory, "index.html");
-  const configPath = path.join(normalDirectory, "poker-config.js");
+  const tableSideDirectory = path.join(root, "dist", "table-side");
+  const htmlPath = path.join(tableSideDirectory, "index.html");
+  const configPath = path.join(tableSideDirectory, "poker-config.js");
   const html = await readFile(htmlPath, "utf8");
   if (!html.includes(broadConnectPolicy)) {
     throw new Error(
-      "The Normal artifact no longer contains the expected baseline connect-src policy.",
+      "The Table-side artifact no longer contains the expected baseline connect-src policy.",
     );
   }
   if (!html.includes(localQrImagePolicy)) {
     throw new Error(
-      "The Normal artifact CSP must allow blob: images for local QR scans.",
+      "The Table-side artifact CSP must allow blob: images for local QR scans.",
     );
   }
-  const cloudCandidate = process.env.NORMAL_CLOUD_RELAY_URL?.trim();
-  const macCandidate = fallbackCandidate?.trim() || legacyCandidate?.trim();
+  const cloudCandidate = process.env.TABLE_SIDE_CLOUD_RELAY_URL?.trim();
+  const macCandidate =
+    fallbackCandidate?.trim() || singleRelayCandidate?.trim();
   const cloudOrigin = validatedServiceUrl(
     cloudCandidate,
-    "NORMAL_CLOUD_RELAY_URL",
+    "TABLE_SIDE_CLOUD_RELAY_URL",
   );
   const macOrigin = validatedServiceUrl(
     macCandidate,
     fallbackCandidate?.trim()
-      ? "NORMAL_MAC_RELAY_URL"
-      : "NORMAL_CONNECTION_SERVICE_URL",
+      ? "TABLE_SIDE_MAC_RELAY_URL"
+      : "TABLE_SIDE_CONNECTION_SERVICE_URL",
   );
   if (!cloudOrigin && !macOrigin) {
     return { configured: false };
@@ -99,18 +100,18 @@ export async function configureNormalBuild(
 }
 
 async function main() {
-  const result = await configureNormalBuild();
+  const result = await configureTableSideBuild();
   process.stdout.write(
     result.configured
-      ? `Configured Normal build for ${result.origins.join(", ")}\n`
-      : "Normal build left without a relay configuration.\n",
+      ? `Configured Table-side build for ${result.origins.join(", ")}\n`
+      : "Table-side build left without a relay configuration.\n",
   );
 }
 
 if (process.argv[1] && path.resolve(process.argv[1]) === scriptPath) {
   await main().catch((error) => {
     process.stderr.write(
-      `${error instanceof Error ? error.message : "Normal configuration failed."}\n`,
+      `${error instanceof Error ? error.message : "Table-side configuration failed."}\n`,
     );
     process.exitCode = 1;
   });

@@ -20,7 +20,7 @@ const sourceControlBuilds = new Map();
 function mutuallyExclusiveBuild(node, sourceFile) {
   let current = node;
   while (current.parent) {
-    const annotation = /@qa-build\s+(normal|airplane)/u.exec(
+    const annotation = /@qa-build\s+(table-side|airplane)/u.exec(
       sourceFile.text.slice(
         current.getFullStart(),
         current.getStart(sourceFile),
@@ -36,7 +36,7 @@ function mutuallyExclusiveBuild(node, sourceFile) {
         parent.whenTrue.getStart(sourceFile) &&
         current.getEnd() <= parent.whenTrue.getEnd()
         ? "airplane"
-        : "normal";
+        : "table-side";
     }
     current = parent;
   }

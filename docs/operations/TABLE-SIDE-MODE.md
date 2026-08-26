@@ -1,28 +1,28 @@
-# Normal Mode operations
+# Table-side Mode operations
 
 **Status:** Local guide plus owner-authorized temporary field deployment; not an official hosted-service runbook. **Audience:** the owner or a deployer running the static site and Connection Service. **Update when:** relay protocol, ticket handling, configuration, or supported matrix changes.
 
 ## Current owner field deployment
 
-The CI-gated Normal web artifact is published at:
+The CI-gated Table-side web artifact is published at:
 
-**https://cai-ruihe.github.io/our-poker-table/normal/**
+**https://ourpokertable.com/table-side/**
 
 Cloudflare Workers/Durable Objects is the preferred relay for the current
-Normal architecture. The Mac Connection Service runs in the
-`html-poker-normal-service` container as a deployer-controlled fallback. An
-outbound `html-poker-normal-tunnel` container supplies trusted HTTPS/WSS without
+Table-side architecture. The Mac Connection Service runs in the
+`html-poker-table-side-service` container as a deployer-controlled fallback. An
+outbound `html-poker-table-side-tunnel` container supplies trusted HTTPS/WSS without
 opening a router or laptop port. Keep the laptop and OrbStack awake while the
 Mac fallback is needed; Cloudflare remains available when the laptop sleeps.
 
-The operator token is stored outside the repository at `$HOME/Library/Application Support/HTML Poker/normal-service/operator-token` with owner-only permissions. Paste it into the host's **Connection Service host token** field; never send it to player devices or add it to GitHub.
+The operator token is stored outside the repository at `$HOME/Library/Application Support/HTML Poker/table-side-service/operator-token` with owner-only permissions. Paste it into the host's **Connection Service host token** field; never send it to player devices or add it to GitHub.
 
 The Mac fallback may use a Cloudflare Quick Tunnel for temporary testing only.
 Cloudflare documents Quick Tunnels as testing/development infrastructure with
 no uptime guarantee, and its random hostname changes if the tunnel is
 recreated. For a durable fallback, use a named tunnel hostname such as
 `mac-relay.ourpokertable.com`. If a temporary hostname changes, update
-`NORMAL_MAC_RELAY_URL` (or the legacy `NORMAL_CONNECTION_SERVICE_URL`) and
+`TABLE_SIDE_MAC_RELAY_URL` (or the single-relay `TABLE_SIDE_CONNECTION_SERVICE_URL`) and
 rerun the CI-gated Pages deployment. Do not silently restart a tunnel and
 continue using a stale site configuration.
 
@@ -32,9 +32,9 @@ The Worker source lives in `services/cloudflare-connection-service/`. It uses
 one SQLite-backed Durable Object to persist table tickets and one-shot display
 pairing envelopes across Worker hibernation. Before a first deployment, set
 `RELAY_ALLOWED_ORIGIN` in its `wrangler.toml` to the exact HTTPS origin that
-serves Normal Mode. The checked-in value is the current GitHub Pages origin;
-change it to `https://ourpokertable.com` only after that custom domain is
-actually serving the Normal application.
+serves Table-side Mode. The checked-in value is the current custom-domain
+origin, `https://ourpokertable.com`; change it only if the public Table-side
+host changes.
 
 From a machine authenticated to the intended Cloudflare account:
 
@@ -47,7 +47,7 @@ pnpm dlx --yes wrangler@4.41.0 deploy --config services/cloudflare-connection-se
 The secret must be exactly the Connection Service host token held by the table
 owner; it must not be added to GitHub, `wrangler.toml`, the Pages artifact, or
 an invitation. Copy the deployed Worker `https://` origin as a `wss://` URL
-into `NORMAL_CLOUD_RELAY_URL`. Read the configured `normal/poker-config.js`
+into `TABLE_SIDE_CLOUD_RELAY_URL`. Read the configured `table-side/poker-config.js`
 back after a successful Pages deployment and run `pnpm qa:live-relay` against
 both configured routes before inviting players.
 
@@ -60,25 +60,25 @@ or overwrite the mailbox.
 Operational checks:
 
 ```sh
-docker inspect --format '{{.State.Health.Status}}' html-poker-normal-service
-docker ps --filter name=html-poker-normal
-NORMAL_APP_ORIGIN=https://cai-ruihe.github.io \
-  NORMAL_CLOUD_RELAY_URL=wss://relay.ourpokertable.com \
-  NORMAL_MAC_RELAY_URL=wss://mac-relay.ourpokertable.com \
+docker inspect --format '{{.State.Health.Status}}' html-poker-table-side-service
+docker ps --filter name=html-poker-table-side
+TABLE_SIDE_APP_ORIGIN=https://cai-ruihe.github.io \
+  TABLE_SIDE_CLOUD_RELAY_URL=wss://relay.ourpokertable.com \
+  TABLE_SIDE_MAC_RELAY_URL=wss://mac-relay.ourpokertable.com \
   pnpm qa:live-relay
 ```
 
-Before updating GitHub or publishing Pages, repeat the gate with `RELAY_OPERATOR_TOKEN_FILE` pointing to the owner-only token file. The command reports only pass/fail fields and never prints the operator token or minted table ticket. CI repeats the public checks after configuring the Normal artifact and blocks Pages when the relay is dead or misconfigured.
+Before updating GitHub or publishing Pages, repeat the gate with `RELAY_OPERATOR_TOKEN_FILE` pointing to the owner-only token file. The command reports only pass/fail fields and never prints the operator token or minted table ticket. CI repeats the public checks after configuring the Table-side artifact and blocks Pages when the relay is dead or misconfigured.
 
-## What Normal Mode needs
+## What Table-side Mode needs
 
 For same-browser development, leave the runtime configuration empty. For
-multi-device use, publish `dist/normal/` on your own HTTPS origin and configure
+multi-device use, publish `dist/table-side/` on your own HTTPS origin and configure
 the Cloudflare relay and, when desired, the Mac fallback. The static site is
 not the poker engine: the active host remains authoritative, and the services
 only help peers find/relay sealed messages.
 
-Open-source deployers should use the clone-to-running-service [Normal Mode self-hosting guide](NORMAL-MODE-SELF-HOSTING.md). It includes the hardened Compose recipe, private token generator, TLS alternatives, fork variables, live doctor, read-back check, and symptom-based troubleshooting. A fork without a relay variable remains unconfigured; it never inherits or falls back to the project owner's service.
+Open-source deployers should use the clone-to-running-service [Table-side Mode self-hosting guide](TABLE-SIDE-MODE-SELF-HOSTING.md). It includes the hardened Compose recipe, private token generator, TLS alternatives, fork variables, live doctor, read-back check, and symptom-based troubleshooting. A fork without a relay variable remains unconfigured; it never inherits or falls back to the project owner's service.
 
 The current Connection Service is an in-memory Node process. It requires these environment variables:
 
@@ -96,11 +96,11 @@ Run the built service after setting the variables:
 pnpm --filter @html-poker/connection-service start
 ```
 
-The repository-root `services/connection-service/Dockerfile` now performs its own locked multi-stage build. The supplied `deploy/normal/compose.yaml` mounts the operator token as a file secret, binds cleartext port 8787 only to loopback, drops Linux capabilities, uses a read-only runtime filesystem, runs as the unprivileged `node` user, and includes a health check. Use the self-hosting guide rather than assembling an image directory by hand.
+The repository-root `services/connection-service/Dockerfile` now performs its own locked multi-stage build. The supplied `deploy/table-side/compose.yaml` mounts the operator token as a file secret, binds cleartext port 8787 only to loopback, drops Linux capabilities, uses a read-only runtime filesystem, runs as the unprivileged `node` user, and includes a health check. Use the self-hosting guide rather than assembling an image directory by hand.
 
 Terminate TLS at a deployer-controlled reverse proxy and configure the browser with `wss://` in production. Use ordinary ingress rate limiting and network restrictions around the service; those controls are deployment infrastructure, not code supplied by this repository.
 
-The baseline Normal artifact permits secure `https:` and `wss:` connection endpoints so that a deployer can use its own service. `pnpm release:configure-normal` rejects non-WSS endpoints, writes URL-only runtime configuration for the optional Cloudflare and Mac origins, and narrows the built page's `connect-src` policy to each exact HTTPS/WSS origin. A deployer-controlled HTTP header may narrow the policy further.
+The baseline Table-side artifact permits secure `https:` and `wss:` connection endpoints so that a deployer can use its own service. `pnpm release:configure-table-side` rejects non-WSS endpoints, writes URL-only runtime configuration for the optional Cloudflare and Mac origins, and narrows the built page's `connect-src` policy to each exact HTTPS/WSS origin. A deployer-controlled HTTP header may narrow the policy further.
 
 ## Static configuration
 
@@ -125,7 +125,7 @@ links contain those scoped tickets in their fragment, never the operator token.
 2. If a relay URL is configured, enter the private operator token locally and create the table. The UI refuses to create a configured relay table without it.
 3. If the host is also playing, enter **My display name** and choose **Join my own table on this device**. The same page gains **Host Controls** and **My Hand**; after dealing it also gains **Table View** for a shared iPad/tablet screen.
 4. Share the one-use player QR/link for every other seat. Do not scan or open that ordinary invitation on the Trusted Host device: doing so can replace or background the active authority page and drop its route. Treat the full link as sensitive: its fragment is not sent to the server, but it can remain in browser history, screenshots, clipboard history, or extensions.
-5. Let the host deal after at least two player seats have joined. Normal Mode
+5. Let the host deal after at least two player seats have joined. Table-side Mode
    prefers direct WebRTC, then the Cloudflare relay, then the Mac fallback when
    the prior path is unavailable. A peer keeps its active relay sticky; after a
    disconnect/timeout it retries paths serially, never duplicating an action
@@ -133,7 +133,7 @@ links contain those scoped tickets in their fragment, never the operator token.
 6. Pair a TV/Public Table by opening **Pair this display** on the display, choosing the requested public role, then scanning its QR from the host. The display obtains nothing until that host scan completes.
 7. Use the off-table **Connection Service** card to renew a relay ticket before a long interruption or after a recovered host reports expiry. The operator token is not persisted. Ticket expiry stops a new relay registration; it does not forcibly close an already-open in-memory WebSocket.
 
-### Normal Player and display cues
+### Table-side Player and display cues
 
 - Player display names are limited to 24 characters so Table and TV labels stay
   legible. Table View truncates a longer label visually; the full entered name
@@ -220,7 +220,7 @@ registrations, and display mailboxes in process memory. Restarting it drops
 them; it is not a durable session database.
 
 **Fact:** The Cloudflare Workers/Durable Objects path is the configured primary
-relay when `NORMAL_CLOUD_RELAY_URL` is present. The Mac path is a separate
+relay when `TABLE_SIDE_CLOUD_RELAY_URL` is present. The Mac path is a separate
 fallback and may be unavailable while the Mac is asleep.
 
 **Inference:** A deployer-owned service with TLS, an exact origin policy, and ingress controls is a more reviewable boundary than a hard-coded shared public relay. It does not make the host trustworthy or erase network metadata.

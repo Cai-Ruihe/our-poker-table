@@ -20,7 +20,7 @@ body:
     attributes:
       label: Mode
       options:
-        - Normal Mode
+        - Table-side Mode
         - Airplane Mode
         - Player
         - Tablet Table

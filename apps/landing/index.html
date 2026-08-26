@@ -1,0 +1,1107 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="base-uri 'none'; default-src 'self'; connect-src 'none'; font-src 'self'; form-action 'none'; frame-src 'none'; img-src 'self'; object-src 'none'; script-src 'none'; style-src 'self'"
+    />
+    <meta name="referrer" content="no-referrer" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="color-scheme" content="light" />
+    <meta name="theme-color" content="#194c3e" />
+    <meta
+      name="description"
+      content="Our Poker Table is a quiet browser dealer for in-person, play-chip poker. Private hands stay on phones while the shared board stays in the room."
+    />
+    <link
+      rel="icon"
+      type="image/svg+xml"
+      href="../../assets/brand/web/favicon.svg"
+    />
+    <link rel="stylesheet" href="./src/landing.css" />
+    <title>Our Poker Table — A quiet digital dealer for physical poker</title>
+  </head>
+  <body>
+    <a class="skip-link" href="#main-content"
+      ><span data-lang="en">Skip to content</span
+      ><span data-lang="zh" lang="zh-Hans">跳至正文</span></a
+    >
+
+    <header class="site-header">
+      <a class="site-header__brand" href="./" aria-label="Our Poker Table home">
+        <img
+          class="site-header__wordmark"
+          src="../../assets/brand/svg/horizontal-light-transparent.svg"
+          alt="Our Poker Table"
+          width="239"
+          height="57"
+        />
+        <img
+          class="site-header__symbol"
+          src="../../assets/brand/svg/symbol-green.svg"
+          alt=""
+          width="40"
+          height="40"
+        />
+      </a>
+
+      <nav aria-label="Introduction / 介绍">
+        <a href="#views"
+          ><span data-lang="en">Product story</span
+          ><span data-lang="zh" lang="zh-Hans">一手牌</span></a
+        >
+        <a href="#how"
+          ><span data-lang="en">How it works</span
+          ><span data-lang="zh" lang="zh-Hans">开桌流程</span></a
+        >
+        <a href="#fairness"
+          ><span data-lang="en">Fair dealing</span
+          ><span data-lang="zh" lang="zh-Hans">公平发牌</span></a
+        >
+        <a href="#privacy"
+          ><span data-lang="en">Privacy</span
+          ><span data-lang="zh" lang="zh-Hans">隐私</span></a
+        >
+      </nav>
+
+      <fieldset class="language-switch" aria-label="Page language / 页面语言">
+        <legend class="visually-hidden">Page language / 页面语言</legend>
+        <input
+          id="language-en"
+          type="radio"
+          name="page-language"
+          value="en"
+          aria-label="English"
+          checked
+        />
+        <label for="language-en">EN</label>
+        <input id="language-zh" type="radio" name="page-language" value="zh" />
+        <label for="language-zh" lang="zh-Hans">中文</label>
+      </fieldset>
+
+      <a class="site-header__cta" href="../table-side/">
+        <span data-lang="en">Open Table-side Mode</span>
+        <span data-lang="zh" lang="zh-Hans">打开桌边模式</span>
+        <span class="site-header__cta-arrow" aria-hidden="true">↗</span>
+      </a>
+    </header>
+
+    <main id="main-content">
+      <section class="hero" aria-labelledby="hero-title">
+        <div class="hero__copy">
+          <p class="eyebrow">
+            <span data-lang="en"
+              >A quiet digital dealer for the table you already have</span
+            >
+            <span data-lang="zh" lang="zh-Hans">给真实牌桌的发牌助手</span>
+          </p>
+          <h1 id="hero-title">
+            <span data-lang="en">Deal cards<br />Keep poker yours</span>
+            <span data-lang="zh" lang="zh-Hans"
+              >发牌交给浏览器<br />牌局留在桌上</span
+            >
+          </h1>
+          <p class="hero__lede">
+            <span data-lang="en"
+              >Keep the chips, conversation, and decisions around the table. Let
+              the browser handle the deal—with the right view for every
+              seat.</span
+            >
+            <span data-lang="zh" lang="zh-Hans"
+              >筹码、聊天和判断，继续留在桌边<br />浏览器只管发牌，让每个座位看到该看的画面</span
+            >
+          </p>
+          <div class="button-row">
+            <a class="button button--primary" href="#views">
+              <span data-lang="en">Watch one hand</span>
+              <span data-lang="zh" lang="zh-Hans">看看一手牌怎么走</span>
+            </a>
+          </div>
+          <dl class="hero__facts" aria-label="Product essentials / 产品要点">
+            <div>
+              <dt>2–10</dt>
+              <dd>
+                <span data-lang="en">player seats</span>
+                <span data-lang="zh" lang="zh-Hans">位玩家</span>
+              </dd>
+            </div>
+            <div>
+              <dt>0</dt>
+              <dd>
+                <span data-lang="en">accounts needed</span>
+                <span data-lang="zh" lang="zh-Hans">无需账号</span>
+              </dd>
+            </div>
+            <div>
+              <dt>1</dt>
+              <dd>
+                <span data-lang="en">Trusted Host authority</span>
+                <span data-lang="zh" lang="zh-Hans">台主控设备</span>
+              </dd>
+            </div>
+          </dl>
+        </div>
+
+        <div class="hero__table">
+          <div class="hero__scene" data-play-scene>
+            <div
+              class="hero__opponent-phone hero__android-phone"
+              data-hero-opponent-phone
+            >
+              <span class="hero__android-camera" aria-hidden="true"></span>
+              <div class="hero__player-phone-screen" data-screenshot-frame>
+                <img
+                  src="./public/product/hero-player-android-public-board.png"
+                  alt="Second player’s Samsung Galaxy A16 5G at the far side of the table, showing the same public cards / 桌子对面的另一台三星 Galaxy A16 5G，同样显示公共牌"
+                  width="393"
+                  height="852"
+                  data-product-screenshot
+                />
+              </div>
+            </div>
+
+            <div class="hero__ipad" data-hero-ipad>
+              <span class="hero__ipad-camera" aria-hidden="true"></span>
+              <div class="hero__ipad-screen" data-screenshot-frame>
+                <img
+                  src="./public/product/hero-shared-board-ipad.png"
+                  alt="Current shared table showing five public cards / 当前共享桌面显示五张公共牌"
+                  width="1238"
+                  height="860"
+                  data-hero-screenshot
+                  data-product-screenshot
+                />
+              </div>
+            </div>
+
+            <div class="hero__player-phone" data-hero-player-phone>
+              <span
+                class="hero__iphone-dynamic-island"
+                aria-hidden="true"
+              ></span>
+              <div class="hero__player-phone-screen" data-screenshot-frame>
+                <img
+                  src="./public/product/hero-player-private-board.png"
+                  alt="Player phone showing the same five public cards and this player’s locally revealed private cards / 玩家手机显示同一组五张公共牌及仅本机可见的私牌"
+                  width="393"
+                  height="852"
+                  data-product-screenshot
+                />
+              </div>
+            </div>
+
+            <img
+              class="hero__chip-artwork hero__chip-artwork--black"
+              src="./public/product/hero-chip-black-stack.png"
+              alt=""
+              aria-hidden="true"
+              data-hero-chip-artwork
+            />
+            <img
+              class="hero__chip-artwork hero__chip-artwork--green"
+              src="./public/product/hero-chip-green-stack.png"
+              alt=""
+              aria-hidden="true"
+              data-hero-chip-artwork
+            />
+            <img
+              class="hero__chip-artwork hero__chip-artwork--red"
+              src="./public/product/hero-chip-red-stack.png"
+              alt=""
+              aria-hidden="true"
+              data-hero-chip-artwork
+            />
+            <img
+              class="hero__chip-artwork hero__chip-artwork--blue"
+              src="./public/product/hero-chip-blue.png"
+              alt=""
+              aria-hidden="true"
+              data-hero-chip-artwork
+            />
+          </div>
+        </div>
+      </section>
+
+      <p class="trust-line" aria-label="Product trust summary / 产品承诺">
+        <span
+          ><span data-lang="en">Play chips only</span
+          ><span data-lang="zh" lang="zh-Hans">仅限娱乐筹码</span></span
+        >
+        <span
+          ><span data-lang="en">No accounts</span
+          ><span data-lang="zh" lang="zh-Hans">无需账户</span></span
+        >
+        <span
+          ><span data-lang="en">No analytics</span
+          ><span data-lang="zh" lang="zh-Hans">不做行为追踪</span></span
+        >
+        <span
+          ><span data-lang="en">Open source</span
+          ><span data-lang="zh" lang="zh-Hans">开源</span></span
+        >
+      </p>
+
+      <section
+        class="product-story"
+        id="views"
+        aria-labelledby="product-story-title"
+      >
+        <div class="section-shell product-story__header">
+          <div>
+            <p class="eyebrow eyebrow--gold">
+              <span data-lang="en">Six real screens · One complete hand</span>
+              <span data-lang="zh" lang="zh-Hans"
+                >六个真实画面，走完一手牌</span
+              >
+            </p>
+            <h2 id="product-story-title">
+              <span data-lang="en">Watch one hand move around the table</span>
+              <span data-lang="zh" lang="zh-Hans"
+                >一手牌如何<br />在桌上展开</span
+              >
+            </h2>
+          </div>
+          <p>
+            <span data-lang="en"
+              >Choose a moment. Every image is a complete browser render from
+              the current product code.</span
+            >
+            <span data-lang="zh" lang="zh-Hans"
+              >挑一个环节看看。每张图都来自当前版本的真实浏览器画面。</span
+            >
+          </p>
+        </div>
+
+        <fieldset class="product-reel section-shell">
+          <legend class="visually-hidden">
+            <span data-lang="en">Choose a product moment</span>
+            <span data-lang="zh" lang="zh-Hans">选择一个牌局环节</span>
+          </legend>
+
+          <input
+            class="product-reel__input"
+            id="story-start"
+            type="radio"
+            name="product-story"
+            checked
+          />
+          <input
+            class="product-reel__input"
+            id="story-invite"
+            type="radio"
+            name="product-story"
+          />
+          <input
+            class="product-reel__input"
+            id="story-private"
+            type="radio"
+            name="product-story"
+          />
+          <input
+            class="product-reel__input"
+            id="story-reveal"
+            type="radio"
+            name="product-story"
+          />
+          <input
+            class="product-reel__input"
+            id="story-host"
+            type="radio"
+            name="product-story"
+          />
+          <input
+            class="product-reel__input"
+            id="story-result"
+            type="radio"
+            name="product-story"
+          />
+
+          <div
+            class="product-reel__controls"
+            tabindex="0"
+            aria-label="Product story controls / 产品故事控制"
+          >
+            <label for="story-start"
+              ><span>01</span><b data-lang="en">Start</b
+              ><b data-lang="zh" lang="zh-Hans">开桌</b></label
+            >
+            <label for="story-invite"
+              ><span>02</span><b data-lang="en">Invite</b
+              ><b data-lang="zh" lang="zh-Hans">邀请入座</b></label
+            >
+            <label for="story-private"
+              ><span>03</span><b data-lang="en">Private hand</b
+              ><b data-lang="zh" lang="zh-Hans">收到私牌</b></label
+            >
+            <label for="story-reveal"
+              ><span>04</span><b data-lang="en">Private reveal</b
+              ><b data-lang="zh" lang="zh-Hans">查看私牌</b></label
+            >
+            <label for="story-host"
+              ><span>05</span><b data-lang="en">Host deals</b
+              ><b data-lang="zh" lang="zh-Hans">主控发牌</b></label
+            >
+            <label for="story-result"
+              ><span>06</span><b data-lang="en">Shared result</b
+              ><b data-lang="zh" lang="zh-Hans">摊牌结果</b></label
+            >
+          </div>
+
+          <div class="product-reel__stage">
+            <figure class="story-slide" data-story-slide="start">
+              <div class="story-slide__copy">
+                <p class="story-slide__counter">
+                  <span data-lang="en">01 / 06 · Trusted Host</span>
+                  <span data-lang="zh" lang="zh-Hans">01 / 06 · 主控设备</span>
+                </p>
+                <h3>
+                  <span data-lang="en"
+                    >Open one browser<br />Start the table</span
+                  >
+                  <span data-lang="zh" lang="zh-Hans"
+                    >打开浏览器<br />开桌就绪</span
+                  >
+                </h3>
+                <p>
+                  <span data-lang="en"
+                    >The current product checks its local capabilities before
+                    the Trusted Host creates a table.</span
+                  >
+                  <span data-lang="zh" lang="zh-Hans"
+                    >开桌前，系统会先检查这台设备是否具备所需能力，再由主控设备创建牌桌。</span
+                  >
+                </p>
+              </div>
+              <div class="story-slide__visual" data-screenshot-frame>
+                <img
+                  src="./public/product/home-start.webp"
+                  alt="Current product home screen ready to create a table / 当前产品首页已准备创建牌桌"
+                  width="1366"
+                  height="1024"
+                  loading="lazy"
+                  data-product-screenshot
+                />
+              </div>
+            </figure>
+
+            <figure class="story-slide" data-story-slide="invite">
+              <div class="story-slide__copy">
+                <p class="story-slide__counter">
+                  <span data-lang="en">02 / 06 · Seats</span>
+                  <span data-lang="zh" lang="zh-Hans">02 / 06 · 玩家入座</span>
+                </p>
+                <h3>
+                  <span data-lang="en"
+                    >Invite the seats<br />Deal when ready</span
+                  >
+                  <span data-lang="zh" lang="zh-Hans"
+                    >邀请入座<br />人齐开牌</span
+                  >
+                </h3>
+                <p>
+                  <span data-lang="en"
+                    >The Host sees the one-use invitation, joined seats, and the
+                    public table map together.</span
+                  >
+                  <span data-lang="zh" lang="zh-Hans"
+                    >一次性邀请、已入座的玩家和公共桌面，会在主控设备上放在同一处。</span
+                  >
+                </p>
+              </div>
+              <div class="story-slide__visual" data-screenshot-frame>
+                <img
+                  src="./public/product/host-lobby.webp"
+                  alt="Trusted Host lobby with Alice and Bob seated and the invitation visible / 主控设备大厅显示 Alice 与 Bob 已入座并展示邀请"
+                  width="1366"
+                  height="1200"
+                  loading="lazy"
+                  data-product-screenshot
+                />
+              </div>
+            </figure>
+
+            <figure
+              class="story-slide story-slide--portrait"
+              data-story-slide="private"
+            >
+              <div class="story-slide__copy">
+                <p class="story-slide__counter">
+                  <span data-lang="en">03 / 06 · Player phone</span>
+                  <span data-lang="zh" lang="zh-Hans">03 / 06 · 玩家手机</span>
+                </p>
+                <h3>
+                  <span data-lang="en">Your hand arrives covered</span>
+                  <span data-lang="zh" lang="zh-Hans"
+                    >私牌已到<br />先别翻开</span
+                  >
+                </h3>
+                <p>
+                  <span data-lang="en"
+                    >The cards exist on this phone, but stay hidden until its
+                    player chooses to look.</span
+                  >
+                  <span data-lang="zh" lang="zh-Hans"
+                    >私牌已经发到这台手机，但在玩家自己选择查看前会一直隐藏。</span
+                  >
+                </p>
+              </div>
+              <div class="story-slide__visual" data-screenshot-frame>
+                <img
+                  src="./public/product/player-private.webp"
+                  alt="Player phone with private cards covered behind the local reveal control / 玩家手机上的私牌仍被本地查看控件覆盖"
+                  width="393"
+                  height="852"
+                  loading="lazy"
+                  data-product-screenshot
+                />
+              </div>
+            </figure>
+
+            <figure
+              class="story-slide story-slide--portrait"
+              data-story-slide="reveal"
+            >
+              <div class="story-slide__copy">
+                <p class="story-slide__counter">
+                  <span data-lang="en">04 / 06 · Player phone</span>
+                  <span data-lang="zh" lang="zh-Hans">04 / 06 · 玩家手机</span>
+                </p>
+                <h3>
+                  <span data-lang="en">Only that player reveals it</span>
+                  <span data-lang="zh" lang="zh-Hans"
+                    >只在自己的手机上<br />看自己的牌</span
+                  >
+                </h3>
+                <p>
+                  <span data-lang="en"
+                    >Private reveal and public show are visibly separate
+                    actions.</span
+                  >
+                  <span data-lang="zh" lang="zh-Hans"
+                    >查看私牌和向全桌亮牌，是两个明确分开的动作。</span
+                  >
+                </p>
+              </div>
+              <div class="story-slide__visual" data-screenshot-frame>
+                <img
+                  src="./public/product/player-revealed.webp"
+                  alt="Player phone showing two privately revealed cards while public show remains guarded / 玩家手机显示两张私密查看的牌，公开展示仍受保护"
+                  width="393"
+                  height="852"
+                  loading="lazy"
+                  data-product-screenshot
+                />
+              </div>
+            </figure>
+
+            <figure class="story-slide" data-story-slide="host">
+              <div class="story-slide__copy">
+                <p class="story-slide__counter">
+                  <span data-lang="en">05 / 06 · Trusted Host</span>
+                  <span data-lang="zh" lang="zh-Hans">05 / 06 · 主控设备</span>
+                </p>
+                <h3>
+                  <span data-lang="en"
+                    >One visible authority advances the hand</span
+                  >
+                  <span data-lang="zh" lang="zh-Hans"
+                    >一台主控设备<br />掌控发牌节奏</span
+                  >
+                </h3>
+                <p>
+                  <span data-lang="en"
+                    >Dealer controls remain on the Trusted Host—not on player or
+                    public screens.</span
+                  >
+                  <span data-lang="zh" lang="zh-Hans"
+                    >发牌控制只在主控设备中，不会出现在玩家手机或公共屏幕上。</span
+                  >
+                </p>
+              </div>
+              <div class="story-slide__visual" data-screenshot-frame>
+                <img
+                  src="./public/product/host-controls.webp"
+                  alt="Trusted Host Table View with the dealer controls open / 主控设备桌面视图打开了发牌控制"
+                  width="1366"
+                  height="1024"
+                  loading="lazy"
+                  data-product-screenshot
+                />
+              </div>
+            </figure>
+
+            <figure class="story-slide" data-story-slide="result">
+              <div class="story-slide__copy">
+                <p class="story-slide__counter">
+                  <span data-lang="en">06 / 06 · Shared table</span>
+                  <span data-lang="zh" lang="zh-Hans">06 / 06 · 公共桌面</span>
+                </p>
+                <h3>
+                  <span data-lang="en">Everyone can follow the result</span>
+                  <span data-lang="zh" lang="zh-Hans"
+                    >摊牌之后<br />结果全桌可见</span
+                  >
+                </h3>
+                <p>
+                  <span data-lang="en"
+                    >At showdown, shown cards and the best available five-card
+                    hand return to the shared table.</span
+                  >
+                  <span data-lang="zh" lang="zh-Hans"
+                    >摊牌时，已亮出的私牌和最佳五张牌会回到公共桌面，所有人都能核对。</span
+                  >
+                </p>
+              </div>
+              <div class="story-slide__visual" data-screenshot-frame>
+                <img
+                  src="./public/product/table-showdown.webp"
+                  alt="Shared table at showdown with shown private cards and the best five-card hand marked / 共同桌面在摊牌时显示已公开私牌并标出最佳五张牌"
+                  width="1366"
+                  height="1024"
+                  loading="lazy"
+                  data-product-screenshot
+                />
+              </div>
+            </figure>
+          </div>
+        </fieldset>
+      </section>
+
+      <section
+        class="fairness section-shell"
+        id="fairness"
+        aria-labelledby="fairness-title"
+      >
+        <div class="fairness__header">
+          <div>
+            <p class="eyebrow">
+              <span data-lang="en">Fairness in the official build</span>
+              <span data-lang="zh" lang="zh-Hans">发牌规则，说在前面</span>
+            </p>
+            <h2 id="fairness-title">
+              <span data-lang="en"
+                >Fair dealing in the current product version</span
+              >
+              <span data-lang="zh" lang="zh-Hans"
+                >每一手牌<br />都遵循同一套规则</span
+              >
+            </h2>
+          </div>
+          <p>
+            <span data-lang="en"
+              >The shuffle happens before private cards are assigned. The
+              official build does not choose cards by player name, identity, or
+              a favoured seat setting.</span
+            >
+            <span data-lang="zh" lang="zh-Hans"
+              >系统会先完成洗牌，再分配私牌。官方版本不会按玩家姓名、身份或偏好座位指定牌面。</span
+            >
+          </p>
+        </div>
+
+        <div class="fairness__facts" aria-label="Dealing invariants / 发牌规则">
+          <article>
+            <span
+              ><span data-lang="en">Shuffle</span
+              ><span data-lang="zh" lang="zh-Hans">洗牌</span></span
+            >
+            <h3>
+              <span data-lang="en">Fresh randomness for every hand</span>
+              <span data-lang="zh" lang="zh-Hans">每手都重新洗牌</span>
+            </h3>
+            <p>
+              <span data-lang="en"
+                >The browser’s secure random-number generator reorders the
+                standard deck before the deal begins.</span
+              >
+              <span data-lang="zh" lang="zh-Hans"
+                >发牌开始前，浏览器会用安全随机数重新打乱整副牌。</span
+              >
+            </p>
+          </article>
+          <article>
+            <span
+              ><span data-lang="en">Deck</span
+              ><span data-lang="zh" lang="zh-Hans">牌组</span></span
+            >
+            <h3>
+              <span data-lang="en">One complete set of cards</span>
+              <span data-lang="zh" lang="zh-Hans">完整的标准牌组</span>
+            </h3>
+            <p>
+              <span data-lang="en"
+                >A hand is rejected unless the shuffled result contains exactly
+                52 unique standard cards.</span
+              >
+              <span data-lang="zh" lang="zh-Hans"
+                >只有洗牌结果恰好包含 52
+                张不重复的标准扑克牌，牌局才会继续。</span
+              >
+            </p>
+          </article>
+          <article>
+            <span
+              ><span data-lang="en">Deal</span
+              ><span data-lang="zh" lang="zh-Hans">发牌</span></span
+            >
+            <h3>
+              <span data-lang="en">The same path for every seat</span>
+              <span data-lang="zh" lang="zh-Hans">所有座位按同一顺序发牌</span>
+            </h3>
+            <p>
+              <span data-lang="en"
+                >The dealer gives one card to each active seat in table order,
+                then repeats that pass for the second card. Board cards continue
+                from the same deck without reusing a card.</span
+              >
+              <span data-lang="zh" lang="zh-Hans"
+                >系统会按桌面顺序先给每个有效座位发一张，再逐位发第二张；公共牌也从同一副牌中继续发出，不会重复使用。</span
+              >
+            </p>
+          </article>
+        </div>
+
+        <aside
+          class="fairness__boundary"
+          aria-label="Fairness trust boundary / 公平性的信任边界"
+        >
+          <div>
+            <p class="eyebrow eyebrow--gold">
+              <span data-lang="en">The boundary is part of the promise</span>
+              <span data-lang="zh" lang="zh-Hans">信任边界同样重要</span>
+            </p>
+            <h3>
+              <span data-lang="en"
+                >Fair dealing still needs a Trusted Host</span
+              >
+              <span data-lang="zh" lang="zh-Hans"
+                >规则一致<br />仍需信任主控设备</span
+              >
+            </h3>
+          </div>
+          <div>
+            <p>
+              <span data-lang="en"
+                >In the unmodified official build, every active seat follows the
+                same shuffle and dealing rules. There is no product control for
+                choosing a player’s cards.</span
+              >
+              <span data-lang="zh" lang="zh-Hans"
+                >在未修改的官方版本中，每个有效座位都遵循同一套洗牌和发牌规则；产品没有为某位玩家指定手牌的控制项。</span
+              >
+            </p>
+            <p>
+              <span data-lang="en"
+                >The current product version still trusts the active host, who
+                holds the deck and can inspect or alter local code. This is not
+                a host-blind or independently verifiable shuffle. Play only with
+                people you trust.</span
+              >
+              <span data-lang="zh" lang="zh-Hans"
+                >当前版本仍将牌组交给主控设备。它能够查看当前牌组，也可以修改本地代码；因此这不是不必信任主控、也不是可以独立验证的洗牌方案。请只和你信任的人一起使用。</span
+              >
+            </p>
+          </div>
+        </aside>
+      </section>
+
+      <section class="how section-shell" id="how" aria-labelledby="how-title">
+        <div class="section-heading">
+          <p class="eyebrow">
+            <span data-lang="en">From room to first deal</span>
+            <span data-lang="zh" lang="zh-Hans">从入座到第一手牌</span>
+          </p>
+          <h2 id="how-title">
+            <span data-lang="en">Start a proper table in three moves</span>
+            <span data-lang="zh" lang="zh-Hans">三步<br />开好一桌牌</span>
+          </h2>
+          <p>
+            <span data-lang="en"
+              >The screenshots show the exact current product state at each
+              move.</span
+            >
+            <span data-lang="zh" lang="zh-Hans"
+              >每张截图都来自当前版本，展示每一步真实会看到的界面。</span
+            >
+          </p>
+        </div>
+        <ol class="how__steps how__steps--visual">
+          <li>
+            <figure class="how__media" data-screenshot-frame>
+              <img
+                src="./public/product/home-start.webp"
+                alt="Current product home ready to create a table / 当前产品首页已准备创建牌桌"
+                width="1366"
+                height="1024"
+                loading="lazy"
+                data-how-screenshot
+                data-product-screenshot
+              />
+            </figure>
+            <span
+              ><span data-lang="en">Open</span
+              ><span data-lang="zh" lang="zh-Hans">开桌</span></span
+            >
+            <h3>
+              <span data-lang="en">Choose the browser you trust to host</span>
+              <span data-lang="zh" lang="zh-Hans"
+                >选一台你信任的设备来主持这桌牌</span
+              >
+            </h3>
+          </li>
+          <li>
+            <figure class="how__media" data-screenshot-frame>
+              <img
+                src="./public/product/host-lobby.webp"
+                alt="Host lobby with joined seats and invitation / 主控设备大厅显示已加入座位和邀请"
+                width="1366"
+                height="1200"
+                loading="lazy"
+                data-how-screenshot
+                data-product-screenshot
+              />
+            </figure>
+            <span
+              ><span data-lang="en">Invite</span
+              ><span data-lang="zh" lang="zh-Hans">邀请</span></span
+            >
+            <h3>
+              <span data-lang="en">Share the current one-use invitation</span>
+              <span data-lang="zh" lang="zh-Hans"
+                >把一次性邀请发给要入座的玩家</span
+              >
+            </h3>
+          </li>
+          <li>
+            <figure class="how__media" data-screenshot-frame>
+              <img
+                src="./public/product/shared-board.webp"
+                alt="Complete public board for the room / 供全桌观看的完整公共牌面"
+                width="1366"
+                height="1024"
+                loading="lazy"
+                data-how-screenshot
+                data-product-screenshot
+              />
+            </figure>
+            <span
+              ><span data-lang="en">Place</span
+              ><span data-lang="zh" lang="zh-Hans">摆放</span></span
+            >
+            <h3>
+              <span data-lang="en"
+                >Put the public board where the room can see it</span
+              >
+              <span data-lang="zh" lang="zh-Hans"
+                >把公共牌面放到大家都看得见的地方</span
+              >
+            </h3>
+          </li>
+        </ol>
+      </section>
+
+      <section class="modes section-shell" aria-labelledby="modes-title">
+        <div class="section-heading">
+          <p class="eyebrow">
+            <span data-lang="en">Two deliberate routes</span>
+            <span data-lang="zh" lang="zh-Hans">两种方式，对应两种场景</span>
+          </p>
+          <h2 id="modes-title">
+            <span data-lang="en">Choose the table the room can support</span>
+            <span data-lang="zh" lang="zh-Hans">按场景<br />选择开桌方式</span>
+          </h2>
+        </div>
+        <div class="modes__grid">
+          <article class="mode-card mode-card--table-side">
+            <p class="mode-card__index">
+              <span data-lang="en">01 · Everyday table</span>
+              <span data-lang="zh" lang="zh-Hans">01 · 常规牌局</span>
+            </p>
+            <h3>
+              <span data-lang="en">Table-side Mode</span>
+              <span data-lang="zh" lang="zh-Hans">桌边模式</span>
+            </h3>
+            <p>
+              <span data-lang="en"
+                >The ordinary hosted game. Invite phones by QR or link, pair a
+                public display, and keep private hands separated from the shared
+                board.</span
+              >
+              <span data-lang="zh" lang="zh-Hans"
+                >最常用的开桌方式。用二维码或链接邀请玩家手机，连上公共屏幕，让私牌和公共牌面各归各位。</span
+              >
+            </p>
+          </article>
+          <article class="mode-card mode-card--airplane">
+            <p class="mode-card__index">
+              <span data-lang="en">02 · Prepared local table</span>
+              <span data-lang="zh" lang="zh-Hans">02 · 无网出行</span>
+            </p>
+            <h3>
+              <span data-lang="en">Airplane Mode</span>
+              <span data-lang="zh" lang="zh-Hans">飞行模式</span>
+            </h3>
+            <p>
+              <span data-lang="en"
+                >Download one standalone file to every participating device
+                before travel. During play, pair devices over a private,
+                non-isolating Wi-Fi network with two-way QR.</span
+              >
+              <span data-lang="zh" lang="zh-Hans"
+                >出行前，将同一个独立文件存到每台参与设备。游戏时，使用一个可让设备互相连接的私有
+                Wi-Fi 网络，再用双向二维码完成配对。</span
+              >
+            </p>
+            <a
+              class="button button--ink"
+              href="../poker-airplane.html"
+              download="poker-airplane.html"
+              type="text/html"
+              data-qa-control="landing-airplane-download"
+            >
+              <span data-lang="en">Download Airplane Mode HTML</span>
+              <span data-lang="zh" lang="zh-Hans">下载飞行模式 HTML</span>
+            </a>
+            <small>
+              <span data-lang="en"
+                >One self-contained HTML file · test the exact devices,
+                browsers, and Wi-Fi network you plan to use</span
+              >
+              <span data-lang="zh" lang="zh-Hans"
+                >一个独立 HTML 文件 · 请在开局前用计划使用的设备、浏览器和 Wi-Fi
+                完成测试</span
+              >
+            </small>
+          </article>
+        </div>
+      </section>
+
+      <section class="privacy" id="privacy" aria-labelledby="privacy-title">
+        <div class="privacy__content section-shell">
+          <div>
+            <p class="eyebrow eyebrow--gold">
+              <span data-lang="en">An honest trust model</span>
+              <span data-lang="zh" lang="zh-Hans">信任边界，说在前面</span>
+            </p>
+            <h2 id="privacy-title">
+              <span data-lang="en">Privacy is built into the projection</span>
+              <span data-lang="zh" lang="zh-Hans"
+                >公共信息放桌上<br />私牌留在手机里</span
+              >
+            </h2>
+          </div>
+          <div class="privacy__copy">
+            <p class="privacy__lead">
+              <span data-lang="en"
+                >Hidden cards are filtered before they leave the Trusted Host.
+                Public displays, other seats, diagnostics, and connection
+                services do not receive unrevealed card plaintext.</span
+              >
+              <span data-lang="zh" lang="zh-Hans"
+                >私牌在离开主控设备前就会被过滤。公共屏幕、其他座位、诊断工具和连接服务都不会收到未亮出私牌的明文。</span
+              >
+            </p>
+            <div class="privacy__note">
+              <span>
+                <span data-lang="en">Trusted Host means trusted.</span>
+                <span data-lang="zh" lang="zh-Hans"
+                  >主控设备必须由你信任的人掌管</span
+                >
+              </span>
+              <p>
+                <span data-lang="en"
+                  >The current product version deliberately trusts the active
+                  host. The host owns the shuffle, deal, and hand history and
+                  can inspect the active deck by design.</span
+                >
+                <span data-lang="zh" lang="zh-Hans"
+                  >当前版本有意将洗牌、发牌和牌局记录集中在这台主控设备上。它按设计可以查看当前牌组。</span
+                >
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="faq section-shell" aria-labelledby="faq-title">
+        <div class="section-heading">
+          <p class="eyebrow">
+            <span data-lang="en">Before the first hand</span>
+            <span data-lang="zh" lang="zh-Hans">开局之前</span>
+          </p>
+          <h2 id="faq-title">
+            <span data-lang="en">A few direct answers</span>
+            <span data-lang="zh" lang="zh-Hans"
+              >几个常见问题<br />直接回答</span
+            >
+          </h2>
+        </div>
+        <div class="faq__items">
+          <details>
+            <summary>
+              <span data-lang="en">Does it use real money?</span>
+              <span data-lang="zh" lang="zh-Hans">用真钱吗？</span>
+            </summary>
+            <p>
+              <span data-lang="en"
+                >No. The current product is for in-person poker using physical
+                play chips.</span
+              >
+              <span data-lang="zh" lang="zh-Hans"
+                >不用。这是一款供面对面玩实体娱乐筹码扑克的产品。</span
+              >
+            </p>
+          </details>
+          <details>
+            <summary>
+              <span data-lang="en">Do players need accounts?</span>
+              <span data-lang="zh" lang="zh-Hans">需要注册账号吗？</span>
+            </summary>
+            <p>
+              <span data-lang="en"
+                >No. Players join the current table using a time-limited
+                invitation.</span
+              >
+              <span data-lang="zh" lang="zh-Hans"
+                >不需要。玩家通过限时邀请加入这桌牌。</span
+              >
+            </p>
+          </details>
+          <details>
+            <summary>
+              <span data-lang="en">Can a public screen see private cards?</span>
+              <span data-lang="zh" lang="zh-Hans">公共屏幕会显示私牌吗？</span>
+            </summary>
+            <p>
+              <span data-lang="en"
+                >No. Public projections receive only public table state.</span
+              >
+              <span data-lang="zh" lang="zh-Hans"
+                >不会。公共屏幕只会收到公开的牌桌信息。</span
+              >
+            </p>
+          </details>
+          <details>
+            <summary>
+              <span data-lang="en">Can the host see the active deck?</span>
+              <span data-lang="zh" lang="zh-Hans"
+                >主控设备能看到当前牌组吗？</span
+              >
+            </summary>
+            <p>
+              <span data-lang="en"
+                >Yes. The current product version names and trusts one active
+                host as the game authority.</span
+              >
+              <span data-lang="zh" lang="zh-Hans"
+                >能。当前版本由一台主控设备负责主持牌局，并默认信任这台设备。</span
+              >
+            </p>
+          </details>
+          <details>
+            <summary>
+              <span data-lang="en">Can I run it myself?</span>
+              <span data-lang="zh" lang="zh-Hans">我可以自行运行吗？</span>
+            </summary>
+            <p>
+              <span data-lang="en"
+                >Yes. The project provides a static hosted build and a
+                standalone Airplane HTML file.</span
+              >
+              <span data-lang="zh" lang="zh-Hans"
+                >可以。项目提供静态网页版和可单独保存的飞行模式 HTML
+                文件。</span
+              >
+            </p>
+          </details>
+          <details>
+            <summary>
+              <span data-lang="en">Can I play without internet?</span>
+              <span data-lang="zh" lang="zh-Hans">没有互联网也能玩吗？</span>
+            </summary>
+            <p>
+              <span data-lang="en"
+                >Yes, after every device has the same downloaded Airplane HTML
+                file. Devices still need a compatible, non-isolating private
+                Wi-Fi network and two-way QR pairing.</span
+              >
+              <span data-lang="zh" lang="zh-Hans"
+                >可以。前提是每台设备都提前保存了同一份飞行模式 HTML
+                文件；设备之间仍需连接可互通的私有
+                Wi-Fi，并完成双向二维码配对。</span
+              >
+            </p>
+          </details>
+        </div>
+      </section>
+
+      <section class="closing" aria-labelledby="closing-title">
+        <div class="closing__mark" aria-hidden="true">
+          <img
+            src="../../assets/brand/svg/symbol-gold.svg"
+            alt=""
+            width="256"
+            height="256"
+          />
+        </div>
+        <div class="closing__content">
+          <p class="eyebrow eyebrow--gold">
+            <span data-lang="en">The room is ready</span>
+            <span data-lang="zh" lang="zh-Hans">人齐了，就开桌</span>
+          </p>
+          <h2 id="closing-title">
+            <span data-lang="en">Bring the chips<br />Open the table</span>
+            <span data-lang="zh" lang="zh-Hans">带上筹码<br />开一桌牌</span>
+          </h2>
+          <p>
+            <span data-lang="en"
+              >A browser dealer for a real table, with the right view for every
+              seat.</span
+            >
+            <span data-lang="zh" lang="zh-Hans"
+              >为真实牌桌准备的浏览器发牌助手，让每个座位看到该看的内容。</span
+            >
+          </p>
+          <div class="button-row">
+            <a
+              class="text-link text-link--light"
+              href="mailto:contact@ourpokertable.com"
+            >
+              <span data-lang="en">Contact the project</span>
+              <span data-lang="zh" lang="zh-Hans">联系项目团队</span>
+              <span aria-hidden="true">↗</span>
+            </a>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <footer>
+      <a href="./" aria-label="Our Poker Table introduction">
+        <img
+          src="../../assets/brand/svg/horizontal-light-transparent.svg"
+          alt="Our Poker Table"
+          width="239"
+          height="57"
+          loading="lazy"
+        />
+      </a>
+      <p>
+        <span data-lang="en"
+          >Private browser dealing for in-person, play-chip poker.</span
+        >
+        <span data-lang="zh" lang="zh-Hans"
+          >为面对面实体筹码扑克准备的私密浏览器发牌助手。</span
+        >
+      </p>
+      <div>
+        <a href="https://github.com/Cai-Ruihe/our-poker-table">
+          <span data-lang="en">View source</span>
+          <span data-lang="zh" lang="zh-Hans">查看源代码</span>
+        </a>
+        <a href="mailto:contact@ourpokertable.com">contact@ourpokertable.com</a>
+      </div>
+    </footer>
+  </body>
+</html>

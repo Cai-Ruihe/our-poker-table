@@ -4,7 +4,7 @@ Card privacy is the project's highest security priority. Robust Airplane Mode, C
 
 ## Supported versions
 
-There is no released application yet. Once releases begin, this file will list supported release lines. The current local Phase 1 candidate has automated evidence for scoped player/public roles, encrypted recovery, invitation/credential controls, Normal direct/relay transport, standalone Airplane pairing, and browser privacy regressions. It has not passed the independent frozen-candidate red-team, physical-device, hostile-network, service-restart, dependency/provenance, or release-integrity gates. Treat it as development evidence, not a supported security claim.
+There is no released application yet. Once releases begin, this file will list supported release lines. The current local Phase 1 candidate has automated evidence for scoped player/public roles, encrypted recovery, invitation/credential controls, Table-side direct/relay transport, standalone Airplane pairing, and browser privacy regressions. It has not passed the independent frozen-candidate red-team, physical-device, hostile-network, service-restart, dependency/provenance, or release-integrity gates. Treat it as development evidence, not a supported security claim.
 
 The [Phase 1 Card Privacy automated red-team record](docs/security/PHASE-1-CARD-PRIVACY-RED-TEAM.md) identifies the tested paths and residual Unknowns. Do not describe it as a human security audit or penetration test.
 
@@ -48,8 +48,8 @@ A future Mental Poker protocol may reduce host trust, but it is not implemented 
 - Unrevealed and mucked cards never enter public histories, cloud checkpoints, telemetry, ordinary logs, or support bundles.
 - Relay and signaling services remain card-blind.
 - Diagnostics are redacted by construction and retained for no more than the configured 30-day maximum.
-- Normal configuration accepts only a deployer-owned Connection Service URL; host operator tokens mint scoped relay tickets locally and do not appear in player links.
-- The Normal artifact permits secure deployer-owned connection endpoints; production must add an exact-origin CSP response header and TLS/reverse-proxy policy. Release tooling can produce reproducible SHA-256 artifact manifests, but an official immutable/signature claim requires a reviewed, owner-approved release process.
+- Table-side configuration accepts only a deployer-owned Connection Service URL; host operator tokens mint scoped relay tickets locally and do not appear in player links.
+- The Table-side artifact permits secure deployer-owned connection endpoints; production must add an exact-origin CSP response header and TLS/reverse-proxy policy. Release tooling can produce reproducible SHA-256 artifact manifests, but an official immutable/signature claim requires a reviewed, owner-approved release process.
 - Every development phase includes adversarial Card Privacy Red Team checks.
 
 See [Card Custody & Privacy](docs/prd/modules/M02-CARD-CUSTODY-PRIVACY.md), [Diagnostics & Red Team](docs/prd/modules/M08-DIAGNOSTICS-RED-TEAM.md), and [Release & Distribution](docs/prd/modules/M09-RELEASE-DISTRIBUTION.md).

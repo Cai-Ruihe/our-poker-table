@@ -17,6 +17,9 @@ export default defineConfig({
   },
   fullyParallel: true,
   outputDir: "test-results/playwright",
+  ...(process.env.HTML_POKER_PRESERVE_OUTPUT === "1"
+    ? { preserveOutput: "always" as const }
+    : {}),
   reporter: isCI ? [["github"], ["html", { open: "never" }]] : [["list"]],
   snapshotPathTemplate: `{testDir}/{testFilePath}-snapshots/{arg}-${process.platform}-{projectName}{ext}`,
   testDir: "tests",

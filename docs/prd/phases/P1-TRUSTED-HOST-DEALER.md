@@ -29,7 +29,7 @@ router: ../manifest.yaml
 
 ## Context capsule
 
-Deliver the smallest complete in-person product: one Trusted Host deals digital Texas Hold'em cards while people bet with physical chips. Players join without accounts; separate Player, Tablet, TV, and Public Table presentations use privacy-filtered state. Normal Mode and Airplane Mode are first-phase requirements. Digital chip truth, remote-first play, skins, AI, and host blindness are excluded.
+Deliver the smallest complete in-person product: one Trusted Host deals digital Texas Hold'em cards while people bet with physical chips. Players join without accounts; separate Player, Tablet, TV, and Public Table presentations use privacy-filtered state. Table-side Mode and Airplane Mode are first-phase requirements. Digital chip truth, remote-first play, skins, AI, and host blindness are excluded.
 
 ## Participating modules
 
@@ -41,7 +41,7 @@ Home poker loses time to shuffling and dealing, while native app requirements an
 
 ## Solution
 
-A capable browser creates one table, owns the shuffled deck, and commits an ordered event history. Players join through QR or an equivalent full URL during a Join Window and receive revocable Seat Credentials. The host sends only role-appropriate projections. A nearby tablet can use scoped dealer controls; a TV uses a non-touch layout. Normal Mode changes routes without changing game identity. Airplane Mode uses the same core from a standalone artifact over private local Wi-Fi.
+A capable browser creates one table, owns the shuffled deck, and commits an ordered event history. Players join through QR or an equivalent full URL during a Join Window and receive revocable Seat Credentials. The host sends only role-appropriate projections. A nearby tablet can use scoped dealer controls; a TV uses a non-touch layout. Table-side Mode changes routes without changing game identity. Airplane Mode uses the same core from a standalone artifact over private local Wi-Fi.
 
 ## User Stories
 
@@ -65,7 +65,7 @@ A capable browser creates one table, owns the shuffled deck, and commits an orde
 - Show is irreversible. Fold undo ends at the first dependent progression. A correction appends an event and never erases exposure.
 - A Public Table/display permission cannot become Table-Control. A valid control capability can reveal streets and run guarded dealer operations without card access.
 - A host device may redeem an ordinary Player invitation, then switch within one active document among Host Controls, its credential-filtered My Hand, and card-blind Table View. The switch changes presentation, never authority.
-- Normal route order is direct → deployer Cloudflare Workers/Durable Objects relay → deployer Mac Connection Service fallback. Relay selection is sticky per active peer and failover is serial after disconnect/timeout; the host key is authenticated independently of signaling.
+- Table-side route order is direct → deployer Cloudflare Workers/Durable Objects relay → deployer Mac Connection Service fallback. Relay selection is sticky per active peer and failover is serial after disconnect/timeout; the host key is authenticated independently of signaling.
 - Host death may end the game. Same-browser host refresh resumes only after exclusive authority and deterministic replay succeed.
 - Optional completed-hand remote checkpoints exclude never-revealed/folded cards, legacy-mucked cards, and active custody material.
 

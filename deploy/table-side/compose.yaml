@@ -1,4 +1,4 @@
-name: our-poker-table-normal
+name: our-poker-table-table-side
 
 services:
   connection_service:
@@ -7,7 +7,7 @@ services:
       dockerfile: services/connection-service/Dockerfile
     environment:
       POKER_CONNECTION_ACCESS_TOKEN_FILE: /run/secrets/operator_token
-      POKER_CONNECTION_ALLOWED_ORIGIN: ${NORMAL_APP_ORIGIN:?required}
+      POKER_CONNECTION_ALLOWED_ORIGIN: ${TABLE_SIDE_APP_ORIGIN:?required}
     ports:
       - "127.0.0.1:${POKER_CONNECTION_PORT:-8787}:8787"
     restart: unless-stopped

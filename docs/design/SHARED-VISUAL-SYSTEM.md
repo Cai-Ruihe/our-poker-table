@@ -167,7 +167,7 @@ than treating those three measurements as blanket accessibility proof.
 ## Playing cards
 
 The built-in deck presentation is selected by the Trusted Host and synchronizes
-to every Normal Mode role. This is a small core appearance choice, not the
+to every Table-side Mode role. This is a small core appearance choice, not the
 deferred Community Skins package system.
 
 - **Classic** is the default: an original old-school vector treatment with

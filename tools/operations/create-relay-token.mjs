@@ -32,7 +32,7 @@ async function main() {
     throw error;
   }
   process.stdout.write(
-    `Created a new private Normal Mode operator token at ${tokenPath}\n`,
+    `Created a new private Table-side Mode operator token at ${tokenPath}\n`,
   );
 }
 

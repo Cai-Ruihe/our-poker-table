@@ -3,7 +3,7 @@
 - **Status:** Accepted
 - **Date:** 2026-08-14
 - **Decider:** Project Owner
-- **Scope:** Normal Mode; M03, M04, M07, M09
+- **Scope:** Table-side Mode; M03, M04, M07, M09
 - **Decision IDs:** `SERVER-CONNECTION-ONLY`, `NET-ROUTE`, `NET-OWNER-ISOLATION`, `NET-BOOTSTRAP`, `NET-CHINA`
 
 ## Context
@@ -28,7 +28,7 @@ Direct-connect and relay success rates, latency, traffic cost, TV-browser suppor
 
 ## Decision
 
-Normal Mode bootstraps with QR or the equivalent full URL through signaling. It
+Table-side Mode bootstraps with QR or the equivalent full URL through signaling. It
 tries direct P2P first, then the deployer's Cloudflare Workers/Durable Objects
 relay as the primary hosted path, and finally the deployer's Mac Connection
 Service as the fallback path. Each relay receives its own table-scoped,

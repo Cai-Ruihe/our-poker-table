@@ -34,7 +34,7 @@ html-poker-app/
 │   ├── brand/                       # Canonical open-source identity sources and exports
 │   └── product/                     # Approved product renders used by public documentation
 ├── apps/
-│   └── web/                         # Browser shell and Normal/Airplane composition
+│   └── web/                         # Browser shell and Table-side/Airplane composition
 │       ├── public/                  # URL-only deployer config and notice bundle
 │       └── src/                     # App, runtime, and Airplane QR/WebRTC adapter
 ├── packages/
@@ -60,7 +60,7 @@ html-poker-app/
 └── .github/                         # Contribution templates and automation
 ```
 
-The Airplane adapter deliberately lives in the web app because it is a browser delivery/bootstrap concern, while its message transport uses the same realtime boundary as Normal Mode. Phase 2 instantiated `packages/accounting` for its first tracer slice. Phase 3 reserves `packages/skin-schema`, `packages/ai-seat`, and a separately isolated `services/ai-gateway`; they must not be added as empty directories merely to make the tree look complete.
+The Airplane adapter deliberately lives in the web app because it is a browser delivery/bootstrap concern, while its message transport uses the same realtime boundary as Table-side Mode. Phase 2 instantiated `packages/accounting` for its first tracer slice. Phase 3 reserves `packages/skin-schema`, `packages/ai-seat`, and a separately isolated `services/ai-gateway`; they must not be added as empty directories merely to make the tree look complete.
 
 ## Dependency rules
 

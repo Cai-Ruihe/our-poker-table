@@ -103,12 +103,12 @@ export async function collectReleaseManifest(root = process.cwd()) {
     sourceRevision(root),
   ]);
   const packageMetadata = JSON.parse(packageJson);
-  const [normal, airplane] = await Promise.all([
-    collectArtifact(root, "normal", path.join(root, "dist/normal")),
+  const [tableSide, airplane] = await Promise.all([
+    collectArtifact(root, "table-side", path.join(root, "dist/table-side")),
     collectArtifact(root, "airplane", path.join(root, "dist/airplane")),
   ]);
   return {
-    artifacts: [normal, airplane],
+    artifacts: [tableSide, airplane],
     build: {
       node: process.version,
       packageManager: packageMetadata.packageManager,

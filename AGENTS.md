@@ -18,7 +18,7 @@ If the task does not fit a context pack, state the smallest custom pack and why 
 - Card privacy is the security floor. Never send or record hidden cards outside the authorized seat and Trusted Host custody boundary.
 - Phase 1 trusts the host. Do not claim protection from a malicious or compromised host.
 - The base human game and Airplane Mode must not require accounts, AI, analytics, or Ruihe's private infrastructure.
-- Normal connectivity is direct P2P → deployer private relay → optional deployer cloud relay.
+- Table-side connectivity is direct P2P → deployer private relay → optional deployer cloud relay.
 - Community skins are data-only; no executable skin packages.
 - Bold Poker is behavioral inspiration only. Do not copy protected code, artwork, branding, sounds, text, or exact interface expression.
 - Do not create implementation scaffolding or select a stack before an accepted toolchain ADR.

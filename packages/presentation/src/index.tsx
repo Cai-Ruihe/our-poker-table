@@ -19,10 +19,23 @@ import type {
 
 import { cardFaceSrc } from "./card-face-assets";
 
+export {
+  LanguageProvider,
+  LanguageSwitch,
+  languageFromNavigator,
+  languageFromUrl,
+  persistLanguage,
+  readStoredLanguage,
+  translate,
+  useLanguage,
+  type Language,
+} from "./i18n";
+import { LanguageSwitch, useLanguage } from "./i18n";
+
 declare const __HTML_POKER_AIRPLANE_BUILD__: boolean | undefined;
 
 // Vite replaces this at build time. Keeping the compile-time branch here
-// lets the standalone artifact omit Normal-only court and full-face markup,
+// lets the standalone artifact omit Table-side-only court and full-face markup,
 // rather than merely hiding it at runtime.
 const airplaneBuild =
   typeof __HTML_POKER_AIRPLANE_BUILD__ !== "undefined" &&
@@ -241,13 +254,13 @@ export function PlayingCard({
   readonly card: Card;
   readonly cardStyle?: CardStyle;
   readonly compact?: boolean;
-  /** Normal phone/host cards render only a rank and suit glyph. */
+  /** Table-side phone/host cards render only a rank and suit glyph. */
   readonly compactGlyphsOnly?: boolean;
   readonly emphasis?: "best" | "unused";
   readonly marker: "board" | "private" | "shown";
   readonly minimal?: boolean;
   readonly quietShown?: boolean;
-  /** Render the approved full SVG face (Normal Mode only). */
+  /** Render the approved full SVG face (Table-side Mode only). */
   readonly fullFace?: boolean;
 }) {
   const details = cardDetails(card);
@@ -347,9 +360,10 @@ function BoardRail({
   readonly fullFace?: boolean;
   readonly minimal?: boolean;
 }) {
+  const { t } = useLanguage();
   return (
-    <section className="dealer-rail" aria-label="Community cards">
-      <h2 className="visually-hidden">Community cards</h2>
+    <section className="dealer-rail" aria-label={t("Community cards")}>
+      <h2 className="visually-hidden">{t("Community cards")}</h2>
       <div className="dealer-rail__cards">
         {Array.from({ length: 5 }, (_, index) => {
           const card = board[index];
@@ -501,12 +515,13 @@ function QuietSeatGrid({
   readonly showNames?: boolean;
   readonly showShownHands?: boolean;
 }) {
+  const { t } = useLanguage();
   const { bigBlindSeatId, smallBlindSeatId } = blindSeatIds(projection);
   const winners = new Set(projection.showdown?.leaders ?? []);
   return (
     <section
       className="quiet-seat-grid"
-      aria-label="Player status around table"
+      aria-label={t("Player status around table")}
     >
       {projection.seats.map((seat, index) => {
         const connected = seat.connected !== false;
@@ -521,7 +536,7 @@ function QuietSeatGrid({
         const position = tableSeatPosition(index, projection.seats.length);
         return (
           <div
-            aria-label={`${seat.displayName}, ${statusLabel}`}
+            aria-label={`${seat.displayName}, ${t(statusLabel)}`}
             className={`seat-edge-status seat-edge-status--${position}${showNames ? " seat-edge-status--show-name" : ""}${seat.seatId === selfSeatId ? " seat-edge-status--self" : ""}`}
             data-seat-edge-position={position}
             data-seat-edge-status={statusLabel}
@@ -543,7 +558,7 @@ function QuietSeatGrid({
             {seat.holeCards && showShownHands ? (
               <span
                 className="quiet-shown-hand"
-                aria-label={`${seat.displayName}'s shown cards`}
+                aria-label={`${seat.displayName} ${t("shown cards")}`}
               >
                 {seat.holeCards.map((card) => (
                   <PlayingCard
@@ -603,6 +618,7 @@ function SeatGrid({
   readonly projection: PublicProjection | SeatProjection;
   readonly showNames?: boolean;
 }) {
+  const { t } = useLanguage();
   if (["player", "public", "tablet", "tv"].includes(mode)) {
     return (
       <QuietSeatGrid
@@ -617,7 +633,7 @@ function SeatGrid({
     projection.view === "seat" ? projection.self.seatId : undefined;
   const winners = new Set(projection.showdown?.leaders ?? []);
   return (
-    <section className={`seat-grid seat-grid--${mode}`} aria-label="Seats">
+    <section className={`seat-grid seat-grid--${mode}`} aria-label={t("Seats")}>
       {projection.seats.map((seat, index) => (
         <article
           className={`seat-tile${seat.seatId === selfSeatId ? " seat-tile--self" : ""}`}
@@ -625,10 +641,12 @@ function SeatGrid({
           key={seat.seatId}
         >
           <header>
-            <span className="seat-tile__number">Seat {index + 1}</span>
+            <span className="seat-tile__number">
+              {t("Seat")} {index + 1}
+            </span>
             {seatCanHoldPosition(seat) &&
             seat.seatId === projection.dealerSeatId ? (
-              <span className="dealer-chip" aria-label="Dealer">
+              <span className="dealer-chip" aria-label={t("Dealer")}>
                 D
               </span>
             ) : null}
@@ -646,7 +664,7 @@ function SeatGrid({
                 )?.stack
               }
             >
-              Stack{" "}
+              {t("Stack")}{" "}
               {projection.accounting.seats.find(
                 (accountingSeat) => accountingSeat.seatId === seat.seatId,
               )?.stack ?? "—"}
@@ -655,7 +673,7 @@ function SeatGrid({
           {seat.holeCards ? (
             <div
               className="mini-hand"
-              aria-label={`${seat.displayName}'s shown cards`}
+              aria-label={`${seat.displayName} ${t("shown cards")}`}
             >
               {seat.holeCards.map((card) => (
                 <PlayingCard
@@ -679,7 +697,7 @@ function SeatGrid({
             seat.status === "folded-provisional" ? (
             <div
               className="card-back-pair"
-              aria-label="Cards not shown"
+              aria-label={t("Cards not shown")}
               role="img"
             >
               <span />
@@ -700,22 +718,29 @@ function ChipRail({
 }: {
   readonly projection: PublicProjection | SeatProjection;
 }) {
+  const { t } = useLanguage();
   const accounting = projection.accounting;
   if (!accounting) return null;
   const actorName = projection.seats.find(
     (seat) => seat.seatId === accounting.currentActorSeatId,
   )?.displayName;
   return (
-    <section className="chip-rail" aria-label="Digital chip accounting">
+    <section className="chip-rail" aria-label={t("Digital chip accounting")}>
       <div>
-        <span>In the middle</span>
-        <strong>Pot {accounting.potTotal}</strong>
+        <span>{t("In the middle")}</span>
+        <strong>
+          {t("Pot")} {accounting.potTotal}
+        </strong>
       </div>
       <div>
-        <span>This street</span>
-        <strong>Current bet {accounting.currentBet}</strong>
+        <span>{t("This street")}</span>
+        <strong>
+          {t("Current bet")} {accounting.currentBet}
+        </strong>
       </div>
-      <p>{actorName ? `${actorName} to act` : "Betting round closed"}</p>
+      <p>
+        {actorName ? `${actorName} ${t("to act")}` : t("Betting round closed")}
+      </p>
     </section>
   );
 }
@@ -725,6 +750,7 @@ function SettlementPanel({
 }: {
   readonly projection: PublicProjection | SeatProjection;
 }) {
+  const { t } = useLanguage();
   const settlement = projection.accounting?.settlement;
   if (!settlement) return null;
   const confirmed = projection.accounting?.phase === "complete";
@@ -735,18 +761,20 @@ function SettlementPanel({
     <section className="settlement-panel" aria-labelledby="settlement-title">
       <div>
         <span className="section-label">
-          {confirmed ? "Confirmed result" : "Host confirmation gate"}
+          {confirmed ? t("Confirmed result") : t("Host confirmation gate")}
         </span>
         <h2 id="settlement-title">
-          {confirmed ? "Settlement result" : "Settlement proposal"}
+          {confirmed ? t("Settlement result") : t("Settlement proposal")}
         </h2>
         <p>
           {confirmed
-            ? "Stacks reflect this confirmed result."
-            : "Stacks update only after confirmation."}
+            ? t("Stacks reflect this confirmed result.")
+            : t("Stacks update only after confirmation.")}
         </p>
       </div>
-      <strong>Total pot {settlement.totalPot}</strong>
+      <strong>
+        {t("Total pot")} {settlement.totalPot}
+      </strong>
       <ol>
         {settlement.pots.map((pot, index) => (
           <li key={`${pot.amount}-${index}`}>
@@ -803,11 +831,12 @@ const nextStreetByPhase: Partial<
 };
 
 function DealerControls(props: TableSurfaceProps) {
+  const { t } = useLanguage();
   const [confirmEnd, setConfirmEnd] = useState(false);
   const progression = nextStreetByPhase[props.projection.phase];
   if (props.projection.phase === "complete") {
     if (props.projection.accounting) {
-      return <p className="dealer-guidance">This hand is complete.</p>;
+      return <p className="dealer-guidance">{t("This hand is complete.")}</p>;
     }
     return (
       <div className="dealer-actions">
@@ -816,7 +845,7 @@ function DealerControls(props: TableSurfaceProps) {
           onClick={() => props.onStartNextHand?.()}
           qaControl="dealer-next-hand"
         >
-          Deal next hand
+          {t("Deal next hand")}
         </ActionButton>
       </div>
     );
@@ -830,7 +859,7 @@ function DealerControls(props: TableSurfaceProps) {
             onClick={() => props.onPrepareSettlement?.()}
             qaControl="dealer-review-settlement"
           >
-            Review settlement
+            {t("Review settlement")}
           </ActionButton>
         </div>
       );
@@ -843,24 +872,30 @@ function DealerControls(props: TableSurfaceProps) {
             onClick={() => props.onConfirmSettlement?.()}
             qaControl="dealer-confirm-settlement"
           >
-            Confirm settlement
+            {t("Confirm settlement")}
           </ActionButton>
         </div>
       );
     }
-    return <p className="dealer-guidance">Players act from their phones.</p>;
+    return (
+      <p className="dealer-guidance">{t("Players act from their phones.")}</p>
+    );
   }
   if (confirmEnd) {
     return (
-      <div className="end-confirm" role="group" aria-label="Confirm end hand">
-        <span>Physical chips settled?</span>
+      <div
+        className="end-confirm"
+        role="group"
+        aria-label={t("Confirm end hand")}
+      >
+        <span>{t("Physical chips settled?")}</span>
         <ActionButton
           disabled={props.busy}
           onClick={() => setConfirmEnd(false)}
           qaControl="dealer-cancel-end-hand"
           quiet
         >
-          Keep playing
+          {t("Keep playing")}
         </ActionButton>
         <ActionButton
           danger
@@ -871,7 +906,7 @@ function DealerControls(props: TableSurfaceProps) {
           }}
           qaControl="dealer-confirm-end-hand"
         >
-          End this hand
+          {t("End this hand")}
         </ActionButton>
       </div>
     );
@@ -884,7 +919,7 @@ function DealerControls(props: TableSurfaceProps) {
         qaControl="dealer-open-end-hand"
         quiet
       >
-        End hand
+        {t("End hand")}
       </ActionButton>
       {progression ? (
         <ActionButton
@@ -893,7 +928,7 @@ function DealerControls(props: TableSurfaceProps) {
           qaControl="dealer-next-street"
           qaVariant={props.projection.phase}
         >
-          {progression.label}
+          {t(progression.label)}
         </ActionButton>
       ) : null}
     </div>
@@ -915,12 +950,17 @@ const tableThemeOptions: readonly {
 ];
 
 function TableThemeButtons(props: TableSurfaceProps) {
+  const { t } = useLanguage();
   if (!props.onTableThemeChange) return null;
   return (
-    <div className="surface-theme-picker" role="group" aria-label="Table style">
+    <div
+      className="surface-theme-picker"
+      role="group"
+      aria-label={t("Table style")}
+    >
       {tableThemeOptions.map((theme) => (
         <button
-          aria-label={theme.label}
+          aria-label={t(theme.label)}
           aria-pressed={props.projection.tableTheme === theme.id}
           data-qa-action={theme.qaAction}
           data-qa-control="tablet-theme-choice"
@@ -939,13 +979,14 @@ function TableThemeButtons(props: TableSurfaceProps) {
 }
 
 function CardStyleButtons(props: TableSurfaceProps) {
+  const { t } = useLanguage();
   if (airplaneBuild || !props.onCardStyleChange || props.airplaneMode)
     return null;
   return (
     <div
       className="surface-card-style-picker"
       role="group"
-      aria-label="Deck appearance"
+      aria-label={t("Deck appearance")}
     >
       <button
         aria-pressed={props.projection.cardStyle === "classic"}
@@ -955,7 +996,7 @@ function CardStyleButtons(props: TableSurfaceProps) {
         onClick={() => void props.onCardStyleChange?.("classic")}
         type="button"
       >
-        Classic
+        {t("Classic")}
       </button>
       <button
         aria-pressed={props.projection.cardStyle === "four-colour"}
@@ -965,7 +1006,7 @@ function CardStyleButtons(props: TableSurfaceProps) {
         onClick={() => void props.onCardStyleChange?.("four-colour")}
         type="button"
       >
-        Four Colour
+        {t("Four Colour")}
       </button>
     </div>
   );
@@ -976,6 +1017,7 @@ function ReconnectAction({
 }: {
   readonly onReconnect: (() => ActionResult) | undefined;
 }) {
+  const { t } = useLanguage();
   return (
     <button
       className="reconnect-action"
@@ -985,7 +1027,7 @@ function ReconnectAction({
       onClick={() => void onReconnect?.()}
       type="button"
     >
-      Reconnect to table
+      {t("Reconnect to table")}
     </button>
   );
 }
@@ -1083,6 +1125,7 @@ function TabletControls(
     readonly playerNamesVisible: boolean;
   },
 ) {
+  const { t } = useLanguage();
   const [corner, setCorner] = useState<TableCorner>();
   const [fullscreenError, setFullscreenError] = useState<string>();
   const [moreOpen, setMoreOpen] = useState(false);
@@ -1291,7 +1334,7 @@ function TabletControls(
           <div className="tablet-quick-panel__content">
             <div className="tablet-quick-panel__utilities">
               <button
-                aria-label="More table controls"
+                aria-label={t("More table controls")}
                 className="icon-action icon-action--more"
                 data-qa-control="tablet-quick-more"
                 onClick={() => {
@@ -1307,7 +1350,7 @@ function TabletControls(
                 </span>
               </button>
               <button
-                aria-label="Close table controls"
+                aria-label={t("Close table controls")}
                 className="icon-action icon-action--close"
                 data-qa-control="tablet-quick-close"
                 onClick={() => setCorner(undefined)}
@@ -1330,21 +1373,21 @@ function TabletControls(
                 }
                 type="button"
               >
-                <span>Next card</span>
-                <small>{progression?.label ?? "Board complete"}</small>
+                <span>{t("Next card")}</span>
+                <small>{progression?.label ?? t("Board complete")}</small>
                 <b className="arrow-glyph" aria-hidden="true" />
               </button>
               <div className="next-hand-control">
                 <div
                   aria-disabled={nextHandUnavailable}
-                  aria-label="Slide to deal next hand"
+                  aria-label={t("Slide to deal next hand")}
                   aria-valuemax={92}
                   aria-valuemin={0}
                   aria-valuenow={Math.round(sliderPosition)}
                   aria-valuetext={
                     sliderPosition >= 88
-                      ? "Release to confirm"
-                      : "Drag the gold handle to the arrow"
+                      ? t("Release to confirm")
+                      : t("Drag the gold handle to the arrow")
                   }
                   className="next-hand-slider"
                   data-qa-control="tablet-next-hand"
@@ -1371,11 +1414,11 @@ function TabletControls(
                   <b className="arrow-glyph" aria-hidden="true" />
                 </div>
                 <span className="next-hand-control__copy">
-                  <strong>Next hand</strong>
+                  <strong>{t("Next hand")}</strong>
                   <small>
                     {props.projection.phase === "complete"
-                      ? "Slide · deal now"
-                      : "Slide · clear & deal"}
+                      ? t("Slide · deal now")
+                      : t("Slide · clear & deal")}
                   </small>
                 </span>
               </div>
@@ -1392,14 +1435,14 @@ function TabletControls(
           >
             <header>
               <div>
-                <span className="section-label">Host · this device</span>
-                <h2 id="secondary-controls-title">Table controls</h2>
+                <span className="section-label">{t("Host · this device")}</span>
+                <h2 id="secondary-controls-title">{t("Table controls")}</h2>
               </div>
               <span className="secondary-controls__health">
-                {props.connectionLabel}
+                {t(props.connectionLabel)}
               </span>
               <button
-                aria-label="Close more controls"
+                aria-label={t("Close more controls")}
                 className="icon-action icon-action--close"
                 data-qa-action="close-secondary"
                 data-qa-control="tablet-secondary-close"
@@ -1420,23 +1463,23 @@ function TabletControls(
                 type="button"
               >
                 <HostControlIcon kind="players" />
-                <strong>Players &amp; seats</strong>
-                <small>Invites, seat order, dealer, replacement</small>
+                <strong>{t("Players & seats")}</strong>
+                <small>{t("Invites, seat order, dealer, replacement")}</small>
                 <em>
                   {props.onManagePlayers
-                    ? `${props.hostPlayerCount ?? props.projection.seats.length} players`
-                    : "Trusted Host only"}
+                    ? `${props.hostPlayerCount ?? props.projection.seats.length} ${t("players")}`
+                    : t("Trusted Host only")}
                 </em>
                 <b aria-hidden="true">›</b>
               </button>
               <section className="secondary-control-card secondary-control-card--appearance">
                 <HostControlIcon kind="appearance" />
-                <strong>Appearance</strong>
-                <small>Table colour and deck on every screen</small>
+                <strong>{t("Appearance")}</strong>
+                <small>{t("Table colour and deck on every screen")}</small>
                 {props.onTableThemeChange ? (
                   <TableThemeButtons {...props} />
                 ) : (
-                  <em>Selected by the Trusted Host</em>
+                  <em>{t("Selected by the Trusted Host")}</em>
                 )}
                 <CardStyleButtons {...props} />
               </section>
@@ -1449,20 +1492,21 @@ function TabletControls(
                 type="button"
               >
                 <HostControlIcon kind="displays" />
-                <strong>Displays &amp; pairing</strong>
-                <small>Tablet, TV and public table screens</small>
+                <strong>{t("Displays & pairing")}</strong>
+                <small>{t("Tablet, TV and public table screens")}</small>
                 <em>
                   {props.onManageDisplays
-                    ? "Manage on this host"
-                    : "Trusted Host only"}
+                    ? t("Manage on this host")
+                    : t("Trusted Host only")}
                 </em>
                 <b aria-hidden="true">›</b>
               </button>
               <section className="secondary-control-card secondary-control-card--device">
                 <HostControlIcon kind="device" />
-                <strong>This device</strong>
-                <small>Views and browser presentation</small>
+                <strong>{t("This device")}</strong>
+                <small>{t("Views and browser presentation")}</small>
                 <div className="secondary-device-actions">
+                  <LanguageSwitch compact />
                   {props.onMyHand ? (
                     <button
                       data-qa-action="my-hand"
@@ -1473,7 +1517,7 @@ function TabletControls(
                       }}
                       type="button"
                     >
-                      My Hand
+                      {t("My Hand")}
                     </button>
                   ) : null}
                   {props.onHostControls ? (
@@ -1486,7 +1530,7 @@ function TabletControls(
                       }}
                       type="button"
                     >
-                      Host Controls
+                      {t("Host Controls")}
                     </button>
                   ) : null}
                   {!props.airplaneMode ? (
@@ -1497,8 +1541,8 @@ function TabletControls(
                       type="button"
                     >
                       {props.playerNamesVisible
-                        ? "Hide player names"
-                        : "Show player names"}
+                        ? t("Hide player names")
+                        : t("Show player names")}
                     </button>
                   ) : null}
                   <button
@@ -1507,24 +1551,24 @@ function TabletControls(
                     onClick={() => void toggleFullscreen()}
                     type="button"
                   >
-                    Full screen
+                    {t("Full screen")}
                   </button>
                 </div>
               </section>
               <section className="secondary-control-card secondary-control-card--connection">
                 <HostControlIcon kind="connection" />
-                <strong>Connection &amp; recovery</strong>
-                <small>Catch up with the Trusted Host now</small>
+                <strong>{t("Connection & recovery")}</strong>
+                <small>{t("Catch up with the Trusted Host now")}</small>
                 {props.onReconnect ? (
                   <ReconnectAction onReconnect={props.onReconnect} />
                 ) : (
-                  <em>Local host active</em>
+                  <em>{t("Local host active")}</em>
                 )}
               </section>
               <section className="secondary-control-card secondary-control-card--diagnostics">
                 <HostControlIcon kind="diagnostics" />
-                <strong>Diagnostics &amp; history</strong>
-                <small>Privacy-filtered support evidence</small>
+                <strong>{t("Diagnostics & history")}</strong>
+                <small>{t("Privacy-filtered support evidence")}</small>
                 {props.onDownloadLog ? (
                   <button
                     className="secondary-inline-action"
@@ -1533,10 +1577,10 @@ function TabletControls(
                     onClick={() => props.onDownloadLog?.()}
                     type="button"
                   >
-                    Save log
+                    {t("Save log")}
                   </button>
                 ) : (
-                  <em>Trusted Host only</em>
+                  <em>{t("Trusted Host only")}</em>
                 )}
               </section>
             </div>
@@ -1552,7 +1596,7 @@ function TabletControls(
               onClick={closeSecondary}
               type="button"
             >
-              Return to table
+              {t("Return to table")}
             </button>
           </section>
         </div>
@@ -1562,12 +1606,17 @@ function TabletControls(
 }
 
 function HostRootThemeButtons(props: TableSurfaceProps) {
+  const { t } = useLanguage();
   if (!props.onTableThemeChange) return null;
   return (
-    <div className="surface-theme-picker" role="group" aria-label="Table style">
+    <div
+      className="surface-theme-picker"
+      role="group"
+      aria-label={t("Table style")}
+    >
       {tableThemeOptions.map((theme) => (
         <button
-          aria-label={theme.label}
+          aria-label={t(theme.label)}
           aria-pressed={props.projection.tableTheme === theme.id}
           data-qa-control="host-root-theme-choice"
           data-qa-variant={theme.id}
@@ -1686,6 +1735,7 @@ function HostControlCenter({
   onClose,
   ...props
 }: TableSurfaceProps & { readonly onClose: () => void }) {
+  const { t } = useLanguage();
   const [fullscreenError, setFullscreenError] = useState<string>();
 
   function closeAndRun(action?: () => void): void {
@@ -1721,14 +1771,14 @@ function HostControlCenter({
       >
         <header>
           <div>
-            <span className="section-label">Trusted Host</span>
-            <h2 id="host-control-center-title">Table control center</h2>
+            <span className="section-label">{t("Trusted Host")}</span>
+            <h2 id="host-control-center-title">{t("Table control center")}</h2>
           </div>
           <span className="secondary-controls__health">
-            {props.connectionLabel}
+            {t(props.connectionLabel)}
           </span>
           <button
-            aria-label="Close table control center"
+            aria-label={t("Close table control center")}
             autoFocus
             className="icon-action icon-action--close"
             data-qa-control="host-root-controls-close"
@@ -1748,10 +1798,11 @@ function HostControlCenter({
             type="button"
           >
             <HostControlIcon kind="players" />
-            <strong>Players &amp; seats</strong>
-            <small>Invites, seat order, dealer and replacement</small>
+            <strong>{t("Players & seats")}</strong>
+            <small>{t("Invites, seat order, dealer and replacement")}</small>
             <em>
-              {props.hostPlayerCount ?? props.projection.seats.length} players
+              {props.hostPlayerCount ?? props.projection.seats.length}{" "}
+              {t("players")}
             </em>
             <b aria-hidden="true">›</b>
           </button>
@@ -1763,30 +1814,31 @@ function HostControlCenter({
             type="button"
           >
             <HostControlIcon kind="displays" />
-            <strong>Displays &amp; pairing</strong>
-            <small>Tablet, TV and public table screens</small>
-            <em>Manage on this host</em>
+            <strong>{t("Displays & pairing")}</strong>
+            <small>{t("Tablet, TV and public table screens")}</small>
+            <em>{t("Manage on this host")}</em>
             <b aria-hidden="true">›</b>
           </button>
           <section className="secondary-control-card secondary-control-card--appearance">
             <HostControlIcon kind="appearance" />
-            <strong>Appearance</strong>
-            <small>Table colour and deck on every screen</small>
+            <strong>{t("Appearance")}</strong>
+            <small>{t("Table colour and deck on every screen")}</small>
             <HostRootThemeButtons {...props} />
             <CardStyleButtons {...props} />
           </section>
           <section className="secondary-control-card secondary-control-card--device">
             <HostControlIcon kind="device" />
-            <strong>This device</strong>
-            <small>Views and browser presentation</small>
+            <strong>{t("This device")}</strong>
+            <small>{t("Views and browser presentation")}</small>
             <div className="secondary-device-actions">
+              <LanguageSwitch compact />
               {props.onTableView ? (
                 <button
                   data-qa-control="host-root-view-table"
                   onClick={() => closeAndRun(props.onTableView)}
                   type="button"
                 >
-                  Table View
+                  {t("Table View")}
                 </button>
               ) : null}
               {props.onMyHand ? (
@@ -1795,7 +1847,7 @@ function HostControlCenter({
                   onClick={() => closeAndRun(props.onMyHand)}
                   type="button"
                 >
-                  My Hand
+                  {t("My Hand")}
                 </button>
               ) : null}
               <button
@@ -1803,14 +1855,14 @@ function HostControlCenter({
                 onClick={() => void toggleFullscreen()}
                 type="button"
               >
-                Full screen
+                {t("Full screen")}
               </button>
             </div>
           </section>
           <section className="secondary-control-card">
             <HostControlIcon kind="diagnostics" />
-            <strong>Diagnostics &amp; history</strong>
-            <small>Privacy-filtered support evidence</small>
+            <strong>{t("Diagnostics & history")}</strong>
+            <small>{t("Privacy-filtered support evidence")}</small>
             <div className="secondary-device-actions">
               <button
                 aria-pressed={props.developerMode ?? false}
@@ -1819,7 +1871,7 @@ function HostControlCenter({
                 onClick={() => props.onToggleDeveloperMode?.()}
                 type="button"
               >
-                Developer mode
+                {t("Developer mode")}
               </button>
               <button
                 data-qa-control="host-root-save-log"
@@ -1827,21 +1879,23 @@ function HostControlCenter({
                 onClick={() => props.onDownloadLog?.()}
                 type="button"
               >
-                Save log
+                {t("Save log")}
               </button>
             </div>
           </section>
           <section className="secondary-control-card">
             <HostControlIcon kind="connection" />
-            <strong>Connection &amp; recovery</strong>
-            <small>The authoritative browser remains the source of truth</small>
-            <em>{props.connectionLabel}</em>
+            <strong>{t("Connection & recovery")}</strong>
+            <small>
+              {t("The authoritative browser remains the source of truth")}
+            </small>
+            <em>{t(props.connectionLabel)}</em>
           </section>
           {props.onDissolveTable ? (
             <section className="secondary-control-card secondary-control-card--danger">
               <HostControlIcon kind="dissolve" />
-              <strong>Dissolve this table</strong>
-              <small>End the session for every connected display</small>
+              <strong>{t("Dissolve this table")}</strong>
+              <small>{t("End the session for every connected display")}</small>
               <button
                 data-qa-control="host-dissolve-table"
                 disabled={props.busy}
@@ -1851,7 +1905,7 @@ function HostControlCenter({
                 }}
                 type="button"
               >
-                Dissolve table
+                {t("Dissolve table")}
               </button>
             </section>
           ) : null}
@@ -1999,7 +2053,7 @@ function BettingControls(props: {
 type GuardedPlayerSliderControl = "player-leave-active" | "player-show-cards";
 type GuardedPlayerSliderTone = "gold" | "danger";
 
-/** @qa-build normal: this guarded surface is not rendered by Airplane Mode. */
+/** @qa-build table-side: this guarded surface is not rendered by Airplane Mode. */
 function GuardedPlayerSlider({
   ariaLabel,
   control,
@@ -2178,7 +2232,7 @@ function GuardedPlayerSlider({
   );
 }
 
-/** @qa-build normal: this guarded surface is not rendered by Airplane Mode. */
+/** @qa-build table-side: this guarded surface is not rendered by Airplane Mode. */
 function PublicShowControl({
   disabled,
   onShowCards,
@@ -2186,13 +2240,14 @@ function PublicShowControl({
   readonly disabled: boolean;
   readonly onShowCards?: () => void;
 }) {
+  const { t } = useLanguage();
   return (
     <div className="player-show-control">
       <GuardedPlayerSlider
-        ariaLabel="Slide to show cards to table"
+        ariaLabel={t("Slide to show cards to table")}
         control="player-show-cards"
         disabled={disabled}
-        label="Show cards to table"
+        label={t("Show cards to table")}
         {...(onShowCards ? { onComplete: onShowCards } : {})}
         tone="gold"
       />
@@ -2205,6 +2260,7 @@ function PlayerTableStatus({
 }: {
   readonly projection: SeatProjection;
 }) {
+  const { t } = useLanguage();
   const selfSeatId = projection.self.seatId;
   const selfIndex = projection.seats.findIndex(
     (seat) => seat.seatId === selfSeatId,
@@ -2231,7 +2287,7 @@ function PlayerTableStatus({
 
   return (
     <section
-      aria-label="Your table status"
+      aria-label={t("Your table status")}
       className="player-table-status"
       data-player-table-status
     >
@@ -2240,24 +2296,26 @@ function PlayerTableStatus({
           className="player-table-status__name"
           title={selfSeat?.displayName ?? ""}
         >
-          {selfSeat?.displayName ?? "Unknown player"}
+          {selfSeat?.displayName ?? t("Unknown player")}
         </span>
-        <span className="player-table-status__seat">Seat {selfIndex + 1}</span>
+        <span className="player-table-status__seat">
+          {t("Seat")} {selfIndex + 1}
+        </span>
         <span className="player-table-status__position-label">
           {activePositions.length > 0
             ? activePositions.map((position, index) => (
                 <span key={position.token}>
                   {index > 0 ? " · " : null}
-                  <b>{position.token}</b> {position.label}
+                  <b>{position.token}</b> {t(position.label)}
                 </span>
               ))
-            : "No blind position"}
+            : t("No blind position")}
         </span>
       </div>
       {selfSeat ? (
         <div className="player-table-status__state">
           <span
-            aria-label={`Your table state: ${stateDescription}`}
+            aria-label={`${t("Your table state")}: ${t(stateDescription)}`}
             className="player-table-status__seat-state"
             role="img"
           >
@@ -2267,7 +2325,7 @@ function PlayerTableStatus({
               winner={false}
             />
           </span>
-          <span>{stateDescription}</span>
+          <span>{t(stateDescription)}</span>
         </div>
       ) : null}
     </section>
@@ -2281,21 +2339,22 @@ function PlayerTablePositionDrawer({
   readonly projection: SeatProjection;
   readonly onClose: () => void;
 }) {
+  const { t } = useLanguage();
   return (
     <div className="player-position-backdrop">
       <section
-        aria-label="Your table position"
+        aria-label={t("Your table position")}
         aria-modal="true"
         className="player-position-drawer"
         role="dialog"
       >
         <header>
           <div>
-            <span className="section-label">Your table</span>
-            <h2>Physical seat position</h2>
+            <span className="section-label">{t("Your table")}</span>
+            <h2>{t("Physical seat position")}</h2>
           </div>
           <button
-            aria-label="Close your table position"
+            aria-label={t("Close your table position")}
             className="icon-action icon-action--close"
             data-qa-control="player-table-position-close"
             onClick={onClose}
@@ -2305,12 +2364,13 @@ function PlayerTablePositionDrawer({
           </button>
         </header>
         <p>
-          Your highlighted seat follows the physical table order. Moving seats
-          on the host changes this map, not the betting order.
+          {t(
+            "Your highlighted seat follows the physical table order. Moving seats on the host changes this map, not the betting order.",
+          )}
         </p>
         <div className="player-position-map">
           <div aria-hidden="true" className="player-position-map__felt">
-            <span>Physical table</span>
+            <span>{t("Physical table")}</span>
           </div>
           <QuietSeatGrid
             projection={projection}
@@ -2332,6 +2392,7 @@ function PlayerDepartureControls(props: {
   readonly onLeaveTable?: () => ActionResult;
   readonly onToggleSittingOut?: (sittingOut: boolean) => void;
 }) {
+  const { t } = useLanguage();
   return (
     <>
       {props.airplaneMode ? (
@@ -2345,7 +2406,7 @@ function PlayerDepartureControls(props: {
             }
             type="checkbox"
           />
-          <span>Sit out next hand</span>
+          <span>{t("Sit out next hand")}</span>
         </label>
       ) : (
         <label className="sit-out-control sit-out-control--switch">
@@ -2359,7 +2420,9 @@ function PlayerDepartureControls(props: {
             role="switch"
             type="checkbox"
           />
-          <span className="sit-out-control__label">Sit out next hand</span>
+          <span className="sit-out-control__label">
+            {t("Sit out next hand")}
+          </span>
           <span aria-hidden="true" className="sit-out-switch">
             <i />
           </span>
@@ -2377,16 +2440,16 @@ function PlayerDepartureControls(props: {
             }}
             type="button"
           >
-            Leave table permanently
+            {t("Leave table permanently")}
           </button>
         ) : null
       ) : props.onLeaveTable ? (
         <div className="leave-table-slider">
           <GuardedPlayerSlider
-            ariaLabel="Leave table permanently"
+            ariaLabel={t("Leave table permanently")}
             disabled={props.busy}
             control="player-leave-active"
-            label="Leave table permanently"
+            label={t("Leave table permanently")}
             onComplete={() => {
               props.beforeLeave?.();
               void props.onLeaveTable?.();
@@ -2402,6 +2465,7 @@ function PlayerDepartureControls(props: {
 function PrivateHand(
   props: TableSurfaceProps & { readonly projection: SeatProjection },
 ) {
+  const { t } = useLanguage();
   const [cardsVisibleOnDevice, setCardsVisibleOnDevice] = useState(false);
   const [leaveOptionsOpen, setLeaveOptionsOpen] = useState(false);
   const status = props.projection.self.status;
@@ -2436,24 +2500,30 @@ function PrivateHand(
     <section
       {...(props.airplaneMode
         ? { "aria-labelledby": "private-title" }
-        : { "aria-label": "Your cards" })}
+        : { "aria-label": t("Your cards") })}
       className="private-hand"
     >
       {props.airplaneMode ? (
         <div className="private-hand__heading">
-          <span className="section-label">Private hand</span>
-          <h1 id="private-title">Your cards</h1>
+          <span className="section-label">{t("Private hand")}</span>
+          <h1 id="private-title">{t("Your cards")}</h1>
           <p>
             {status === "shown"
-              ? "Shown to the table. Covering them here does not undo the show."
+              ? t(
+                  "Shown to the table. Covering them here does not undo the show.",
+                )
               : cardsVisibleOnDevice
-                ? "Visible only on this phone until you choose a table action."
-                : "Reveal them privately, then hide them before passing the phone."}
+                ? t(
+                    "Visible only on this phone until you choose a table action.",
+                  )
+                : t(
+                    "Reveal them privately, then hide them before passing the phone.",
+                  )}
           </p>
         </div>
       ) : null}
       {!props.airplaneMode ? (
-        <h1 className="visually-hidden">Your cards</h1>
+        <h1 className="visually-hidden">{t("Your cards")}</h1>
       ) : null}
       <div className="private-hand__card-area">
         <div className="private-hand__cards">
@@ -2476,14 +2546,14 @@ function PrivateHand(
           ))}
           {!cardsVisibleOnDevice ? (
             <button
-              aria-label="Reveal my cards privately"
+              aria-label={t("Reveal my cards privately")}
               className="card-cover"
               data-qa-control="player-reveal-private"
               onClick={() => setCardsVisibleOnDevice(true)}
               type="button"
             >
-              <span>Reveal my cards privately</span>
-              <small>Only visible on this phone.</small>
+              <span>{t("Reveal my cards privately")}</span>
+              <small>{t("Only visible on this phone.")}</small>
             </button>
           ) : null}
         </div>
@@ -2496,7 +2566,7 @@ function PrivateHand(
             qaControl="player-hide-private"
             quiet
           >
-            Hide my cards
+            {t("Hide my cards")}
           </ActionButton>
         ) : null}
         {props.projection.accounting ? (
@@ -2509,7 +2579,7 @@ function PrivateHand(
           />
         ) : status === "folded-provisional" ? (
           <>
-            <div className="undo-window" aria-label="Fold undo window">
+            <div className="undo-window" aria-label={t("Fold undo window")}>
               <span />
             </div>
             <ActionButton
@@ -2517,7 +2587,7 @@ function PrivateHand(
               onClick={() => props.onUndoFold?.()}
               qaControl="player-undo-fold"
             >
-              Undo fold
+              {t("Undo fold")}
             </ActionButton>
           </>
         ) : status === "active" ? (
@@ -2529,7 +2599,7 @@ function PrivateHand(
               qaControl="player-fold"
               quiet
             >
-              Fold
+              {t("Fold")}
             </ActionButton>
             {props.airplaneMode ? (
               <ActionButton
@@ -2537,7 +2607,7 @@ function PrivateHand(
                 onClick={() => props.onShowCards?.()}
                 qaControl="player-show-cards"
               >
-                Show cards to table
+                {t("Show cards to table")}
               </ActionButton>
             ) : (
               <PublicShowControl
@@ -2563,7 +2633,7 @@ function PrivateHand(
       ) : props.onLeaveTable || props.onToggleSittingOut ? (
         <button
           aria-expanded={leaveOptionsOpen}
-          aria-label="Open leave options"
+          aria-label={t("Open leave options")}
           className="player-leave-options-open"
           data-qa-control="player-leave-options-open"
           disabled={props.busy}
@@ -2576,18 +2646,18 @@ function PrivateHand(
       {leaveOptionsOpen ? (
         <div className="player-leave-backdrop">
           <section
-            aria-label="Leave options"
+            aria-label={t("Leave options")}
             aria-modal="true"
             className="player-leave-drawer"
             role="dialog"
           >
             <header>
               <div>
-                <span className="section-label">Player options</span>
-                <h2>Step away from the table</h2>
+                <span className="section-label">{t("Player options")}</span>
+                <h2>{t("Step away from the table")}</h2>
               </div>
               <button
-                aria-label="Close leave options"
+                aria-label={t("Close leave options")}
                 className="icon-action icon-action--close"
                 data-qa-control="player-leave-options-close"
                 onClick={() => setLeaveOptionsOpen(false)}
@@ -2597,9 +2667,11 @@ function PrivateHand(
               </button>
             </header>
             <p>
-              Sit out skips the incoming hands while keeping your seat till you
-              back.
+              {t(
+                "Sit out skips the incoming hands while keeping your seat till you back.",
+              )}
             </p>
+            <LanguageSwitch compact />
             <PlayerDepartureControls
               airplaneMode={props.airplaneMode ?? false}
               beforeLeave={() => setLeaveOptionsOpen(false)}
@@ -2620,6 +2692,7 @@ function PrivateHand(
 }
 
 export function TableSurface(props: TableSurfaceProps) {
+  const { t } = useLanguage();
   const [hostRootOpen, setHostRootOpen] = useState(false);
   const [playerPositionOpen, setPlayerPositionOpen] = useState(false);
   const [tablePlayerNamesVisible, setTablePlayerNamesVisible] = useState(false);
@@ -2639,7 +2712,7 @@ export function TableSurface(props: TableSurfaceProps) {
   return (
     <main
       className={`table-surface table-surface--${props.mode}${hostRootOpen ? " table-surface--host-root-open" : ""}`}
-      data-runtime={props.airplaneMode ? "airplane" : "normal"}
+      data-runtime={props.airplaneMode ? "airplane" : "table-side"}
       data-page-fullscreen={pageFullscreen ? "true" : "false"}
       data-card-style={cardStyle}
       data-theme={tableTheme}
@@ -2650,7 +2723,7 @@ export function TableSurface(props: TableSurfaceProps) {
             aria-controls="host-control-center"
             aria-expanded={hostRootOpen}
             aria-haspopup="dialog"
-            aria-label="Open table control center"
+            aria-label={t("Open table control center")}
             className="table-mark table-mark--control"
             data-qa-control="host-root-controls-open"
             onClick={() => setHostRootOpen(true)}
@@ -2663,17 +2736,19 @@ export function TableSurface(props: TableSurfaceProps) {
             />
             <strong>{props.productName}</strong>
             {!props.airplaneMode ? (
-              <span className="table-mark__control-label">Table controls</span>
+              <span className="table-mark__control-label">
+                {t("Table controls")}
+              </span>
             ) : null}
           </button>
           <div className="table-bar__right">
             <div className="table-status" aria-live="polite">
-              <strong>{phaseLabel(props.projection.phase)}</strong>
+              <strong>{t(phaseLabel(props.projection.phase))}</strong>
               <span>r{props.projection.revision}</span>
-              <span>{props.connectionLabel}</span>
+              <span>{t(props.connectionLabel)}</span>
             </div>
             {props.onManagePlayers || props.onToggleDeveloperMode ? (
-              <nav className="host-tools" aria-label="Table tools">
+              <nav className="host-tools" aria-label={t("Table tools")}>
                 {props.onManagePlayers ? (
                   <button
                     aria-expanded={props.hostPlayerAdministrationOpen ?? false}
@@ -2682,7 +2757,7 @@ export function TableSurface(props: TableSurfaceProps) {
                     onClick={props.onManagePlayers}
                     type="button"
                   >
-                    Players <span>{props.hostPlayerCount ?? 0}</span>
+                    {t("Players")} <span>{props.hostPlayerCount ?? 0}</span>
                   </button>
                 ) : null}
                 {props.onToggleDeveloperMode ? (
@@ -2693,7 +2768,7 @@ export function TableSurface(props: TableSurfaceProps) {
                     onClick={props.onToggleDeveloperMode}
                     type="button"
                   >
-                    Developer
+                    {t("Developer")}
                   </button>
                 ) : null}
               </nav>
@@ -2704,7 +2779,7 @@ export function TableSurface(props: TableSurfaceProps) {
 
       {props.mode === "tv" && props.onHostControls ? (
         <button
-          aria-label="Return to Host Controls"
+          aria-label={t("Return to Host Controls")}
           className="host-tv-return"
           data-qa-control="host-tv-return"
           onClick={props.onHostControls}
@@ -2718,7 +2793,7 @@ export function TableSurface(props: TableSurfaceProps) {
         <div className="player-status-bar">
           {props.airplaneMode ? (
             <>
-              <span aria-live="polite">{props.connectionLabel}</span>
+              <span aria-live="polite">{t(props.connectionLabel)}</span>
               <ReconnectAction onReconnect={props.onReconnect} />
             </>
           ) : (
@@ -2732,9 +2807,9 @@ export function TableSurface(props: TableSurfaceProps) {
       ) : (
         <section
           className={`public-table${isQuietPublic ? " public-table--quiet" : ""}`}
-          aria-label="Public Table"
+          aria-label={t("Public Table")}
         >
-          <h1 className="visually-hidden">Public table</h1>
+          <h1 className="visually-hidden">{t("Public table")}</h1>
           <ChipRail projection={props.projection} />
           <BoardRail
             {...(bestCards ? { bestCards } : {})}
@@ -2762,8 +2837,8 @@ export function TableSurface(props: TableSurfaceProps) {
           {props.projection.showdown ? (
             <p className="showdown-note" aria-live="polite">
               {props.projection.showdown.leaders.length > 1
-                ? "Shown hands are tied."
-                : "Best available shown hand is marked."}
+                ? t("Shown hands are tied.")
+                : t("Best available shown hand is marked.")}
             </p>
           ) : null}
         </section>
@@ -2788,7 +2863,7 @@ export function TableSurface(props: TableSurfaceProps) {
                 onClick={() => setPlayerPositionOpen(true)}
                 type="button"
               >
-                See your table position
+                {t("See your table position")}
               </button>
               <ReconnectAction onReconnect={props.onReconnect} />
             </div>
@@ -2811,10 +2886,10 @@ export function TableSurface(props: TableSurfaceProps) {
       ) : null}
 
       {props.mode === "host" ? (
-        <footer className="dealer-dock" aria-label="Dealer controls">
+        <footer className="dealer-dock" aria-label={t("Dealer controls")}>
           <div>
-            <span className="section-label">Dealer controls</span>
-            <strong>{phaseLabel(props.projection.phase)}</strong>
+            <span className="section-label">{t("Dealer controls")}</span>
+            <strong>{t(phaseLabel(props.projection.phase))}</strong>
           </div>
           <DealerControls {...props} />
         </footer>
@@ -2842,16 +2917,19 @@ export function TableSurface(props: TableSurfaceProps) {
       ) : null}
 
       {props.developerMode ? (
-        <aside className="developer-strip" aria-label="Developer diagnostics">
-          <span>Hand ID</span>
-          <code>{props.projection.handId ?? "No active hand"}</code>
+        <aside
+          className="developer-strip"
+          aria-label={t("Developer diagnostics")}
+        >
+          <span>{t("Hand ID")}</span>
+          <code>{props.projection.handId ?? t("No active hand")}</code>
           {props.onDownloadLog ? (
             <button
               data-qa-control="developer-save-log"
               onClick={props.onDownloadLog}
               type="button"
             >
-              Save log
+              {t("Save log")}
             </button>
           ) : null}
         </aside>

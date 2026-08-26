@@ -8,7 +8,7 @@
 
 ## Context
 
-Phase 1 now has an approved product contract and module layout, but implementation directories were intentionally blocked until a language, package model, browser floor, test runner, and release build were selected. The stack must support a static Normal Mode application, a later self-contained Airplane artifact, strict module seams, browser cryptography and storage, real-browser tests, and approachable open-source contribution.
+Phase 1 now has an approved product contract and module layout, but implementation directories were intentionally blocked until a language, package model, browser floor, test runner, and release build were selected. The stack must support a static Table-side Mode application, a later self-contained Airplane artifact, strict module seams, browser cryptography and storage, real-browser tests, and approachable open-source contribution.
 
 ## Evidence
 
@@ -45,7 +45,7 @@ Phase 1 now has an approved product contract and module layout, but implementati
 6. Use strict TypeScript checks, ESLint flat configuration, Prettier, documentation validation, dependency auditing, and a clean-build CI gate.
 7. Start with Vite's current Baseline Widely Available production target. Supported-device claims require the PRD's physical test matrix; a failing target triggers an evidence-based compatibility change rather than a silent claim.
 8. Bundle all runtime code, fonts, and assets. No third-party runtime CDN, analytics, or remote font request is permitted.
-9. Produce a static HTTPS Normal build first. The Airplane single-file target must reuse the same source and is added only with an offline external-request test and artifact inspection.
+9. Produce a static HTTPS Table-side build first. The Airplane single-file target must reuse the same source and is added only with an offline external-request test and artifact inspection.
 
 ## Consequences
 
@@ -77,4 +77,4 @@ The stack does not change the Trusted Host model. Poker authority and Hidden Car
 
 ## Validation and revisit trigger
 
-The ADR is validated when a clean clone can install from the lockfile, type-check, lint, validate documentation, run module tests, run the supported Playwright smoke matrix, build the static Normal artifact, and show zero runtime external requests in the local journey. Revisit on a supported-device failure, an Airplane packaging failure, an unacceptable dependency/security finding, or sustained build/test friction that a different tool demonstrably resolves.
+The ADR is validated when a clean clone can install from the lockfile, type-check, lint, validate documentation, run module tests, run the supported Playwright smoke matrix, build the static Table-side artifact, and show zero runtime external requests in the local journey. Revisit on a supported-device failure, an Airplane packaging failure, an unacceptable dependency/security finding, or sustained build/test friction that a different tool demonstrably resolves.

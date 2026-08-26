@@ -1,4 +1,4 @@
-# Self-host Normal Mode
+# Self-host Table-side Mode
 
 **Status:** Supported operator recipe for the Phase 1 field build; not a managed hosting offer. **Audience:** an open-source deployer who controls a computer or VPS, a static HTTPS site, and optionally a public domain. **Update when:** the container, deployment variables, relay contract, or diagnostics command changes.
 
@@ -11,7 +11,7 @@ Each deployment has two independent parts:
    Cloudflare Workers/Durable Objects relay as primary and an optional Mac
    Connection Service as fallback.
 
-The operator token exists only on the deployer's server and in the host player's password manager. It is never a repository variable, GitHub secret, static asset, invitation, or player credential. A fork with none of `NORMAL_CLOUD_RELAY_URL`, `NORMAL_MAC_RELAY_URL`, or legacy `NORMAL_CONNECTION_SERVICE_URL` publishes an unconfigured Normal build and does **not** fall back to the project owner's relay.
+The operator token exists only on the deployer's server and in the host player's password manager. It is never a repository variable, GitHub secret, static asset, invitation, or player credential. A fork with none of `TABLE_SIDE_CLOUD_RELAY_URL`, `TABLE_SIDE_MAC_RELAY_URL`, or single-relay `TABLE_SIDE_CONNECTION_SERVICE_URL` publishes an unconfigured Table-side build and does **not** fall back to the project owner's relay.
 
 The relay services are not a poker engine. The active host browser remains the
 Trusted Host. Each configured service mints an independent table-scoped ticket,
@@ -42,7 +42,7 @@ git clone https://github.com/Cai-Ruihe/our-poker-table.git
 cd our-poker-table
 pnpm install --frozen-lockfile
 
-relay_token_path="${XDG_CONFIG_HOME:-${HOME}/.config}/our-poker-table/normal-relay/operator-token"
+relay_token_path="${XDG_CONFIG_HOME:-${HOME}/.config}/our-poker-table/table-side-relay/operator-token"
 pnpm relay:create-token -- "$relay_token_path"
 ```
 
@@ -53,15 +53,15 @@ The token command creates missing parent directories, writes a 256-bit random ba
 Copy the non-secret environment template and edit the three values:
 
 ```sh
-cp deploy/normal/.env.example deploy/normal/.env
+cp deploy/table-side/.env.example deploy/table-side/.env
 ```
 
-`deploy/normal/.env` must contain:
+`deploy/table-side/.env` must contain:
 
 ```dotenv
-NORMAL_APP_ORIGIN=https://YOUR-GITHUB-USERNAME.github.io
-NORMAL_CLOUD_RELAY_URL=wss://relay.example.com
-NORMAL_MAC_RELAY_URL=wss://mac-relay.example.com
+TABLE_SIDE_APP_ORIGIN=https://YOUR-GITHUB-USERNAME.github.io
+TABLE_SIDE_CLOUD_RELAY_URL=wss://relay.example.com
+TABLE_SIDE_MAC_RELAY_URL=wss://mac-relay.example.com
 RELAY_OPERATOR_TOKEN_FILE=/absolute/path/to/operator-token
 POKER_CONNECTION_PORT=8787
 ```
@@ -70,13 +70,13 @@ The app origin is an origin only: scheme plus hostname and optional port, with n
 
 ```sh
 docker compose \
-  --env-file deploy/normal/.env \
-  --file deploy/normal/compose.yaml \
+  --env-file deploy/table-side/.env \
+  --file deploy/table-side/compose.yaml \
   up --detach --build
 
 docker compose \
-  --env-file deploy/normal/.env \
-  --file deploy/normal/compose.yaml \
+  --env-file deploy/table-side/.env \
+  --file deploy/table-side/compose.yaml \
   ps
 
 curl --fail --silent --show-error http://127.0.0.1:8787/health
@@ -122,8 +122,8 @@ Convert the printed `https://RANDOM.trycloudflare.com` address to `wss://RANDOM.
 First test the loopback service. Use the same app origin that the service allows:
 
 ```sh
-NORMAL_APP_ORIGIN=https://YOUR-GITHUB-USERNAME.github.io \
-NORMAL_CONNECTION_SERVICE_URL=http://127.0.0.1:8787 \
+TABLE_SIDE_APP_ORIGIN=https://YOUR-GITHUB-USERNAME.github.io \
+TABLE_SIDE_CONNECTION_SERVICE_URL=http://127.0.0.1:8787 \
 RELAY_CHECK_ALLOW_HTTP_LOOPBACK=1 \
 RELAY_OPERATOR_TOKEN_FILE="$relay_token_path" \
 pnpm relay:doctor
@@ -132,8 +132,8 @@ pnpm relay:doctor
 Then test the public TLS endpoint:
 
 ```sh
-NORMAL_APP_ORIGIN=https://YOUR-GITHUB-USERNAME.github.io \
-NORMAL_CONNECTION_SERVICE_URL=wss://relay.example.com \
+TABLE_SIDE_APP_ORIGIN=https://YOUR-GITHUB-USERNAME.github.io \
+TABLE_SIDE_CONNECTION_SERVICE_URL=wss://relay.example.com \
 RELAY_OPERATOR_TOKEN_FILE="$relay_token_path" \
 pnpm relay:doctor
 ```
@@ -144,12 +144,12 @@ A ready result is JSON with `health`, `cors`, `invalidTokenRejection`, and `oper
 
 1. Fork the repository. In the fork, enable **Settings → Pages → Source: GitHub Actions**.
 2. Under **Settings → Secrets and variables → Actions → Variables**, create
-   `NORMAL_CLOUD_RELAY_URL` with the Cloudflare Workers/Durable Objects `wss://`
-   origin and, if using the Mac fallback, `NORMAL_MAC_RELAY_URL` with its named
+   `TABLE_SIDE_CLOUD_RELAY_URL` with the Cloudflare Workers/Durable Objects `wss://`
+   origin and, if using the Mac fallback, `TABLE_SIDE_MAC_RELAY_URL` with its named
    tunnel `wss://` origin. Existing deployments may retain
-   `NORMAL_CONNECTION_SERVICE_URL`, which is treated as the Mac/private
+  `TABLE_SIDE_CONNECTION_SERVICE_URL`, which is treated as the single Mac/private
    fallback when the new Mac variable is absent.
-3. For ordinary `https://YOUR-NAME.github.io/...` Pages hosting, the workflow derives the app origin from the fork owner. If using a custom app domain, also set `NORMAL_APP_ORIGIN` to its exact HTTPS origin.
+3. For ordinary `https://YOUR-NAME.github.io/...` Pages hosting, the workflow derives the app origin from the fork owner. If using a custom app domain, also set `TABLE_SIDE_APP_ORIGIN` to its exact HTTPS origin.
 4. Do **not** add the operator token to GitHub. It is entered only in the Trusted Host browser.
 5. Push to `main` or rerun the CI workflow. The deployment configures the
    static artifact only with the configured relay origins and blocks
@@ -161,37 +161,37 @@ Read the deployed configuration back before inviting players:
 
 ```sh
 curl --fail --silent --show-error \
-  https://YOUR-GITHUB-USERNAME.github.io/YOUR-FORK/normal/poker-config.js
+  https://YOUR-GITHUB-USERNAME.github.io/YOUR-FORK/table-side/poker-config.js
 ```
 
-It should contain the configured `wss://` endpoints and no token. Open that Normal page, paste the operator token into **Connection Service host token**, and create a fresh table. Player links carry only the short-lived, endpoint-specific table-scoped tickets and invitation material.
+It should contain the configured `wss://` endpoints and no token. Open that Table-side page, paste the operator token into **Connection Service host token**, and create a fresh table. Player links carry only the short-lived, endpoint-specific table-scoped tickets and invitation material.
 
 ## Troubleshooting guide
 
 | Symptom | Check | Corrective action |
 | --- | --- | --- |
 | **Load failed** or **Connection Service is unreachable** | Run `pnpm relay:doctor`; inspect DNS and `GET /health`. | Restore the service/proxy/tunnel. Do not keep distributing a link while the doctor fails. |
-| Doctor says the origin is wrong | Compare `NORMAL_APP_ORIGIN`, `POKER_CONNECTION_ALLOWED_ORIGIN`, and the browser address. | Use the exact HTTPS origin: scheme, hostname, and optional port; omit every path. Restart the service. |
+| Doctor says the origin is wrong | Compare `TABLE_SIDE_APP_ORIGIN`, `POKER_CONNECTION_ALLOWED_ORIGIN`, and the browser address. | Use the exact HTTPS origin: scheme, hostname, and optional port; omit every path. Restart the service. |
 | Valid host token returns `401 access-denied` | Confirm the host password entry and `RELAY_OPERATOR_TOKEN_FILE` refer to the same token. | Correct the mismatch. To rotate, create a token at a new path, update the deployment file, and restart the service. |
 | Doctor refuses a redirect | Test the exact relay hostname and inspect the reverse-proxy route. | Proxy `/health`, `/v1/table-sessions`, `/v1/display-pairings/*`, and WebSocket upgrades directly without redirecting to another origin. |
 | Browser reports mixed content or cannot open WSS | Inspect the public certificate and configured URL. | Use a valid public certificate and a `wss://` URL; never configure public `ws://`. |
-| Deployed page still names an old relay | Read back `normal/poker-config.js` and inspect the latest Actions run. | Update the fork's repository variable and complete a new successful Pages deployment. |
+| Deployed page still names an old relay | Read back `table-side/poker-config.js` and inspect the latest Actions run. | Update the fork's repository variable and complete a new successful Pages deployment. |
 | Players see **No route reached the Trusted Host** | Bring the host Safari/browser tab to the foreground and use **Reconnect to table**. Check both relay health endpoints and whether the Mac service restarted. | The client retries configured paths serially. If the Mac service restarted, the host must refresh relay tickets and share newly generated invitations. Old links remain stale. |
-| Quick Tunnel hostname changed | Compare the tunnel output with deployed `poker-config.js`. | Update `NORMAL_MAC_RELAY_URL` (or legacy `NORMAL_CONNECTION_SERVICE_URL`), redeploy, run the doctor, and create/share fresh invitations. |
-| Compose says a required variable is missing | Run the Compose command with `--env-file deploy/normal/.env`. | Fill every placeholder with an exact origin and absolute token path. Never paste the token value into this file. |
+| Quick Tunnel hostname changed | Compare the tunnel output with deployed `poker-config.js`. | Update `TABLE_SIDE_MAC_RELAY_URL` (or single-relay `TABLE_SIDE_CONNECTION_SERVICE_URL`), redeploy, run the doctor, and create/share fresh invitations. |
+| Compose says a required variable is missing | Run the Compose command with `--env-file deploy/table-side/.env`. | Fill every placeholder with an exact origin and absolute token path. Never paste the token value into this file. |
 | Port 8787 is already in use | Inspect `docker compose ... ps` and local listeners. | Set a different `POKER_CONNECTION_PORT` in `.env`, then point the local TLS proxy/tunnel to that loopback port. |
 
 Useful non-secret evidence commands:
 
 ```sh
 docker compose \
-  --env-file deploy/normal/.env \
-  --file deploy/normal/compose.yaml \
+  --env-file deploy/table-side/.env \
+  --file deploy/table-side/compose.yaml \
   ps
 
 docker compose \
-  --env-file deploy/normal/.env \
-  --file deploy/normal/compose.yaml \
+  --env-file deploy/table-side/.env \
+  --file deploy/table-side/compose.yaml \
   logs --tail=100 connection_service
 ```
 
@@ -209,4 +209,4 @@ Do not paste the operator token, invitation fragment, QR image, or full private 
 - This recipe does not supply TURN, multi-region failover, monitoring, backups,
   DDoS protection, or a regional/China availability claim. Cloudflare's
   service limits and the Mac's power/network state remain operational gates.
-- Stop the deployment with `docker compose --env-file deploy/normal/.env --file deploy/normal/compose.yaml down`. The private token file remains on the deployer's machine and is not removed by that command.
+- Stop the deployment with `docker compose --env-file deploy/table-side/.env --file deploy/table-side/compose.yaml down`. The private token file remains on the deployer's machine and is not removed by that command.

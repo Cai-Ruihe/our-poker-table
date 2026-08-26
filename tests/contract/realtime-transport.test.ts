@@ -120,7 +120,7 @@ const session = {
   tableId: "table-a",
 } as const;
 
-describe("Normal Mode ConnectivityStrategy", () => {
+describe("Table-side Mode ConnectivityStrategy", () => {
   it("attempts direct, private relay, then cloud relay in the locked order", async () => {
     const calls: string[] = [];
     const privateChannel = channel("private-relay");

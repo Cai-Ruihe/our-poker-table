@@ -170,8 +170,8 @@ if (liveRelay?.workflow && relativeExists(liveRelay.workflow)) {
   for (const requiredFragment of [
     "Verify configured live relay",
     liveRelay.command,
-    "NORMAL_APP_ORIGIN: ${{ vars.NORMAL_APP_ORIGIN || format('https://{0}.github.io', github.repository_owner) }}",
-    "if: vars.NORMAL_CLOUD_RELAY_URL != '' || vars.NORMAL_MAC_RELAY_URL != '' || vars.NORMAL_CONNECTION_SERVICE_URL != ''",
+    "TABLE_SIDE_APP_ORIGIN: ${{ vars.TABLE_SIDE_APP_ORIGIN || format('https://{0}.github.io', github.repository_owner) }}",
+    "if: vars.TABLE_SIDE_CLOUD_RELAY_URL != '' || vars.TABLE_SIDE_MAC_RELAY_URL != '' || vars.TABLE_SIDE_CONNECTION_SERVICE_URL != ''",
   ]) {
     if (!workflow.includes(requiredFragment)) {
       failures.push(`live relay workflow is missing: ${requiredFragment}`);
@@ -233,7 +233,7 @@ if (selfHosting?.compose && relativeExists(selfHosting.compose)) {
   for (const requiredFragment of [
     "127.0.0.1:${POKER_CONNECTION_PORT:-8787}:8787",
     "POKER_CONNECTION_ACCESS_TOKEN_FILE: /run/secrets/operator_token",
-    "POKER_CONNECTION_ALLOWED_ORIGIN: ${NORMAL_APP_ORIGIN:?required}",
+    "POKER_CONNECTION_ALLOWED_ORIGIN: ${TABLE_SIDE_APP_ORIGIN:?required}",
     "RELAY_OPERATOR_TOKEN_FILE:?required",
   ]) {
     if (!compose.includes(requiredFragment)) {
@@ -251,10 +251,10 @@ if (selfHosting?.guide && relativeExists(selfHosting.guide)) {
   for (const requiredFragment of [
     "pnpm relay:create-token",
     "pnpm relay:doctor",
-    "NORMAL_CLOUD_RELAY_URL",
-    "NORMAL_MAC_RELAY_URL",
-    "NORMAL_CONNECTION_SERVICE_URL",
-    "normal/poker-config.js",
+    "TABLE_SIDE_CLOUD_RELAY_URL",
+    "TABLE_SIDE_MAC_RELAY_URL",
+    "TABLE_SIDE_CONNECTION_SERVICE_URL",
+    "table-side/poker-config.js",
     "## Troubleshooting guide",
     "does **not** fall back to the project owner's relay",
   ]) {
@@ -475,9 +475,9 @@ for (const command of requiredCommands) {
 }
 
 for (const budget of [
-  "normal_javascript_raw_bytes",
-  "normal_javascript_gzip_bytes",
-  "normal_css_raw_bytes",
+  "table_side_javascript_raw_bytes",
+  "table_side_javascript_gzip_bytes",
+  "table_side_css_raw_bytes",
   "airplane_html_raw_bytes",
 ]) {
   const value = registry.performance_contract?.artifacts?.[budget];

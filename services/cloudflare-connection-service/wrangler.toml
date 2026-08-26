@@ -5,7 +5,7 @@ compatibility_date = "2026-08-25"
 # Wrangler's implicit default because an account can retain this switch as off.
 workers_dev = true
 
-# Set this to the exact HTTPS origin that hosts the Normal Mode application.
+# Set this to the exact HTTPS origin that hosts the Table-side Mode application.
 # The operator token is a Wrangler secret, never a repository variable here:
 #   wrangler secret put RELAY_OPERATOR_TOKEN
 [vars]

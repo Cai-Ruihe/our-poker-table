@@ -7,7 +7,7 @@
 .env
 .env.*
 !.env.example
-deploy/normal/.env
+deploy/table-side/.env
 *.pem
 *.key
 

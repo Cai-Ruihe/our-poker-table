@@ -8,13 +8,19 @@ import {
   type ReactNode,
 } from "react";
 import QRCode from "qrcode";
-import { BrowserQRCodeReader } from "@zxing/browser";
-import { DecodeHintType } from "@zxing/library";
 import jsQR from "jsqr";
 
 import type { CapabilityRole } from "@html-poker/identity-capabilities";
 import type { CardStyle, TableTheme } from "@html-poker/game-core";
-import { TableSurface, tableSeatPosition } from "@html-poker/presentation";
+import {
+  LanguageProvider,
+  LanguageSwitch,
+  TableSurface,
+  languageFromUrl,
+  readStoredLanguage,
+  tableSeatPosition,
+  useLanguage,
+} from "@html-poker/presentation";
 
 import brandHorizontalLight from "../../../assets/brand/svg/horizontal-light-transparent.svg?inline";
 import brandSymbolGold from "../../../assets/brand/svg/symbol-gold.svg?inline";
@@ -22,13 +28,13 @@ import brandSymbolGreen from "../../../assets/brand/svg/symbol-green.svg?inline"
 
 import {
   BUILD_VERSION,
-  createNormalDisplayPairingRequest,
+  createTableSideDisplayPairingRequest,
   HostTableRuntime,
   TableClientRuntime,
   invitationUrl,
   isAirplaneMode,
-  normalDisplayPairingIsConfigured,
-  normalRelayRequiresOperatorToken,
+  tableSideDisplayPairingIsConfigured,
+  tableSideRelayRequiresOperatorToken,
   parseClientRecovery,
   parseHostRecovery,
   parseHostPlayerRecovery,
@@ -38,7 +44,7 @@ import {
   type AirplaneOfferDetails,
   type HostRuntimeSnapshot,
   type HostRuntimeCreateOptions,
-  type NormalDisplayPairingRequest,
+  type TableSideDisplayPairingRequest,
   type PlayerAction,
 } from "./runtime";
 
@@ -53,10 +59,21 @@ interface ScreenWakeLockSentinel {
 }
 
 const PRODUCT_NAME = "Our Poker Table";
-// Normal Mode table surfaces place names around a finite physical table. Keep
+// Table-side Mode table surfaces place names around a finite physical table. Keep
 // the input bounded here (rather than in the shared identity protocol) so the
 // Airplane artifact retains its existing behaviour.
-const NORMAL_DISPLAY_NAME_MAX_LENGTH = 24;
+const TABLE_SIDE_DISPLAY_NAME_MAX_LENGTH = 24;
+
+function localizedInvitationUrl(
+  location: Location,
+  runtime: HostTableRuntime,
+  invitation: Parameters<typeof invitationUrl>[2],
+  language: "en" | "zh",
+): string {
+  const url = new URL(invitationUrl(location, runtime, invitation));
+  url.searchParams.set("lang", language);
+  return url.toString();
+}
 
 interface ScreenWakeLockManager {
   request(type: "screen"): Promise<ScreenWakeLockSentinel>;
@@ -130,20 +147,35 @@ function capabilityChecks(): readonly CapabilityCheck[] {
 }
 
 function BrandBar({ aside }: { readonly aside?: ReactNode }) {
+  const { t } = useLanguage();
+  const brandLockup = (
+    <div aria-label={PRODUCT_NAME} className="brand-lockup" role="img">
+      <img
+        alt=""
+        aria-hidden="true"
+        className="brand-lockup__wordmark"
+        src={brandHorizontalLight}
+      />
+      <div className="brand-lockup__compact" aria-hidden="true">
+        <img alt="" src={brandSymbolGreen} />
+        <strong>{PRODUCT_NAME}</strong>
+      </div>
+    </div>
+  );
+
   return (
     <header className="brand-bar">
-      <div aria-label={PRODUCT_NAME} className="brand-lockup" role="img">
-        <img
-          alt=""
-          aria-hidden="true"
-          className="brand-lockup__wordmark"
-          src={brandHorizontalLight}
-        />
-        <div className="brand-lockup__compact" aria-hidden="true">
-          <img alt="" src={brandSymbolGreen} />
-          <strong>{PRODUCT_NAME}</strong>
-        </div>
-      </div>
+      {isAirplaneMode() ? (
+        brandLockup
+      ) : (
+        <a
+          aria-label={t("Open Our Poker Table introduction")}
+          className="brand-lockup-link"
+          href="../intro/"
+        >
+          {brandLockup}
+        </a>
+      )}
       {aside}
     </header>
   );
@@ -160,6 +192,7 @@ function Home({
   readonly onJoinSession: (url: string) => void;
   readonly onPairDisplay?: () => void;
 }) {
+  const { t } = useLanguage();
   const digitalChipsEnabled =
     new URLSearchParams(globalThis.location.search).get("experimental") ===
     "digital-chips";
@@ -175,7 +208,7 @@ function Home({
   const [startingStack, setStartingStack] = useState(100);
   const [smallBlind, setSmallBlind] = useState(1);
   const [bigBlind, setBigBlind] = useState(2);
-  const relayRequiresOperatorToken = normalRelayRequiresOperatorToken();
+  const relayRequiresOperatorToken = tableSideRelayRequiresOperatorToken();
   const digitalRulesValid =
     Number.isSafeInteger(startingStack) &&
     Number.isSafeInteger(smallBlind) &&
@@ -241,49 +274,60 @@ function Home({
       <BrandBar
         aside={<span className="build-label">Build {BUILD_VERSION}</span>}
       />
+      <div className="home-language-control">
+        <LanguageSwitch />
+      </div>
       <div className="home-layout">
         <section className="home-intro" aria-labelledby="home-title">
-          <p className="section-label">For the table already in front of you</p>
-          <h1 id="home-title">Deal cards. Keep poker yours.</h1>
+          <p className="section-label">
+            {t("For the table already in front of you")}
+          </p>
+          <h1 id="home-title">{t("Deal cards. Keep poker yours.")}</h1>
           <p className="home-intro__copy">
-            Phones hold private cards. A tablet or TV shows the board. Chips and
-            conversation stay on the physical table.
+            {t(
+              "Phones hold private cards. A tablet or TV shows the board. Chips and conversation stay on the physical table.",
+            )}
           </p>
           <div className="deck-statement" aria-hidden="true">
             <span>52</span>
             <div>
-              <strong>cards</strong>
-              <small>one trusted browser</small>
+              <strong>{t("cards")}</strong>
+              <small>{t("one trusted host browser")}</small>
             </div>
           </div>
         </section>
 
         <section className="start-panel" aria-labelledby="start-title">
           <div>
-            <p className="section-label">Trusted Host</p>
-            <h2 id="start-title">Create a table</h2>
+            <p className="section-label">{t("Trusted Host")}</p>
+            <h2 id="start-title">{t("Create a table")}</h2>
             <p>
-              This browser will shuffle, deal, and keep the authoritative hand
-              history. It can read the active deck by design.
+              {t(
+                "This browser will shuffle, deal, and keep the authoritative hand history. It can read the active deck by design.",
+              )}
             </p>
           </div>
-          <ul className="preflight-list" aria-label="Browser capability check">
+          <ul
+            className="preflight-list"
+            aria-label={t("Browser capability check")}
+          >
             {checks.map((check) => (
               <li key={check.label} data-ready={check.available}>
                 <span aria-hidden="true">{check.available ? "✓" : "×"}</span>
-                {check.label}
+                {t(check.label)}
               </li>
             ))}
           </ul>
           {!ready ? (
             <p className="inline-warning" role="alert">
-              This browser cannot safely host a table. Open the HTTPS local
-              preview in a current browser.
+              {t(
+                "This browser cannot safely host a table. Open the HTTPS local preview in a current browser.",
+              )}
             </p>
           ) : null}
           {digitalChipsEnabled ? (
             <fieldset className="chip-mode-picker">
-              <legend>Experimental chip mode</legend>
+              <legend>{t("Experimental chip mode")}</legend>
               <label>
                 <input
                   checked={chipMode === "physical"}
@@ -293,9 +337,9 @@ function Home({
                   type="radio"
                 />
                 <span>
-                  <strong>Physical chips</strong>
+                  <strong>{t("Physical chips")}</strong>
                   <small>
-                    Deal-only mode. Players move chips on the table.
+                    {t("Deal-only mode. Players move chips on the table.")}
                   </small>
                 </span>
               </label>
@@ -308,8 +352,10 @@ function Home({
                   type="radio"
                 />
                 <span>
-                  <strong>Digital chips · development tracer</strong>
-                  <small>Two players and one hand only; not party-ready.</small>
+                  <strong>{t("Digital chips · development tracer")}</strong>
+                  <small>
+                    {t("Two players and one hand only; not party-ready.")}
+                  </small>
                 </span>
               </label>
             </fieldset>
@@ -317,10 +363,10 @@ function Home({
           {digitalChipsEnabled && chipMode === "digital" ? (
             <div
               className="digital-chip-settings"
-              aria-label="Digital chip settings"
+              aria-label={t("Digital chip settings")}
             >
               <label>
-                <span>Starting stack</span>
+                <span>{t("Starting stack")}</span>
                 <input
                   inputMode="numeric"
                   min={1}
@@ -333,7 +379,7 @@ function Home({
                 />
               </label>
               <label>
-                <span>Small blind</span>
+                <span>{t("Small blind")}</span>
                 <input
                   inputMode="numeric"
                   min={1}
@@ -346,7 +392,7 @@ function Home({
                 />
               </label>
               <label>
-                <span>Big blind</span>
+                <span>{t("Big blind")}</span>
                 <input
                   inputMode="numeric"
                   min={2}
@@ -360,8 +406,9 @@ function Home({
               </label>
               {!digitalRulesValid ? (
                 <p className="inline-warning" role="alert">
-                  Use whole chips with 0 &lt; small blind &lt; big blind &lt;
-                  starting stack.
+                  {t(
+                    "Use whole chips with 0 < small blind < big blind < starting stack.",
+                  )}
                 </p>
               ) : null}
             </div>
@@ -373,7 +420,7 @@ function Home({
           ) : null}
           {relayRequiresOperatorToken ? (
             <label className="relay-token-field">
-              <span>Connection Service host token</span>
+              <span>{t("Connection Service host token")}</span>
               <input
                 autoComplete="off"
                 onChange={(event) => setOperatorToken(event.target.value)}
@@ -381,8 +428,9 @@ function Home({
                 value={operatorToken}
               />
               <small>
-                Used once to mint a table-limited relay ticket. It is not sent
-                in player links.
+                {t(
+                  "Used once to mint a table-limited relay ticket. It is not sent in player links.",
+                )}
               </small>
             </label>
           ) : null}
@@ -398,10 +446,10 @@ function Home({
             onClick={() => void create()}
             type="button"
           >
-            {busy ? "Preparing table…" : "Create table"}
+            {busy ? t("Preparing table…") : t("Create table")}
           </button>
           <p className="privacy-line">
-            No account · no analytics · play chips only
+            {t("No account · no analytics · play chips only")}
           </p>
           {onJoinAirplane ? (
             <button
@@ -410,7 +458,7 @@ function Home({
               onClick={onJoinAirplane}
               type="button"
             >
-              Join an Airplane table
+              {t("Join an Airplane table")}
             </button>
           ) : null}
           {onPairDisplay ? (
@@ -420,7 +468,7 @@ function Home({
               onClick={onPairDisplay}
               type="button"
             >
-              Pair this display
+              {t("Pair this display")}
             </button>
           ) : null}
           <section
@@ -428,14 +476,16 @@ function Home({
             aria-labelledby="join-session-title"
           >
             <div>
-              <p className="section-label">Joining friends</p>
-              <h3 id="join-session-title">Join another session</h3>
+              <p className="section-label">{t("Joining friends")}</p>
+              <h3 id="join-session-title">{t("Join another session")}</h3>
               <p>
-                Paste the current invitation URL or scan its QR in this page.
+                {t(
+                  "Paste the current invitation URL or scan its QR in this page.",
+                )}
               </p>
             </div>
             <label>
-              <span>Invitation URL</span>
+              <span>{t("Invitation URL")}</span>
               <input
                 autoCapitalize="none"
                 autoComplete="off"
@@ -458,7 +508,7 @@ function Home({
                 onClick={() => openInvitation(joinUrl)}
                 type="button"
               >
-                Open invitation
+                {t("Open invitation")}
               </button>
               <button
                 className="button button--quiet"
@@ -466,7 +516,7 @@ function Home({
                 onClick={() => setJoinScannerOpen(true)}
                 type="button"
               >
-                Scan invitation QR
+                {t("Scan invitation QR")}
               </button>
             </div>
           </section>
@@ -474,7 +524,7 @@ function Home({
       </div>
       {joinScannerOpen ? (
         <QrCameraScanner
-          label="Scan player invitation QR"
+          label={t("Scan player invitation QR")}
           onClose={() => setJoinScannerOpen(false)}
           onCode={(code) => {
             setJoinScannerOpen(false);
@@ -494,6 +544,7 @@ function QrImage({
   readonly label?: string;
   readonly value: string;
 }) {
+  const { t } = useLanguage();
   const [source, setSource] = useState<string>();
   const [error, setError] = useState(false);
   useEffect(() => {
@@ -502,7 +553,7 @@ function QrImage({
     setError(false);
     const isDensePairingCode =
       value.startsWith("HTMLPOKER-AIRPLANE-1:") ||
-      value.startsWith("HTMLPOKER-NORMAL-DISPLAY-1:");
+      value.startsWith("HTMLPOKER-TABLE-SIDE-DISPLAY-1:");
     void QRCode.toDataURL(value, {
       color: { dark: "#19211f", light: "#ffffff" },
       errorCorrectionLevel: "L",
@@ -521,7 +572,9 @@ function QrImage({
     };
   }, [value]);
   if (error) {
-    return <span className="qr-error">Pairing QR could not be rendered.</span>;
+    return (
+      <span className="qr-error">{t("Pairing QR could not be rendered.")}</span>
+    );
   }
   return source ? <img alt={label} src={source} /> : null;
 }
@@ -592,18 +645,9 @@ async function scanQrImage(file: File): Promise<string> {
     }
     const pixelResult = decodeQrPixels(image);
     if (pixelResult) return pixelResult;
-    try {
-      const hints = new Map<DecodeHintType, unknown>();
-      hints.set(DecodeHintType.TRY_HARDER, true);
-      const result = await new BrowserQRCodeReader(
-        hints,
-      ).decodeFromImageElement(image);
-      return result.getText();
-    } catch {
-      throw new Error(
-        "No usable QR data was found. Fill the code guide and try again in good light.",
-      );
-    }
+    throw new Error(
+      "No usable QR data was found. Fill the code guide and try again in good light.",
+    );
   } finally {
     URL.revokeObjectURL(objectUrl);
   }
@@ -636,6 +680,7 @@ function QrCameraScanner({
   readonly onClose: () => void;
   readonly onCode: (code: string) => void;
 }) {
+  const { t } = useLanguage();
   const videoRef = useRef<HTMLVideoElement>(null);
   const controlsRef = useRef<{ stop(): void } | null>(null);
   const handledRef = useRef(false);
@@ -650,18 +695,21 @@ function QrCameraScanner({
   useEffect(() => {
     const video = videoRef.current;
     if (!video) return;
-    const hints = new Map<DecodeHintType, unknown>();
-    hints.set(DecodeHintType.TRY_HARDER, true);
-    const reader = new BrowserQRCodeReader(hints, {
-      delayBetweenScanAttempts: 180,
-      delayBetweenScanSuccess: 500,
-    });
     const fallbackCanvas = document.createElement("canvas");
     const fallbackContext = fallbackCanvas.getContext("2d", {
       willReadFrequently: true,
     });
     let active = true;
     let fallbackScanTimer: ReturnType<typeof globalThis.setTimeout> | undefined;
+
+    const cleanup = () => {
+      active = false;
+      if (fallbackScanTimer !== undefined) {
+        globalThis.clearTimeout(fallbackScanTimer);
+      }
+      controlsRef.current?.stop();
+      controlsRef.current = null;
+    };
 
     const acceptResult = (code: string, stop?: () => void) => {
       if (!active || handledRef.current) return;
@@ -723,46 +771,46 @@ function QrCameraScanner({
             return;
           }
         } catch {
-          // The regular perspective-aware scanner continues in parallel.
+          // Keep trying subsequent camera frames.
         }
       }
       fallbackScanTimer = globalThis.setTimeout(scanFallbackFrame, 360);
     };
-    fallbackScanTimer = globalThis.setTimeout(scanFallbackFrame, 360);
 
-    void reader
-      .decodeFromConstraints(
-        {
-          audio: false,
-          video: {
-            facingMode: { ideal: "environment" },
-            height: { ideal: 1_080 },
-            width: { ideal: 1_920 },
-          },
+    const getUserMedia = globalThis.navigator.mediaDevices?.getUserMedia;
+    if (!getUserMedia) {
+      setCameraError(cameraFailureMessage(undefined));
+      return cleanup;
+    }
+
+    void getUserMedia
+      .call(globalThis.navigator.mediaDevices, {
+        audio: false,
+        video: {
+          facingMode: { ideal: "environment" },
+          height: { ideal: 1_080 },
+          width: { ideal: 1_920 },
         },
-        video,
-        (result, _error, controls) => {
-          if (result) acceptResult(result.getText(), () => controls.stop());
-        },
-      )
-      .then((controls) => {
+      })
+      .then((stream) => {
+        const stop = () => {
+          stream.getTracks().forEach((track) => track.stop());
+          if (video.srcObject === stream) video.srcObject = null;
+        };
         if (!active) {
-          controls.stop();
+          stop();
           return;
         }
-        controlsRef.current = controls;
+        controlsRef.current = { stop };
+        video.srcObject = stream;
+        void video.play().catch(() => undefined);
+        fallbackScanTimer = globalThis.setTimeout(scanFallbackFrame, 360);
       })
       .catch((caught: unknown) => {
         if (active) setCameraError(cameraFailureMessage(caught));
       });
-    return () => {
-      active = false;
-      if (fallbackScanTimer !== undefined) {
-        globalThis.clearTimeout(fallbackScanTimer);
-      }
-      controlsRef.current?.stop();
-      controlsRef.current = null;
-    };
+
+    return cleanup;
   }, []);
 
   useEffect(() => {
@@ -796,25 +844,25 @@ function QrCameraScanner({
       <section className="qr-camera-sheet">
         <header className="qr-camera-header">
           <div>
-            <p className="section-label">Live camera</p>
+            <p className="section-label">{t("Live camera")}</p>
             <h2 id="qr-camera-title">{label}</h2>
           </div>
           <button
-            aria-label="Close camera"
+            aria-label={t("Close camera")}
             autoFocus
             className="qr-camera-close"
             data-qa-control="qr-camera-close"
             onClick={onClose}
             type="button"
           >
-            Close
+            {t("Close")}
           </button>
         </header>
         <div className="qr-camera-viewfinder">
           <video autoPlay muted playsInline ref={videoRef} />
           <span className="qr-camera-corners" aria-hidden="true" />
           <p aria-live="polite">
-            {cameraError ?? "Hold the QR inside the four corners."}
+            {cameraError ?? t("Hold the QR inside the four corners.")}
           </p>
         </div>
         {imageError ? (
@@ -824,7 +872,7 @@ function QrCameraScanner({
         ) : null}
         <div className="qr-camera-actions">
           <label className="button button--quiet qr-file-button">
-            <span>Use a saved QR image</span>
+            <span>{t("Use a saved QR image")}</span>
             <input
               accept="image/*"
               data-qa-control="qr-camera-file"
@@ -836,7 +884,7 @@ function QrCameraScanner({
               type="file"
             />
           </label>
-          <small>Nothing from the camera leaves this device.</small>
+          <small>{t("Nothing from the camera leaves this device.")}</small>
         </div>
       </section>
     </div>
@@ -854,6 +902,7 @@ function AirplaneHostPairingCard({
   readonly role: CapabilityRole;
   readonly runtime: HostTableRuntime;
 }) {
+  const { language, t } = useLanguage();
   const [offer, setOffer] = useState<AirplaneOfferDetails>();
   const [busy, setBusy] = useState(false);
   const [connected, setConnected] = useState(false);
@@ -876,12 +925,12 @@ function AirplaneHostPairingCard({
     setError(undefined);
     setQrExpanded(false);
     try {
-      setOffer(await runtime.createAirplaneOffer(role));
+      setOffer(await runtime.createAirplaneOffer(role, language));
     } catch (caught) {
       setError(
         caught instanceof Error
           ? caught.message
-          : "The local pairing offer could not be created.",
+          : t("The local pairing offer could not be created."),
       );
     } finally {
       setBusy(false);
@@ -898,7 +947,7 @@ function AirplaneHostPairingCard({
       setError(
         caught instanceof Error
           ? caught.message
-          : "The local pairing answer was rejected.",
+          : t("The local pairing answer was rejected."),
       );
     } finally {
       setBusy(false);
@@ -923,7 +972,7 @@ function AirplaneHostPairingCard({
               onClick={() => setQrExpanded(true)}
               type="button"
             >
-              Enlarge QR
+              {t("Enlarge QR")}
             </button>
           </>
         ) : (
@@ -933,12 +982,18 @@ function AirplaneHostPairingCard({
         )}
       </div>
       <div className="airplane-pairing-card__content">
-        <p className="section-label">Airplane · {label}</p>
-        <h2>{offer ? "Scan this offer" : "Prepare local pairing"}</h2>
+        <p className="section-label">
+          {t("Airplane")} · {t(label)}
+        </p>
+        <h2>{offer ? t("Scan this offer") : t("Prepare local pairing")}</h2>
         <p>
           {offer
-            ? "On the other device, open this same poker page and choose Join an Airplane table. Use its in-page camera—not the phone's standalone Camera app—then scan the answer here."
-            : "Creates a one-use, no-internet WebRTC offer. Both devices must use private Wi-Fi without client isolation."}
+            ? t(
+                "On the other device, open this same poker page and choose Join an Airplane table. Use its in-page camera—not the phone's standalone Camera app—then scan the answer here.",
+              )
+            : t(
+                "Creates a one-use, no-internet WebRTC offer. Both devices must use private Wi-Fi without client isolation.",
+              )}
         </p>
         {error ? (
           <p className="inline-warning" role="alert">
@@ -947,7 +1002,7 @@ function AirplaneHostPairingCard({
         ) : null}
         {connected ? (
           <p className="pairing-ready" role="status">
-            Direct channel paired. The other device can now join.
+            {t("Direct channel paired. The other device can now join.")}
           </p>
         ) : null}
         <div className="button-row">
@@ -959,7 +1014,11 @@ function AirplaneHostPairingCard({
             onClick={() => void prepare()}
             type="button"
           >
-            {busy ? "Preparing…" : offer ? "New offer" : `Pair ${label}`}
+            {busy
+              ? t("Preparing…")
+              : offer
+                ? t("New offer")
+                : t(`Pair ${label}`)}
           </button>
           {offer ? (
             <button
@@ -970,14 +1029,14 @@ function AirplaneHostPairingCard({
               onClick={() => setScannerOpen(true)}
               type="button"
             >
-              {`Scan ${label} answer QR`}
+              {`${t("Scan")} ${t(label)} ${t("answer QR")}`}
             </button>
           ) : null}
         </div>
       </div>
       {scannerOpen ? (
         <QrCameraScanner
-          label={`Scan ${label} answer QR`}
+          label={`${t("Scan")} ${t(label)} ${t("answer QR")}`}
           onClose={() => setScannerOpen(false)}
           onCode={(code) => {
             setScannerOpen(false);
@@ -995,27 +1054,30 @@ function AirplaneHostPairingCard({
           <section className="qr-display-sheet">
             <header className="qr-camera-header">
               <div>
-                <p className="section-label">Airplane · {label}</p>
+                <p className="section-label">
+                  {t("Airplane")} · {t(label)}
+                </p>
                 <h2 id="enlarged-airplane-qr-title">
-                  Enlarged {label} pairing QR
+                  {t("Enlarged")} {t(label)} {t("pairing QR")}
                 </h2>
               </div>
               <button
-                aria-label="Close enlarged QR"
+                aria-label={t("Close enlarged QR")}
                 autoFocus
                 className="qr-camera-close"
                 data-qa-control="airplane-offer-enlarge-close"
                 onClick={() => setQrExpanded(false)}
                 type="button"
               >
-                Close
+                {t("Close")}
               </button>
             </header>
             <div className="qr-display-instruction">
-              <strong>Do not use the phone's Camera app.</strong>
+              <strong>{t("Do not use the phone's Camera app.")}</strong>
               <p>
-                On the phone, open this poker app, choose Join an Airplane
-                table, then use Scan host offer QR.
+                {t(
+                  "On the phone, open this poker app, choose Join an Airplane table, then use Scan host offer QR.",
+                )}
               </p>
             </div>
             <div className="qr-display-code">
@@ -1023,7 +1085,9 @@ function AirplaneHostPairingCard({
                 label={`Enlarged ${label} Airplane offer QR code`}
                 value={offer.code}
               />
-              <p>Hold the phone steady and let this code fill the guide.</p>
+              <p>
+                {t("Hold the phone steady and let this code fill the guide.")}
+              </p>
             </div>
           </section>
         </div>
@@ -1041,6 +1105,7 @@ function InvitePanel({
   readonly runtime: HostTableRuntime;
   readonly snapshot: HostRuntimeSnapshot;
 }) {
+  const { language, t } = useLanguage();
   const invitation = snapshot.invitations.player;
   const replacementSeat = invitation?.seatId
     ? snapshot.roster.seats.find((seat) => seat.seatId === invitation.seatId)
@@ -1048,7 +1113,7 @@ function InvitePanel({
   const [copied, setCopied] = useState(false);
   const digitalJoinLocked =
     runtime.rulesProfile.id === "nlhe-home-v1" && snapshot.stage === "table";
-  const normalMode = !isAirplaneMode();
+  const tableSideMode = !isAirplaneMode();
 
   if (!snapshot.roster.joinWindowOpen && !replacementSeat) {
     return (
@@ -1057,28 +1122,38 @@ function InvitePanel({
       >
         <div className="invite-panel__content">
           <p className="section-label">
-            {normalMode ? "New players" : "Join window"}
+            {tableSideMode ? t("New players") : t("Join window")}
           </p>
-          <h2>{normalMode ? "New players locked" : "New seats are paused"}</h2>
+          <h2>
+            {tableSideMode
+              ? t("New players locked")
+              : t("New seats are paused")}
+          </h2>
           <p>
             {digitalJoinLocked
-              ? "This one-hand Digital Chips tracer does not admit late seats. Existing seat recovery and device replacement still work."
-              : normalMode
-                ? "Allow new players to reveal a one-use QR and link. Existing seat recovery and device replacement still work."
-                : "Existing seat recovery and device replacement still work."}
+              ? t(
+                  "This one-hand Digital Chips tracer does not admit late seats. Existing seat recovery and device replacement still work.",
+                )
+              : tableSideMode
+                ? t(
+                    "Allow new players to reveal a one-use QR and link. Existing seat recovery and device replacement still work.",
+                  )
+                : t(
+                    "Existing seat recovery and device replacement still work.",
+                  )}
           </p>
           {!digitalJoinLocked ? (
             <button
-              aria-label={normalMode ? "Allow new players" : undefined}
-              aria-pressed={normalMode ? false : undefined}
+              aria-label={tableSideMode ? t("Allow new players") : undefined}
+              aria-pressed={tableSideMode ? false : undefined}
               className={
-                normalMode ? "join-window-toggle" : "button button--quiet"
+                tableSideMode ? "join-window-toggle" : "button button--quiet"
               }
               data-qa-control="host-open-join-window"
               onClick={() => void runtime.setJoinWindow(true)}
               type="button"
             >
-              {normalMode ? (
+              {tableSideMode ? (
                 <>
                   <span
                     aria-hidden="true"
@@ -1086,11 +1161,11 @@ function InvitePanel({
                   >
                     <i />
                   </span>
-                  <span>New players</span>
-                  <strong>Locked</strong>
+                  <span>{t("New players")}</span>
+                  <strong>{t("Locked")}</strong>
                 </>
               ) : (
-                "Open join window"
+                t("Open join window")
               )}
             </button>
           ) : null}
@@ -1118,17 +1193,20 @@ function InvitePanel({
         className={`invite-panel${compact ? " invite-panel--compact" : ""}`}
       >
         <div className="invite-panel__content">
-          <p className="section-label">Player invitation</p>
-          <h2>All ten seats are allocated</h2>
-          <p>Use player replacement from the roster if a phone changes.</p>
+          <p className="section-label">{t("Player invitation")}</p>
+          <h2>{t("All ten seats are allocated")}</h2>
+          <p>
+            {t("Use player replacement from the roster if a phone changes.")}
+          </p>
         </div>
       </section>
     );
   }
-  const invitationLink = invitationUrl(
+  const invitationLink = localizedInvitationUrl(
     globalThis.location,
     runtime,
     invitation,
+    language,
   );
 
   async function copy() {
@@ -1147,37 +1225,44 @@ function InvitePanel({
       <div className="invite-panel__content">
         <p className="section-label">
           {replacementSeat
-            ? "Device replacement"
-            : normalMode
-              ? "New players"
-              : "Other devices only"}
+            ? t("Device replacement")
+            : tableSideMode
+              ? t("New players")
+              : t("Other devices only")}
         </p>
         <h2>
           {replacementSeat
-            ? `Replace ${replacementSeat.displayName}'s device`
-            : normalMode
-              ? "Add a player"
-              : "Other devices join here"}
+            ? `${t("Replace")} ${replacementSeat.displayName} ${t("device")}`
+            : tableSideMode
+              ? t("Add a player")
+              : t("Other devices join here")}
         </h2>
         <p>
           {replacementSeat
-            ? "This one-use link keeps the seat and revokes its previous device when redeemed."
-            : normalMode
-              ? "Show this one-use QR or copy its link to the new player's device. They choose a display name after opening it; no account or host approval prompt follows."
-              : "Each QR works once. A player chooses their display name after opening it; no account or host approval prompt follows."}
+            ? t(
+                "This one-use link keeps the seat and revokes its previous device when redeemed.",
+              )
+            : tableSideMode
+              ? t(
+                  "Show this one-use QR or copy its link to the new player's device. They choose a display name after opening it; no account or host approval prompt follows.",
+                )
+              : t(
+                  "Each QR works once. A player chooses their display name after opening it; no account or host approval prompt follows.",
+                )}
         </p>
         {!replacementSeat ? (
           <p className="invite-device-note">
-            <strong>Using this phone or iPad as the host?</strong> Choose Join
-            my own table on this device above. Do not scan or open this
-            invitation on the Trusted Host device.
+            <strong>{t("Using this phone or iPad as the host?")}</strong>{" "}
+            {t(
+              "Choose Join my own table on this device above. Do not scan or open this invitation on the Trusted Host device.",
+            )}
           </p>
         ) : null}
         <label className="invite-link">
           <span>
             {replacementSeat
-              ? "Player replacement link"
-              : "Player invitation link"}
+              ? t("Player replacement link")
+              : t("Player invitation link")}
           </span>
           <input readOnly value={invitationLink} />
         </label>
@@ -1188,7 +1273,7 @@ function InvitePanel({
             onClick={() => void copy()}
             type="button"
           >
-            {copied ? "Copied" : "Copy link"}
+            {copied ? t("Copied") : t("Copy link")}
           </button>
           <button
             className="button button--quiet"
@@ -1196,7 +1281,7 @@ function InvitePanel({
             onClick={() => void runtime.issueInvitation("player")}
             type="button"
           >
-            {replacementSeat ? "Return to new seats" : "New invitation"}
+            {replacementSeat ? t("Return to new seats") : t("New invitation")}
           </button>
         </div>
       </div>
@@ -1225,10 +1310,11 @@ function SameDeviceRoleButton({
   readonly onUseThisDevice: (role: "tv" | "table-control") => void;
   readonly role: "tv" | "table-control";
 }) {
+  const { t } = useLanguage();
   const label =
     role === "tv"
-      ? "Use this device as TV"
-      : "Use this device as Tablet Control";
+      ? t("Use this device as TV")
+      : t("Use this device as Tablet Control");
   return (
     <button
       className="button button--quiet"
@@ -1257,17 +1343,20 @@ function RoleInvitationCard({
   readonly runtime: HostTableRuntime;
   readonly snapshot: HostRuntimeSnapshot;
 }) {
+  const { language, t } = useLanguage();
   const invitation = snapshot.invitations[role];
   const [copied, setCopied] = useState(false);
   if (!invitation) {
     return (
       <article className="role-invite-card">
         <div>
-          <strong>{label}</strong>
+          <strong>{t(label)}</strong>
           <small>
-            {role === "table-control"
-              ? "Dealer controls, never private cards"
-              : "Public board and shown cards only"}
+            {t(
+              role === "table-control"
+                ? "Dealer controls, never private cards"
+                : "Public board and shown cards only",
+            )}
           </small>
         </div>
         <div className="button-row">
@@ -1278,7 +1367,7 @@ function RoleInvitationCard({
             onClick={() => void runtime.issueInvitation(role)}
             type="button"
           >
-            {button}
+            {t(button)}
           </button>
           {onUseThisDevice && (role === "tv" || role === "table-control") ? (
             <SameDeviceRoleButton
@@ -1290,14 +1379,21 @@ function RoleInvitationCard({
       </article>
     );
   }
-  const link = invitationUrl(globalThis.location, runtime, invitation);
+  const link = localizedInvitationUrl(
+    globalThis.location,
+    runtime,
+    invitation,
+    language,
+  );
   return (
     <article className="role-invite-card role-invite-card--ready">
-      <QrImage label={`${label} invitation QR code`} value={link} />
+      <QrImage label={`${t(label)} ${t("invitation QR code")}`} value={link} />
       <div>
-        <strong>{label}</strong>
+        <strong>{t(label)}</strong>
         <label>
-          <span>{label} invitation link</span>
+          <span>
+            {t(label)} {t("invitation link")}
+          </span>
           <input readOnly value={link} />
         </label>
         <div className="button-row">
@@ -1313,7 +1409,7 @@ function RoleInvitationCard({
             }}
             type="button"
           >
-            {copied ? "Copied" : "Copy link"}
+            {copied ? t("Copied") : t("Copy link")}
           </button>
           <button
             className="button button--quiet"
@@ -1322,7 +1418,7 @@ function RoleInvitationCard({
             onClick={() => void runtime.issueInvitation(role)}
             type="button"
           >
-            Replace link
+            {t("Replace link")}
           </button>
           {onUseThisDevice && (role === "tv" || role === "table-control") ? (
             <SameDeviceRoleButton
@@ -1336,11 +1432,12 @@ function RoleInvitationCard({
   );
 }
 
-function NormalDisplayPairingCard({
+function TableSideDisplayPairingCard({
   runtime,
 }: {
   readonly runtime: HostTableRuntime;
 }) {
+  const { t } = useLanguage();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string>();
   const [pairedRole, setPairedRole] = useState<"public-table" | "tv">();
@@ -1350,10 +1447,12 @@ function NormalDisplayPairingCard({
     setError(undefined);
     setPairedRole(undefined);
     try {
-      setPairedRole(await runtime.pairNormalDisplay(await scanQrImage(file)));
+      setPairedRole(
+        await runtime.pairTableSideDisplay(await scanQrImage(file)),
+      );
     } catch (caught) {
       const message = caught instanceof Error ? caught.message.trim() : "";
-      setError(message || "The display pairing QR could not be accepted.");
+      setError(message || t("The display pairing QR could not be accepted."));
     } finally {
       setBusy(false);
     }
@@ -1361,16 +1460,19 @@ function NormalDisplayPairingCard({
 
   return (
     <section
-      className="normal-display-pairing"
-      aria-labelledby="normal-pair-title"
+      className="table-side-display-pairing"
+      aria-labelledby="table-side-pair-title"
     >
       <header>
-        <p className="section-label">Awkward-input display</p>
-        <h3 id="normal-pair-title">Scan-pair a TV or public table</h3>
+        <p className="section-label">{t("Awkward-input display")}</p>
+        <h3 id="table-side-pair-title">
+          {t("Scan-pair a TV or public table")}
+        </h3>
       </header>
       <p>
-        The display chooses TV or Public Table first. Its one-use request QR
-        grants nothing until you scan it here.
+        {t(
+          "The display chooses TV or Public Table first. Its one-use request QR grants nothing until you scan it here.",
+        )}
       </p>
       {error ? (
         <p className="inline-warning" role="alert">
@@ -1379,15 +1481,15 @@ function NormalDisplayPairingCard({
       ) : null}
       {pairedRole ? (
         <p className="pairing-ready" role="status">
-          {pairedRole === "tv" ? "TV" : "Public Table"} paired
+          {t(pairedRole === "tv" ? "TV" : "Public Table")} {t("paired")}
         </p>
       ) : null}
       <label className="button button--quiet qr-file-button">
-        <span>{busy ? "Reading QR…" : "Scan display pairing QR"}</span>
+        <span>{busy ? t("Reading QR…") : t("Scan display pairing QR")}</span>
         <input
           accept="image/*"
           capture="environment"
-          data-qa-control="normal-display-pair-file"
+          data-qa-control="table-side-display-pair-file"
           disabled={busy}
           onChange={(event) => {
             const file = event.target.files?.[0];
@@ -1408,6 +1510,7 @@ function RelaySessionCard({
   readonly runtime: HostTableRuntime;
   readonly snapshot: HostRuntimeSnapshot;
 }) {
+  const { t } = useLanguage();
   const [operatorToken, setOperatorToken] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string>();
@@ -1420,8 +1523,8 @@ function RelaySessionCard({
   );
   const sessionStatus =
     minutesRemaining <= 0
-      ? "Relay ticket expired"
-      : `Relay ticket expires in ${minutesRemaining} minute${minutesRemaining === 1 ? "" : "s"}`;
+      ? t("Relay ticket expired")
+      : `${t("Relay ticket expires in")} ${minutesRemaining} ${t(minutesRemaining === 1 ? "minute" : "minutes")}`;
 
   async function refresh() {
     setBusy(true);
@@ -1435,7 +1538,7 @@ function RelaySessionCard({
       setError(
         caught instanceof Error
           ? caught.message
-          : "The relay ticket could not be refreshed.",
+          : t("The relay ticket could not be refreshed."),
       );
     } finally {
       setBusy(false);
@@ -1448,16 +1551,18 @@ function RelaySessionCard({
       aria-labelledby="relay-session-title"
     >
       <header>
-        <p className="section-label">Connection Service</p>
+        <p className="section-label">{t("Connection Service")}</p>
         <h3 id="relay-session-title">
           {relaySession.route === "private-relay"
-            ? "Private relay"
-            : "Cloud relay"}
+            ? t("Private relay")
+            : t("Cloud relay")}
         </h3>
       </header>
       <p>
-        {sessionStatus}. Refresh it before reconnecting a remote player after a
-        long break.
+        {sessionStatus}.{" "}
+        {t(
+          "Refresh it before reconnecting a remote player after a long break.",
+        )}
       </p>
       {error ? (
         <p className="inline-warning" role="alert">
@@ -1466,11 +1571,11 @@ function RelaySessionCard({
       ) : null}
       {refreshed ? (
         <p className="pairing-ready" role="status">
-          Relay ticket refreshed
+          {t("Relay ticket refreshed")}
         </p>
       ) : null}
       <label className="relay-token-field">
-        <span>Connection Service host token</span>
+        <span>{t("Connection Service host token")}</span>
         <input
           autoComplete="off"
           onChange={(event) => setOperatorToken(event.target.value)}
@@ -1478,8 +1583,9 @@ function RelaySessionCard({
           value={operatorToken}
         />
         <small>
-          Used only to renew this table ticket. It is not saved in table
-          recovery or exposed in player links.
+          {t(
+            "Used only to renew this table ticket. It is not saved in table recovery or exposed in player links.",
+          )}
         </small>
       </label>
       <button
@@ -1489,7 +1595,7 @@ function RelaySessionCard({
         onClick={() => void refresh()}
         type="button"
       >
-        {busy ? "Refreshing…" : "Refresh relay ticket"}
+        {busy ? t("Refreshing…") : t("Refresh relay ticket")}
       </button>
     </section>
   );
@@ -1504,14 +1610,15 @@ function RoleInvitations({
   readonly runtime: HostTableRuntime;
   readonly snapshot: HostRuntimeSnapshot;
 }) {
+  const { t } = useLanguage();
   return (
     <section className="role-invitations" aria-labelledby="surfaces-title">
       <header>
-        <p className="section-label">Room surfaces</p>
-        <h3 id="surfaces-title">Displays and dealer tablet</h3>
+        <p className="section-label">{t("Room surfaces")}</p>
+        <h3 id="surfaces-title">{t("Displays and dealer tablet")}</h3>
       </header>
-      {!isAirplaneMode() && normalDisplayPairingIsConfigured() ? (
-        <NormalDisplayPairingCard runtime={runtime} />
+      {!isAirplaneMode() && tableSideDisplayPairingIsConfigured() ? (
+        <TableSideDisplayPairingCard runtime={runtime} />
       ) : null}
       {roleInvitationDetails.map((details) =>
         isAirplaneMode() ? (
@@ -1549,6 +1656,7 @@ function SeatRoster({
   readonly runtime?: HostTableRuntime;
   readonly snapshot: HostRuntimeSnapshot;
 }) {
+  const { t } = useLanguage();
   const orderedSeats = [...snapshot.roster.seats].sort(
     (left, right) => left.displayPosition - right.displayPosition,
   );
@@ -1568,8 +1676,10 @@ function SeatRoster({
     <section className="roster" aria-labelledby="roster-title">
       <header>
         <div>
-          <p className="section-label">Seats</p>
-          <h2 id="roster-title">{snapshot.roster.seats.length} of 10 joined</h2>
+          <p className="section-label">{t("Seats")}</p>
+          <h2 id="roster-title">
+            {snapshot.roster.seats.length} {t("of 10 joined")}
+          </h2>
         </div>
         <div className="join-window-tools">
           {runtime && !digitalJoinLocked ? (
@@ -1578,8 +1688,8 @@ function SeatRoster({
                 isAirplaneMode()
                   ? undefined
                   : snapshot.roster.joinWindowOpen
-                    ? "Stop new players"
-                    : "Allow new players"
+                    ? t("Stop new players")
+                    : t("Allow new players")
               }
               aria-pressed={
                 isAirplaneMode() ? undefined : snapshot.roster.joinWindowOpen
@@ -1595,9 +1705,9 @@ function SeatRoster({
             >
               {isAirplaneMode() ? (
                 snapshot.roster.joinWindowOpen ? (
-                  "Close join window"
+                  t("Close join window")
                 ) : (
-                  "Open join window"
+                  t("Open join window")
                 )
               ) : (
                 <>
@@ -1607,9 +1717,9 @@ function SeatRoster({
                   >
                     <i />
                   </span>
-                  <span>New players</span>
+                  <span>{t("New players")}</span>
                   <strong>
-                    {snapshot.roster.joinWindowOpen ? "Open" : "Locked"}
+                    {snapshot.roster.joinWindowOpen ? t("Open") : t("Locked")}
                   </strong>
                 </>
               )}
@@ -1620,13 +1730,15 @@ function SeatRoster({
       {snapshot.roster.seats.length === 0 ? (
         <div className="empty-roster">
           <span aria-hidden="true">↳</span>
-          <p>The first player appears here as soon as the QR is redeemed.</p>
+          <p>
+            {t("The first player appears here as soon as the QR is redeemed.")}
+          </p>
         </div>
       ) : (
         <>
           <div className="roster-map-copy">
-            <strong>Table positions</strong>
-            <span>Tap a player where they sit to manage that seat.</span>
+            <strong>{t("Table positions")}</strong>
+            <span>{t("Tap a player where they sit to manage that seat.")}</span>
           </div>
           <ol
             className="roster-table-map"
@@ -1671,7 +1783,7 @@ function SeatRoster({
                   <span key={index} />
                 ))}
               </i>
-              <span>Community cards</span>
+              <span>{t("Community cards")}</span>
             </li>
           </ol>
           {selectedSeat ? (
@@ -1680,7 +1792,9 @@ function SeatRoster({
               className="roster-seat-detail"
             >
               <div>
-                <span>Seat {selectedSeatIndex + 1}</span>
+                <span>
+                  {t("Seat")} {selectedSeatIndex + 1}
+                </span>
                 <strong>{selectedSeat.displayName}</strong>
                 <small>
                   {tableEdgeLabel(
@@ -1702,7 +1816,7 @@ function SeatRoster({
                         }
                         type="button"
                       >
-                        Move anticlockwise
+                        {t("Move anticlockwise")}
                       </button>
                       <button
                         aria-label={`Move ${selectedSeat.displayName} down`}
@@ -1714,7 +1828,7 @@ function SeatRoster({
                         }
                         type="button"
                       >
-                        Move clockwise
+                        {t("Move clockwise")}
                       </button>
                     </>
                   ) : null}
@@ -1727,7 +1841,7 @@ function SeatRoster({
                       onClick={() => onRelocateDealer(selectedSeat.seatId)}
                       type="button"
                     >
-                      Make dealer
+                      {t("Make dealer")}
                     </button>
                   ) : null}
                   {onReplace ? (
@@ -1737,7 +1851,7 @@ function SeatRoster({
                       onClick={() => onReplace(selectedSeat.seatId)}
                       type="button"
                     >
-                      Replace device
+                      {t("Replace device")}
                     </button>
                   ) : null}
                 </div>
@@ -1774,17 +1888,20 @@ function CapabilityAdministration({
   readonly onRevoke: (capabilityId: string) => void;
   readonly snapshot: HostRuntimeSnapshot;
 }) {
+  const { t } = useLanguage();
   const activeSurfaces = snapshot.roster.capabilities.filter(
     (capability) => capability.role !== "player" && !capability.revoked,
   );
   return (
     <section className="admin-section" aria-labelledby="capabilities-title">
       <header>
-        <p className="section-label">Active capabilities</p>
-        <h3 id="capabilities-title">Displays and controls</h3>
+        <p className="section-label">{t("Active capabilities")}</p>
+        <h3 id="capabilities-title">{t("Displays and controls")}</h3>
       </header>
       {activeSurfaces.length === 0 ? (
-        <p className="admin-section__empty">No display or tablet is paired.</p>
+        <p className="admin-section__empty">
+          {t("No display or tablet is paired.")}
+        </p>
       ) : (
         <ul className="capability-list">
           {activeSurfaces.map((capability) => (
@@ -1797,7 +1914,7 @@ function CapabilityAdministration({
                 onClick={() => onRevoke(capability.capabilityId)}
                 type="button"
               >
-                Revoke
+                {t("Revoke")}
               </button>
             </li>
           ))}
@@ -1818,6 +1935,7 @@ function RecoveryAdministration({
   readonly onVoid: (reason: string) => void;
   readonly snapshot: HostRuntimeSnapshot;
 }) {
+  const { t } = useLanguage();
   const [correctionEventId, setCorrectionEventId] = useState(
     snapshot.history.at(-1)?.eventId ?? "",
   );
@@ -1832,13 +1950,14 @@ function RecoveryAdministration({
   return (
     <section className="admin-section" aria-labelledby="recovery-title">
       <header>
-        <p className="section-label">Append-only repair</p>
-        <h3 id="recovery-title">Void and correction</h3>
+        <p className="section-label">{t("Append-only repair")}</p>
+        <h3 id="recovery-title">{t("Void and correction")}</h3>
       </header>
       {!allowVoid && snapshot.projection?.phase !== "complete" ? (
         <p className="admin-section__empty">
-          Digital Chips void/rollback policy is not part of this tracer; the
-          authority fails that command closed.
+          {t(
+            "Digital Chips void/rollback policy is not part of this tracer; the authority fails that command closed.",
+          )}
         </p>
       ) : null}
       {handActive ? (
@@ -1851,7 +1970,7 @@ function RecoveryAdministration({
           }}
         >
           <label>
-            <span>Reason to void the active hand</span>
+            <span>{t("Reason to void the active hand")}</span>
             <input
               maxLength={240}
               onChange={(event) => setVoidReason(event.target.value)}
@@ -1864,7 +1983,7 @@ function RecoveryAdministration({
             disabled={!voidReason.trim()}
             type="submit"
           >
-            Void active hand
+            {t("Void active hand")}
           </button>
         </form>
       ) : null}
@@ -1878,7 +1997,7 @@ function RecoveryAdministration({
           }}
         >
           <label>
-            <span>Event to annotate</span>
+            <span>{t("Event to annotate")}</span>
             <select
               data-qa-control="history-correction-event"
               onChange={(event) => setCorrectionEventId(event.target.value)}
@@ -1892,7 +2011,7 @@ function RecoveryAdministration({
             </select>
           </label>
           <label>
-            <span>Correction note</span>
+            <span>{t("Correction note")}</span>
             <input
               maxLength={240}
               onChange={(event) => setCorrectionReason(event.target.value)}
@@ -1905,7 +2024,7 @@ function RecoveryAdministration({
             disabled={!correctionEventId || !correctionReason.trim()}
             type="submit"
           >
-            Append correction
+            {t("Append correction")}
           </button>
         </form>
       ) : null}
@@ -1935,15 +2054,16 @@ function HostDeviceViewSwitcher({
   readonly onChange: (view: HostDeviceView) => void;
   readonly tableReady: boolean;
 }) {
+  const { t } = useLanguage();
   return (
-    <nav className="host-device-switcher" aria-label="This device view">
+    <nav className="host-device-switcher" aria-label={t("This device view")}>
       <button
         aria-pressed={activeView === "host"}
         data-qa-control="device-view-host"
         onClick={() => onChange("host")}
         type="button"
       >
-        Host Controls
+        {t("Host Controls")}
       </button>
       {hasPlayer ? (
         <button
@@ -1952,7 +2072,7 @@ function HostDeviceViewSwitcher({
           onClick={() => onChange("player")}
           type="button"
         >
-          My Hand
+          {t("My Hand")}
         </button>
       ) : null}
       <button
@@ -1962,7 +2082,7 @@ function HostDeviceViewSwitcher({
         onClick={() => onChange("table")}
         type="button"
       >
-        Table View
+        {t("Table View")}
       </button>
     </nav>
   );
@@ -1973,6 +2093,7 @@ function JoinOwnDeviceCard({
 }: {
   readonly onJoin: (displayName: string) => Promise<void>;
 }) {
+  const { t } = useLanguage();
   const [displayName, setDisplayName] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string>();
@@ -1996,24 +2117,28 @@ function JoinOwnDeviceCard({
 
   return (
     <section className="join-own-device" aria-labelledby="join-own-title">
-      <p className="section-label">Host also playing</p>
-      <h2 id="join-own-title">Play on this device</h2>
+      <p className="section-label">{t("Host also playing")}</p>
+      <h2 id="join-own-title">{t("Play on this device")}</h2>
       <p>
-        Keep the Trusted Host running on this page. The controls above switch
-        privately between Host Controls and My Hand; do not scan your own player
-        QR.
+        {t(
+          "Keep the Trusted Host running on this page. The controls above switch privately between Host Controls and My Hand; do not scan your own player QR.",
+        )}
       </p>
       <form onSubmit={(event) => void join(event)}>
         <label>
-          <span>My display name</span>
+          <span>{t("My display name")}</span>
           <input
             autoComplete="nickname"
-            maxLength={isAirplaneMode() ? 40 : NORMAL_DISPLAY_NAME_MAX_LENGTH}
+            maxLength={
+              isAirplaneMode() ? 40 : TABLE_SIDE_DISPLAY_NAME_MAX_LENGTH
+            }
             onChange={(event) => setDisplayName(event.target.value)}
             value={displayName}
           />
           {!isAirplaneMode() ? (
-            <small>Up to 24 characters keeps the table display readable.</small>
+            <small>
+              {t("Up to 24 characters keeps the table display readable.")}
+            </small>
           ) : null}
         </label>
         {error ? (
@@ -2027,7 +2152,7 @@ function JoinOwnDeviceCard({
           disabled={!displayName.trim() || busy}
           type="submit"
         >
-          {busy ? "Taking seat…" : "Join my own table on this device"}
+          {busy ? t("Taking seat…") : t("Join my own table on this device")}
         </button>
       </form>
     </section>
@@ -2051,6 +2176,7 @@ function HostLobby({
   readonly recoveryError?: string;
   readonly runtime: HostTableRuntime;
 }) {
+  const { t } = useLanguage();
   const snapshot = useHostSnapshot(runtime);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string>();
@@ -2104,10 +2230,13 @@ function HostLobby({
     <main className="lobby-shell">
       <BrandBar
         aside={
-          <div className="room-id">
-            <span>Table</span>
-            <code>{runtime.tableId.slice(-8)}</code>
-          </div>
+          <>
+            <LanguageSwitch compact />
+            <div className="room-id">
+              <span>{t("Table")}</span>
+              <code>{runtime.tableId.slice(-8)}</code>
+            </div>
+          </>
         }
       />
       <HostDeviceViewSwitcher
@@ -2117,13 +2246,13 @@ function HostLobby({
         tableReady={false}
       />
       <header className="lobby-heading">
-        <p className="section-label">Join window</p>
-        <h1>Waiting for players</h1>
+        <p className="section-label">{t("Join window")}</p>
+        <h1>{t("Waiting for players")}</h1>
         <p>
           {runtime.rulesProfile.id === "nlhe-home-v1"
             ? `Digital Chips · ${runtime.rulesProfile.startingStack} starting stack · blinds ${runtime.rulesProfile.smallBlind}/${runtime.rulesProfile.bigBlind}. `
-            : "Physical Chips · deal-only mode. "}
-          Deal when at least two player seats have joined.
+            : `${t("Physical Chips · deal-only mode.")} `}
+          {t("Deal when at least two player seats have joined.")}
         </p>
       </header>
       <div className="lobby-grid">
@@ -2144,8 +2273,9 @@ function HostLobby({
       ) : null}
       <footer className="lobby-footer">
         <p>
-          New players who join after dealing wait for the next hand. Keep this
-          browser open as the Trusted Host.
+          {t(
+            "New players who join after dealing wait for the next hand. Keep this browser open as the Trusted Host.",
+          )}
         </p>
         <button
           className="button button--primary"
@@ -2154,7 +2284,7 @@ function HostLobby({
           onClick={() => void start()}
           type="button"
         >
-          {busy ? "Committing first hand…" : "Deal first hand"}
+          {busy ? t("Committing first hand…") : t("Deal first hand")}
         </button>
       </footer>
     </main>
@@ -2234,6 +2364,7 @@ function HostTable({
   readonly onViewChange: (view: HostDeviceView) => void;
   readonly runtime: HostTableRuntime;
 }) {
+  const { t } = useLanguage();
   const snapshot = useHostSnapshot(runtime);
   const [busy, setBusy] = useState(false);
   const actionGuard = useDealerActionGuard();
@@ -2270,7 +2401,7 @@ function HostTable({
         setError(
           caught instanceof Error
             ? caught.message
-            : "The table did not advance.",
+            : t("The table did not advance."),
         );
       })
       .finally(() => setBusy(false));
@@ -2286,7 +2417,7 @@ function HostTable({
         setError(
           caught instanceof Error
             ? caught.message
-            : "The table did not advance.",
+            : t("The table did not advance."),
         );
       },
     );
@@ -2376,16 +2507,16 @@ function HostTable({
       />
       {adminOpen && activeView === "host" ? (
         <aside
-          aria-label="Player administration"
+          aria-label={t("Player administration")}
           className="admin-drawer"
           data-admin-focus={adminFocus}
-          data-runtime={isAirplaneMode() ? "airplane" : "normal"}
+          data-runtime={isAirplaneMode() ? "airplane" : "table-side"}
           ref={adminDrawerRef}
         >
           <header>
             <div>
-              <p className="section-label">Off-table controls</p>
-              <h2>Players</h2>
+              <p className="section-label">{t("Off-table controls")}</p>
+              <h2>{t("Players")}</h2>
             </div>
             <div className="admin-drawer__header-actions">
               {!isAirplaneMode() && adminFocus === "players" ? (
@@ -2396,11 +2527,11 @@ function HostTable({
                   onClick={() => void onDissolve()}
                   type="button"
                 >
-                  Dissolve table
+                  {t("Dissolve table")}
                 </button>
               ) : null}
               <button
-                aria-label="Close player administration"
+                aria-label={t("Close player administration")}
                 data-qa-control="administration-close"
                 onClick={() => setAdminOpen(false)}
                 type="button"
@@ -2468,6 +2599,7 @@ function TableThemePicker({
   readonly onChange: (theme: TableTheme) => void;
   readonly value: TableTheme;
 }) {
+  const { t } = useLanguage();
   const themes: readonly { readonly id: TableTheme; readonly label: string }[] =
     [
       { id: "dark-green", label: "Dark Green" },
@@ -2479,9 +2611,9 @@ function TableThemePicker({
       className="admin-section theme-picker"
       aria-labelledby="theme-title"
     >
-      <p className="section-label">Appearance</p>
-      <h3 id="theme-title">Table theme</h3>
-      <p>Synced to every phone and display at this table.</p>
+      <p className="section-label">{t("Appearance")}</p>
+      <h3 id="theme-title">{t("Table theme")}</h3>
+      <p>{t("Synced to every phone and display at this table.")}</p>
       <div className="theme-picker__options">
         {themes.map((theme) => (
           <button
@@ -2495,7 +2627,7 @@ function TableThemePicker({
             type="button"
           >
             <span aria-hidden="true" />
-            {theme.label}
+            {t(theme.label)}
           </button>
         ))}
       </div>
@@ -2523,6 +2655,7 @@ function LeaveTableDialog({
   readonly onConfirm: () => void;
   readonly tableTheme: TableTheme;
 }) {
+  const { t } = useLanguage();
   return (
     <div
       className="confirm-backdrop"
@@ -2535,11 +2668,12 @@ function LeaveTableDialog({
         className="confirm-dialog"
         role="dialog"
       >
-        <p className="section-label">Permanent on this seat</p>
-        <h2 id="leave-table-title">Leave this table?</h2>
+        <p className="section-label">{t("Permanent on this seat")}</p>
+        <h2 id="leave-table-title">{t("Leave this table?")}</h2>
         <p>
-          This seat credential will be revoked and cannot reconnect. The host
-          can keep the empty seat for history or replace its device.
+          {t(
+            "This seat credential will be revoked and cannot reconnect. The host can keep the empty seat for history or replace its device.",
+          )}
         </p>
         <div className="button-row">
           <button
@@ -2550,7 +2684,7 @@ function LeaveTableDialog({
             onClick={onCancel}
             type="button"
           >
-            Stay at table
+            {t("Stay at table")}
           </button>
           <button
             className="button button--danger"
@@ -2559,7 +2693,7 @@ function LeaveTableDialog({
             onClick={onConfirm}
             type="button"
           >
-            {busy ? "Leaving…" : "Leave permanently"}
+            {busy ? t("Leaving…") : t("Leave permanently")}
           </button>
         </div>
       </section>
@@ -2574,6 +2708,7 @@ function PlayerExperience({
   readonly manageLifecycle?: boolean;
   readonly runtime: TableClientRuntime;
 }) {
+  const { t } = useLanguage();
   const snapshot = useClientSnapshot(runtime);
   const playerProjection =
     snapshot.projection?.view === "seat" ? snapshot.projection : undefined;
@@ -2726,27 +2861,36 @@ function PlayerExperience({
     return (
       <main className="join-shell">
         <BrandBar
-          aside={<span className="secure-label">Encrypted invitation</span>}
+          aside={
+            <>
+              <LanguageSwitch compact />
+              <span className="secure-label">{t("Encrypted invitation")}</span>
+            </>
+          }
         />
         <section className="join-card" aria-labelledby="join-title">
-          <p className="section-label">Player seat</p>
-          <h1 id="join-title">Join this table</h1>
-          <p>Your name is only a label at this table. It is not an account.</p>
+          <p className="section-label">{t("Player seat")}</p>
+          <h1 id="join-title">{t("Join this table")}</h1>
+          <p>
+            {t(
+              "Your name is only a label at this table. It is not an account.",
+            )}
+          </p>
           <form onSubmit={(event) => void join(event)}>
             <label>
-              <span>Display name</span>
+              <span>{t("Display name")}</span>
               <input
                 autoComplete="nickname"
                 autoFocus
                 maxLength={
-                  isAirplaneMode() ? 40 : NORMAL_DISPLAY_NAME_MAX_LENGTH
+                  isAirplaneMode() ? 40 : TABLE_SIDE_DISPLAY_NAME_MAX_LENGTH
                 }
                 onChange={(event) => setDisplayName(event.target.value)}
                 value={displayName}
               />
               {!isAirplaneMode() ? (
                 <small>
-                  Up to 24 characters keeps the table display readable.
+                  {t("Up to 24 characters keeps the table display readable.")}
                 </small>
               ) : null}
             </label>
@@ -2761,7 +2905,7 @@ function PlayerExperience({
               disabled={!displayName.trim() || busy}
               type="submit"
             >
-              {busy ? "Taking seat…" : "Join table"}
+              {busy ? t("Taking seat…") : t("Join table")}
             </button>
           </form>
         </section>
@@ -2773,10 +2917,10 @@ function PlayerExperience({
     return (
       <main className="message-shell">
         <section>
-          <p className="section-label">Invitation unavailable</p>
-          <h1>This seat could not be opened</h1>
+          <p className="section-label">{t("Invitation unavailable")}</p>
+          <h1>{t("This seat could not be opened")}</h1>
           <p>
-            {snapshot.error ?? "Ask the host for a fresh player invitation."}
+            {snapshot.error ?? t("Ask the host for a fresh player invitation.")}
           </p>
         </section>
       </main>
@@ -2799,7 +2943,7 @@ function PlayerExperience({
               ? snapshot.seat.displayPosition + 1
               : ""}
           </p>
-          <h1>You have a seat</h1>
+          <h1>{t("You have a seat")}</h1>
           <p>
             {stayingOutNextHand
               ? `${snapshot.seat?.displayName}, you are sitting out. Return now to be eligible for the next hand.`
@@ -2810,10 +2954,10 @@ function PlayerExperience({
           <span className="waiting-line">
             <i />{" "}
             {stayingOutNextHand
-              ? "Sitting out"
+              ? t("Sitting out")
               : returningNextHand
-                ? "Ready for next hand"
-                : "Waiting for the deal"}
+                ? t("Ready for next hand")
+                : t("Waiting for the deal")}
           </span>
           {(error ?? snapshot.error) ? (
             <p className="inline-warning" role="alert">
@@ -2831,7 +2975,7 @@ function PlayerExperience({
                 }
                 type="button"
               >
-                Return for next hand
+                {t("Return for next hand")}
               </button>
             ) : null}
             <button
@@ -2841,7 +2985,7 @@ function PlayerExperience({
               onClick={() => void reconnect()}
               type="button"
             >
-              Refresh table status
+              {t("Refresh table status")}
             </button>
             <button
               className="waiting-seat-leave"
@@ -2850,7 +2994,7 @@ function PlayerExperience({
               onClick={() => setLeaveConfirmOpen(true)}
               type="button"
             >
-              Leave table permanently
+              {t("Leave table permanently")}
             </button>
           </div>
         </section>
@@ -2908,6 +3052,7 @@ function PlayerExperience({
 }
 
 function RoleExperience({ runtime }: { readonly runtime: TableClientRuntime }) {
+  const { t } = useLanguage();
   const snapshot = useClientSnapshot(runtime);
   const joinStarted = useRef(false);
   const actionGuard = useDealerActionGuard();
@@ -2973,8 +3118,10 @@ function RoleExperience({ runtime }: { readonly runtime: TableClientRuntime }) {
       <main className="message-shell">
         <section>
           <p className="section-label">{label}</p>
-          <h1>This room surface could not be opened</h1>
-          <p>{error ?? snapshot.error ?? "Ask the host for a fresh link."}</p>
+          <h1>{t("This room surface could not be opened")}</h1>
+          <p>
+            {error ?? snapshot.error ?? t("Ask the host for a fresh link.")}
+          </p>
           <button
             className="button button--primary"
             data-qa-control="role-reconnect-error"
@@ -2990,7 +3137,7 @@ function RoleExperience({ runtime }: { readonly runtime: TableClientRuntime }) {
             }}
             type="button"
           >
-            Reconnect to table
+            {t("Reconnect to table")}
           </button>
         </section>
       </main>
@@ -3002,10 +3149,12 @@ function RoleExperience({ runtime }: { readonly runtime: TableClientRuntime }) {
       <main className="message-shell">
         <section>
           <p className="section-label">{label}</p>
-          <h1>Connecting to the table</h1>
-          <p>The public board will appear when the Trusted Host responds.</p>
+          <h1>{t("Connecting to the table")}</h1>
+          <p>
+            {t("The public board will appear when the Trusted Host responds.")}
+          </p>
           <span className="waiting-line">
-            <i /> Waiting for the host
+            <i /> {t("Waiting for the host")}
           </span>
         </section>
       </main>
@@ -3065,8 +3214,10 @@ function AirplaneJoin({
   readonly onCancel: () => void;
   readonly onReady: (runtime: TableClientRuntime) => void;
 }) {
+  const { setLanguage, t } = useLanguage();
   const [pairing, setPairing] = useState<{
     readonly answerCode: string;
+    readonly presentationLanguage?: "en" | "zh";
     readonly runtime: TableClientRuntime;
   }>();
   const [displayName, setDisplayName] = useState("");
@@ -3080,7 +3231,11 @@ function AirplaneJoin({
     setBusy(true);
     setError(undefined);
     try {
-      setPairing(await TableClientRuntime.fromAirplaneOffer(code));
+      const accepted = await TableClientRuntime.fromAirplaneOffer(code);
+      if (!readStoredLanguage() && accepted.presentationLanguage) {
+        setLanguage(accepted.presentationLanguage);
+      }
+      setPairing(accepted);
     } catch (caught) {
       setError(
         caught instanceof Error
@@ -3115,18 +3270,29 @@ function AirplaneJoin({
   return (
     <main className="airplane-join-shell">
       <BrandBar
-        aside={<span className="secure-label">No internet mode</span>}
+        aside={
+          <div className="brand-bar__actions">
+            <LanguageSwitch compact />
+            <span className="secure-label">{t("No internet mode")}</span>
+          </div>
+        }
       />
       <section className="airplane-join-card">
         <div>
-          <p className="section-label">Airplane pairing</p>
+          <p className="section-label">{t("Airplane pairing")}</p>
           <h1>
-            {pairing ? "Show the answer to the host" : "Scan the host offer"}
+            {pairing
+              ? t("Show the answer to the host")
+              : t("Scan the host offer")}
           </h1>
           <p>
             {pairing
-              ? "The host scans this answer on their device. Then join over the direct local WebRTC channel."
-              : "Point this device's camera at the offer QR shown by the Trusted Host. It is decoded only on this device."}
+              ? t(
+                  "The host scans this answer on their device. Then join over the direct local WebRTC channel.",
+                )
+              : t(
+                  "Point this device's camera at the offer QR shown by the Trusted Host. It is decoded only on this device.",
+                )}
           </p>
         </div>
         <div className="airplane-join-card__pairing">
@@ -3143,14 +3309,14 @@ function AirplaneJoin({
               onClick={() => setScannerOpen(true)}
               type="button"
             >
-              <span>{busy ? "Reading QR…" : "Scan host offer QR"}</span>
-              <small>Opens the camera</small>
+              <span>{busy ? t("Reading QR…") : t("Scan host offer QR")}</span>
+              <small>{t("Opens the camera")}</small>
             </button>
           )}
         </div>
         {pairing?.runtime.role === "player" ? (
           <label className="airplane-name-field">
-            <span>Display name</span>
+            <span>{t("Display name")}</span>
             <input
               autoComplete="nickname"
               maxLength={40}
@@ -3174,7 +3340,7 @@ function AirplaneJoin({
             }}
             type="button"
           >
-            Cancel
+            {t("Cancel")}
           </button>
           {pairing ? (
             <button
@@ -3187,14 +3353,14 @@ function AirplaneJoin({
               onClick={() => void join()}
               type="button"
             >
-              {busy ? "Connecting…" : "Join after host scans"}
+              {busy ? t("Connecting…") : t("Join after host scans")}
             </button>
           ) : null}
         </div>
       </section>
       {scannerOpen ? (
         <QrCameraScanner
-          label="Scan host offer QR"
+          label={t("Scan host offer QR")}
           onClose={() => setScannerOpen(false)}
           onCode={(code) => {
             setScannerOpen(false);
@@ -3206,15 +3372,16 @@ function AirplaneJoin({
   );
 }
 
-function NormalDisplayJoin({
+function TableSideDisplayJoin({
   onCancel,
   onReady,
 }: {
   readonly onCancel: () => void;
   readonly onReady: (runtime: TableClientRuntime) => void;
 }) {
+  const { t } = useLanguage();
   const [error, setError] = useState<string>();
-  const [pairing, setPairing] = useState<NormalDisplayPairingRequest>();
+  const [pairing, setPairing] = useState<TableSideDisplayPairingRequest>();
 
   useEffect(
     () => () => {
@@ -3227,7 +3394,7 @@ function NormalDisplayJoin({
     pairing?.cancel();
     setError(undefined);
     try {
-      const request = createNormalDisplayPairingRequest(role);
+      const request = createTableSideDisplayPairingRequest(role);
       setPairing(request);
       void request.waitForInvitation().then(
         (details) => onReady(TableClientRuntime.fromInvitation(details)),
@@ -3251,17 +3418,25 @@ function NormalDisplayJoin({
   const label = pairing?.role === "tv" ? "TV" : "Public Table";
   return (
     <main className="airplane-join-shell">
-      <BrandBar aside={<span className="build-label">Normal pairing</span>} />
+      <BrandBar
+        aside={<span className="build-label">{t("Table-side pairing")}</span>}
+      />
       <section className="airplane-join-card">
         <div>
-          <p className="section-label">Display pairing</p>
+          <p className="section-label">{t("Display pairing")}</p>
           <h1>
-            {pairing ? `Show this ${label} request` : "Pair this display"}
+            {pairing
+              ? `${t("Show this")} ${t(label)} ${t("request")}`
+              : t("Pair this display")}
           </h1>
           <p>
             {pairing
-              ? "Show this short-lived request to the host. It can only become the role chosen below after the host scans it."
-              : "Choose a public display role. A dealer tablet always needs its own explicit invitation."}
+              ? t(
+                  "Show this short-lived request to the host. It can only become the role chosen below after the host scans it.",
+                )
+              : t(
+                  "Choose a public display role. A dealer tablet always needs its own explicit invitation.",
+                )}
           </p>
         </div>
         {pairing ? (
@@ -3271,7 +3446,7 @@ function NormalDisplayJoin({
               value={pairing.code}
             />
             <span className="waiting-line">
-              <i /> Waiting for the host scan
+              <i /> {t("Waiting for the host scan")}
             </span>
           </div>
         ) : null}
@@ -3290,7 +3465,7 @@ function NormalDisplayJoin({
             }}
             type="button"
           >
-            Cancel
+            {t("Cancel")}
           </button>
           <button
             className="button button--quiet"
@@ -3298,7 +3473,7 @@ function NormalDisplayJoin({
             onClick={() => prepare("public-table")}
             type="button"
           >
-            Pair as Public Table
+            {t("Pair as Public Table")}
           </button>
           <button
             className="button button--primary"
@@ -3306,7 +3481,7 @@ function NormalDisplayJoin({
             onClick={() => prepare("tv")}
             type="button"
           >
-            Pair as TV
+            {t("Pair as TV")}
           </button>
         </div>
       </section>
@@ -3314,7 +3489,8 @@ function NormalDisplayJoin({
   );
 }
 
-export function App() {
+function AppContent() {
+  const { setLanguage, t } = useLanguage();
   const initialRoute = useMemo(
     () => ({
       clientRecovery: parseClientRecovery(globalThis.location.hash),
@@ -3342,7 +3518,8 @@ export function App() {
   );
   const [bootError, setBootError] = useState<string>();
   const [airplaneJoinOpen, setAirplaneJoinOpen] = useState(false);
-  const [normalDisplayJoinOpen, setNormalDisplayJoinOpen] = useState(false);
+  const [tableSideDisplayJoinOpen, setTableSideDisplayJoinOpen] =
+    useState(false);
 
   useEffect(() => {
     if (initialRoute.invitation) return;
@@ -3568,12 +3745,12 @@ export function App() {
       />
     );
   }
-  if (normalDisplayJoinOpen) {
+  if (tableSideDisplayJoinOpen) {
     return (
-      <NormalDisplayJoin
-        onCancel={() => setNormalDisplayJoinOpen(false)}
+      <TableSideDisplayJoin
+        onCancel={() => setTableSideDisplayJoinOpen(false)}
         onReady={(runtime) => {
-          setNormalDisplayJoinOpen(false);
+          setTableSideDisplayJoinOpen(false);
           setClientRuntime(runtime);
         }}
       />
@@ -3583,9 +3760,11 @@ export function App() {
     return (
       <main className="message-shell">
         <section>
-          <p className="section-label">Encrypted recovery</p>
-          <h1>Restoring this table</h1>
-          <p>Validating the last committed state and exclusive authority…</p>
+          <p className="section-label">{t("Encrypted recovery")}</p>
+          <h1>{t("Restoring this table")}</h1>
+          <p>
+            {t("Validating the last committed state and exclusive authority…")}
+          </p>
         </section>
       </main>
     );
@@ -3594,8 +3773,8 @@ export function App() {
     return (
       <main className="message-shell">
         <section>
-          <p className="section-label">Recovery stopped safely</p>
-          <h1>This saved table cannot be opened</h1>
+          <p className="section-label">{t("Recovery stopped safely")}</p>
+          <h1>{t("This saved table cannot be opened")}</h1>
           <p>{bootError}</p>
           <button
             className="button button--quiet"
@@ -3607,7 +3786,7 @@ export function App() {
             }}
             type="button"
           >
-            Return home
+            {t("Return home")}
           </button>
         </section>
       </main>
@@ -3623,6 +3802,10 @@ export function App() {
       }}
       onJoinSession={(rawUrl) => {
         const url = new URL(rawUrl);
+        if (!readStoredLanguage()) {
+          const invitedLanguage = languageFromUrl(url.toString());
+          if (invitedLanguage) setLanguage(invitedLanguage);
+        }
         const invitation = parseInvitation(url.hash);
         if (!invitation) {
           throw new Error("The invitation URL is incomplete.");
@@ -3636,9 +3819,17 @@ export function App() {
       {...(isAirplaneMode()
         ? { onJoinAirplane: () => setAirplaneJoinOpen(true) }
         : {})}
-      {...(!isAirplaneMode() && normalDisplayPairingIsConfigured()
-        ? { onPairDisplay: () => setNormalDisplayJoinOpen(true) }
+      {...(!isAirplaneMode() && tableSideDisplayPairingIsConfigured()
+        ? { onPairDisplay: () => setTableSideDisplayJoinOpen(true) }
         : {})}
     />
+  );
+}
+
+export function App() {
+  return (
+    <LanguageProvider>
+      <AppContent />
+    </LanguageProvider>
   );
 }

@@ -156,7 +156,7 @@ test("standalone artifact boots from file with no external request", async ({
     "<title>Our Poker Table Airplane — Standalone digital dealer</title>",
   );
   // Airplane is deliberately the compact Four Colour build. Court artwork and
-  // Normal Mode's appearance picker must not be carried in this standalone
+  // Table-side Mode's appearance picker must not be carried in this standalone
   // file merely because the runtime hides them.
   expect(source).not.toContain("data-court-rank");
   expect(source).not.toContain("Deck appearance");
@@ -307,6 +307,28 @@ test("joining device scans the host offer with the live camera", async ({
     .toBe(1);
   await expect(
     player.getByRole("button", { name: "Use a saved QR image" }),
+  ).toBeVisible();
+});
+
+test("scanner explains when this browser has no camera API", async ({
+  context,
+}) => {
+  await context.addInitScript(() => {
+    Object.defineProperty(globalThis.navigator, "mediaDevices", {
+      configurable: true,
+      value: undefined,
+    });
+  });
+  const player = await openAirplanePage(context);
+  await player.getByRole("button", { name: "Join an Airplane table" }).click();
+  await player.getByRole("button", { name: "Scan host offer QR" }).click();
+
+  const scanner = player.getByRole("dialog", { name: "Scan host offer QR" });
+  await expect(scanner).toContainText(
+    "This browser cannot open a camera from this file. Use a saved QR image instead.",
+  );
+  await expect(
+    scanner.getByRole("button", { name: "Use a saved QR image" }),
   ).toBeVisible();
 });
 

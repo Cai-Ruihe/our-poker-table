@@ -114,7 +114,7 @@ The first Phase 2 profile should be a single-table home session with play-chip u
 
 **Facts**
 
-- Normal Mode can connect devices that are not on one Wi-Fi network.
+- Table-side Mode can connect devices that are not on one Wi-Fi network.
 - Phase 1 still relies on physical betting and an in-room settlement conversation.
 - A remote Public Table View is already reserved for Phase 2, but it is read-only and contains no private cards.
 

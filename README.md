@@ -11,7 +11,7 @@
 </p>
 
 <p align="center">
-  <a href="https://ourpokertable.com/normal/"><strong>Open Normal Mode</strong></a>
+  <a href="https://ourpokertable.com/table-side/"><strong>Open Table-side Mode</strong></a>
   &nbsp;&nbsp;·&nbsp;&nbsp;
   <a href="#run-your-own-table">Run your own table</a>
   &nbsp;&nbsp;·&nbsp;&nbsp;
@@ -66,17 +66,17 @@ bit of technology that lets the room play more easily.
 
 ## Start a proper table in three moves.
 
-1. **Open [Normal Mode](https://ourpokertable.com/normal/) on the browser you trust to host the game.** It checks the browser before any cards are dealt.
+1. **Open [Table-side Mode](https://ourpokertable.com/table-side/) on the browser you trust to host the game.** It checks the browser before any cards are dealt.
 2. **Share the one-use invitation.** Each player opens it on their own phone; the host places everyone at the physical table.
 3. **Put the board where the room can see it.** Join a tablet, TV, or public display, then deal while the chips stay on the table.
 
 <table>
   <tr>
     <td width="50%" valign="top">
-      <h3>Normal Mode</h3>
+      <h3>Table-side Mode</h3>
       For the ordinary hosted game: QR or invitation links, direct browser connections where possible, then the deployer's card-blind Cloudflare relay and Mac fallback when needed.
       <br><br>
-      <a href="https://ourpokertable.com/normal/"><strong>Open Normal Mode →</strong></a>
+      <a href="https://ourpokertable.com/table-side/"><strong>Open Table-side Mode →</strong></a>
     </td>
     <td width="50%" valign="top">
       <h3>Airplane Mode</h3>
@@ -92,7 +92,7 @@ bit of technology that lets the room play more easily.
 - **Play chips only.** No money, payments, cash-out, rake, gambling accounts, or public matchmaking.
 - **A Trusted Host, honestly named.** The active host is the Phase 1 game authority and can inspect the active deck by design.
 - **Card privacy is the floor.** Other players, public displays, diagnostics, and the Connection Service do not receive unrevealed cards.
-- **No compulsory service.** Normal Mode has deployer-owned connectivity routes; Airplane Mode remains a standalone local fallback.
+- **No compulsory service.** Table-side Mode has deployer-owned connectivity routes; Airplane Mode remains a standalone local fallback.
 
 <p align="center">
   <img src="assets/product/phase-1/public-table-black-gold.png" alt="Our Poker Table public table in Black Gold" width="49%">
@@ -104,7 +104,7 @@ bit of technology that lets the room play more easily.
 ## Run your own table
 
 The project is built to remain portable. The public site is a convenient field
-build, not a mandatory poker platform. Operators can host the static Normal
+build, not a mandatory poker platform. Operators can host the static Table-side
 build, bring their own connection service, or preload the Airplane artifact.
 
 ```sh
@@ -112,21 +112,21 @@ pnpm install --frozen-lockfile
 pnpm dev
 ```
 
-Requires Node.js 24 and pnpm 11. For a multi-device game, follow the [Normal
-Mode guide](docs/operations/NORMAL-MODE.md) or the [self-hosting guide](docs/operations/NORMAL-MODE-SELF-HOSTING.md). For the standalone build:
+Requires Node.js 24 and pnpm 11. For a multi-device game, follow the [Table-side
+Mode guide](docs/operations/TABLE-SIDE-MODE.md) or the [self-hosting guide](docs/operations/TABLE-SIDE-MODE-SELF-HOSTING.md). For the standalone build:
 
 ```sh
 pnpm build
 ```
 
-- `dist/normal/` is the static Normal Mode build.
+- `dist/table-side/` is the internal static build directory for Table-side Mode.
 - `dist/airplane/poker-airplane.html` is the standalone Airplane file.
 
 ## Project status, without the smoke.
 
 **Phase 1 is the current product:** a Trusted-Host digital dealer for 2–10
 players with private phone hands, public screens, guarded hand controls,
-reconnect/replacement flows, and Normal plus Airplane routes.
+reconnect/replacement flows, and Table-side plus Airplane routes.
 
 **Digital Chips is experimental:** the two-player tracer can prove a narrow
 play-chip hand, but multiway hardening, side pots, re-entry, full device
@@ -147,7 +147,7 @@ For security concerns, use the repository's [security policy](SECURITY.md).
 ## For builders
 
 - [Master PRD](docs/prd/MASTER-PRD.md) and [Phase 1 PRD](docs/prd/phases/P1-TRUSTED-HOST-DEALER.md)
-- [Normal Mode operations](docs/operations/NORMAL-MODE.md) and [Airplane Mode operations](docs/operations/AIRPLANE-MODE.md)
+- [Table-side Mode operations](docs/operations/TABLE-SIDE-MODE.md) and [Airplane Mode operations](docs/operations/AIRPLANE-MODE.md)
 - [Architecture](docs/architecture/PHASE-1-RUNTIME.md), [quality system](docs/quality/QA-SYSTEM.md), and [release checklist](docs/releasing/RELEASE-CHECKLIST.md)
 - [Contributing](CONTRIBUTING.md), [Governance](GOVERNANCE.md), and [licensing](LICENSE)
 

@@ -1,8 +1,8 @@
 # Open vector playing-card asset survey
 
-**Status:** adopted for Normal Mode. The reviewed RevK-derived Classic and Four
+**Status:** adopted for Table-side Mode. The reviewed RevK-derived Classic and Four
 Colour face sets are vendored under `assets/skins/revk-card-sets/` and copied
-into the Normal release artifact; the product has no runtime dependency on the
+into the Table-side release artifact; the product has no runtime dependency on the
 upstream site. Airplane Mode does not consume these assets.
 
 ## Purpose
@@ -35,7 +35,7 @@ Apache-2.0 open-source project.
 3. Only after visual approval, vendor the selected SVGs into a named
    `third_party` asset directory, preserve the upstream license/provenance, add
    a notice, and test the Classic/Four Colour appearance switch. Do not load
-   card faces from a remote CDN: Normal Mode should remain usable when the
+   card faces from a remote CDN: Table-side Mode should remain usable when the
    internet is unavailable after the app loads.
 
 ## License boundary
@@ -61,7 +61,7 @@ traditional court artwork. OpenDecks is the best packaged fallback.
 
 - Whether its exact court illustration aesthetic meets the product’s visual
   standard on an iPad and Android phone.
-- Whether every SVG is compact enough for the Normal Mode bundle and whether
+- Whether every SVG is compact enough for the Table-side Mode bundle and whether
   selective loading is needed.
 - Whether every upstream-provenance statement holds on inspection; this survey
   relies on the repositories’ own license declarations and is not legal advice.

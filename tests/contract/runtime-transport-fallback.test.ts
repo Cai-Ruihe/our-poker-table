@@ -7,7 +7,7 @@ import {
   type RoomRoute,
 } from "../../apps/web/src/runtime";
 
-describe("Normal Mode runtime serial relay fallback", () => {
+describe("Table-side Mode runtime serial relay fallback", () => {
   it("reuses one messageId when a receipt-delayed relay is retried", async () => {
     const message = {
       kind: "table-changed",
@@ -35,7 +35,7 @@ describe("Normal Mode runtime serial relay fallback", () => {
   });
 });
 
-describe("Normal Mode player projection ordering", () => {
+describe("Table-side Mode player projection ordering", () => {
   it("does not let a delayed older projection overwrite the newest table revision", () => {
     expect(acceptsProjectionRevision(undefined, 3)).toBe(true);
     expect(acceptsProjectionRevision(3, 3)).toBe(true);
