@@ -9,7 +9,7 @@ workers_dev = true
 # The operator token is a Wrangler secret, never a repository variable here:
 #   wrangler secret put RELAY_OPERATOR_TOKEN
 [vars]
-RELAY_ALLOWED_ORIGIN = "https://cai-ruihe.github.io"
+RELAY_ALLOWED_ORIGIN = "https://ourpokertable.com"
 
 [[durable_objects.bindings]]
 name = "RELAY_HUB"

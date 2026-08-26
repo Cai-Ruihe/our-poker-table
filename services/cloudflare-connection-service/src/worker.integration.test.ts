@@ -4,7 +4,7 @@ import { SELF, env, evictDurableObject } from "cloudflare:test";
 import { beforeEach, describe, expect, it } from "vitest";
 
 const OPERATOR_TOKEN = "local-integration-operator-token";
-const ALLOWED_ORIGIN = "https://cai-ruihe.github.io";
+const ALLOWED_ORIGIN = "https://ourpokertable.com";
 
 type JsonRecord = Record<string, unknown>;
 
