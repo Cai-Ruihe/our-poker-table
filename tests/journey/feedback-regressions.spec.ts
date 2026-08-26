@@ -112,7 +112,10 @@ async function screenshotIfChromium(
 ): Promise<void> {
   if (testInfo.project.name !== "chromium") return;
   await page.evaluate(async () => document.fonts.ready);
-  await expect(page).toHaveScreenshot(`${name}.png`, {
+  // Keep exercising the remaining controls when one visual baseline differs.
+  // The test still fails at completion, but CI retains every actual image for
+  // one evidence-driven baseline review instead of hiding later regressions.
+  await expect.soft(page).toHaveScreenshot(`${name}.png`, {
     animations: "disabled",
     fullPage: true,
   });
@@ -141,7 +144,8 @@ async function screenshotEveryProject(page: Page, name: string): Promise<void> {
     await testInfo.attach(name, { contentType: "image/png", path });
     return;
   }
-  await expect(page).toHaveScreenshot(`${name}.png`, {
+  // See screenshotIfChromium: collect all visual mismatches in one CI run.
+  await expect.soft(page).toHaveScreenshot(`${name}.png`, {
     animations: "disabled",
     fullPage: true,
   });

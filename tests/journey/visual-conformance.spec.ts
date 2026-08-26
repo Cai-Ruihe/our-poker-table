@@ -303,7 +303,10 @@ async function screenshotIfChromium(
         requestAnimationFrame(() => requestAnimationFrame(() => resolve())),
       ),
   );
-  await expect(page).toHaveScreenshot(`${name}.png`, {
+  // Continue through every quick-control state after a baseline mismatch so
+  // one CI artifact contains the complete review set. Soft failures still
+  // fail the test after the behavior and geometry checks have run.
+  await expect.soft(page).toHaveScreenshot(`${name}.png`, {
     animations: "disabled",
     fullPage: false,
   });
