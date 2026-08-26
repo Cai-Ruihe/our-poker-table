@@ -652,19 +652,26 @@ test("Phone host cards stay compact while Table View shown cards are full, and s
 
   const miniHand = host.locator(".mini-hand").filter({ hasText: "" }).first();
   await expect(miniHand.locator(".card--compact")).toHaveCount(2);
-  await expect(miniHand.locator(".card--best")).toHaveCount(1);
-  await expect(miniHand.locator(".card--unused")).toHaveCount(1);
-  const selectedHoleOpacity = Number.parseFloat(
-    await miniHand
-      .locator(".card--best")
-      .evaluate((element) => getComputedStyle(element).opacity),
-  );
+  // This deterministic deal uses both of the winner's private cards. Both
+  // remain selected while the two non-best board cards still fade.
+  await expect(miniHand.locator(".card--best")).toHaveCount(2);
+  await expect(miniHand.locator(".card--unused")).toHaveCount(0);
+  const selectedHoleOpacities = await miniHand
+    .locator(".card--best")
+    .evaluateAll((elements) =>
+      elements.map((element) =>
+        Number.parseFloat(getComputedStyle(element).opacity),
+      ),
+    );
   const unusedHoleOpacity = Number.parseFloat(
-    await miniHand
+    await host
       .locator(".card--unused")
+      .first()
       .evaluate((element) => getComputedStyle(element).opacity),
   );
-  expect(selectedHoleOpacity).toBeGreaterThan(unusedHoleOpacity);
+  for (const selectedHoleOpacity of selectedHoleOpacities) {
+    expect(selectedHoleOpacity).toBeGreaterThan(unusedHoleOpacity);
+  }
   const compactCards = await miniHand.locator(".card--compact").all();
   const compactBoxes = await Promise.all(
     compactCards.map((card) => card.boundingBox()),

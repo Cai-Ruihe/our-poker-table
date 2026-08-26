@@ -241,20 +241,15 @@ test("the hero stages the shared table as an iPad with a player phone and physic
 test("each stacked chip face projects toward the visual centre of the hero scene", async ({
   page,
 }) => {
-  await page.goto("/intro/");
-
   const chipSelector =
     "[data-play-scene] [data-hero-chip-artwork]:not(.hero__chip-artwork--blue)";
-  const localVectors = await page.locator(chipSelector).evaluateAll((chips) =>
-    chips.map(() => ({
-      x: 0,
-      y: -1,
-    })),
-  );
+  for (const width of [
+    1024, 1366, 1800, 2048, 320, 390, 600, 720, 721, 850, 1051,
+  ]) {
+    await page.setViewportSize({ height: 1100, width });
+    await page.goto("/intro/");
 
-  const alignment = await page
-    .locator(chipSelector)
-    .evaluateAll((chips, projectionVectors) => {
+    const alignment = await page.locator(chipSelector).evaluateAll((chips) => {
       const scene = chips[0]?.closest("[data-play-scene]");
       if (!(scene instanceof HTMLElement)) {
         throw new Error("Expected the hero play scene");
@@ -266,18 +261,14 @@ test("each stacked chip face projects toward the visual centre of the hero scene
         y: sceneBox.top + sceneBox.height / 2,
       };
 
-      return chips.map((chip, index) => {
+      return chips.map((chip) => {
         if (!(chip instanceof HTMLImageElement)) {
           throw new Error("Expected a static chip image");
         }
-        const localVector = projectionVectors[index];
-        if (!localVector) {
-          throw new Error("Expected a projection vector for every chip");
-        }
         const matrix = new DOMMatrix(getComputedStyle(chip).transform);
         const projectedVector = {
-          x: matrix.a * localVector.x + matrix.c * localVector.y,
-          y: matrix.b * localVector.x + matrix.d * localVector.y,
+          x: -matrix.c,
+          y: -matrix.d,
         };
         const chipBox = chip.getBoundingClientRect();
         const targetVector = {
@@ -293,10 +284,11 @@ test("each stacked chip face projects toward the visual centre of the hero scene
 
         return dot / magnitude;
       });
-    }, localVectors);
+    });
 
-  for (const cosine of alignment) {
-    expect(cosine).toBeGreaterThanOrEqual(0.95);
+    for (const cosine of alignment) {
+      expect(cosine).toBeGreaterThanOrEqual(0.999);
+    }
   }
 });
 

@@ -341,6 +341,10 @@ test("Tablet quiet and quick-control states conform to approved geometry", async
   context,
   page: host,
 }, testInfo) => {
+  test.skip(
+    testInfo.project.name !== "chromium",
+    "This fixture measures the landscape Tablet surface; phone-specific layouts have dedicated player-mode journeys.",
+  );
   await installDeterministicEntropy(host);
   await createTable(host, context);
   for (const actionName of [

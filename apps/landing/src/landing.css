@@ -450,7 +450,8 @@ h1 [data-lang="zh"] {
 .hero__scene {
   position: relative;
   width: min(100%, 56rem);
-  min-height: clamp(26rem, 40vw, 43rem);
+  height: clamp(26rem, 40vw, 43rem);
+  container-type: size;
   overflow: visible;
 }
 
@@ -616,16 +617,22 @@ h1 [data-lang="zh"] {
   user-select: none;
 }
 
+/* The generated stacks face upward; aim that axis at the scene centre continuously.
+   The first transform on each stack is the fallback for browsers without CSS trig. */
 .hero__chip-artwork--black {
+  --chip-axis-angle: atan2(42.55cqw, calc(45cqh - 4.5847cqw));
   bottom: 5%;
   left: 1.45%;
   transform: translateY(16.5%) rotate(48deg);
+  transform: translateY(16.5%) rotate(var(--chip-axis-angle));
 }
 
 .hero__chip-artwork--green {
+  --chip-axis-angle: atan2(19.55cqw, calc(33cqh - 4.7925cqw));
   bottom: 17%;
   left: 24.45%;
   transform: translateY(14%) rotate(36deg);
+  transform: translateY(14%) rotate(var(--chip-axis-angle));
 }
 
 .hero__chip-artwork--red {
@@ -1483,7 +1490,7 @@ footer a {
   }
 
   .hero__scene {
-    min-height: clamp(22rem, 84vw, 29rem);
+    height: clamp(22rem, 84vw, 29rem);
   }
 
   .hero__ipad {

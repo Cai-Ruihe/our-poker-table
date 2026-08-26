@@ -159,8 +159,10 @@ test("standalone artifact boots from file with no external request", async ({
   // Table-side Mode's appearance picker must not be carried in this standalone
   // file merely because the runtime hides them.
   expect(source).not.toContain("data-court-rank");
-  expect(source).not.toContain("Deck appearance");
   expect(source).not.toContain("court illustration");
+  await expect(
+    page.getByRole("group", { name: "Deck appearance" }),
+  ).toHaveCount(0);
   expect(await context.cookies()).toEqual([]);
 });
 

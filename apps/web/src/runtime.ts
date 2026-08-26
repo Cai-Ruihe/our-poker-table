@@ -354,10 +354,15 @@ interface LivenessRequestPayload {
   readonly type: "liveness";
 }
 
-interface LivenessResponsePayload {
-  readonly role: CapabilityRole;
-  readonly status: "alive";
-}
+type LivenessResponsePayload =
+  | {
+      readonly role: CapabilityRole;
+      readonly status: "alive";
+    }
+  | {
+      readonly code: string;
+      readonly status: "rejected";
+    };
 
 type CapabilityResponsePayload =
   | {
@@ -3044,15 +3049,11 @@ export class HostTableRuntime {
       clientInstanceId: request.clientInstanceId,
       credentialToken: request.credentialToken,
     });
-    if (authenticated.status === "rejected") return;
-    const response = await seal(
-      secret,
-      {
-        role: authenticated.role,
-        status: "alive",
-      } satisfies LivenessResponsePayload,
-      aad,
-    );
+    const responsePayload: LivenessResponsePayload =
+      authenticated.status === "rejected"
+        ? { code: authenticated.code, status: "rejected" }
+        : { role: authenticated.role, status: "alive" };
+    const response = await seal(secret, responsePayload, aad);
     await this.endpoint.sendOn(
       route,
       {
@@ -4002,7 +4003,13 @@ export class TableClientRuntime {
       message,
       aad,
     );
-    if (response.status !== "alive" || response.role !== this.role) {
+    if (response.status === "rejected") {
+      this.error = response.code;
+      this.status = "rejected";
+      this.emit();
+      return;
+    }
+    if (response.role !== this.role) {
       throw new Error("The Trusted Host liveness response was invalid.");
     }
     this.resetHostLiveness();
@@ -4090,6 +4097,7 @@ export class TableClientRuntime {
         if (!this.recordHostLivenessMiss()) return;
         throw error;
       }
+      if (this.status === "rejected") return;
     }
     await this.capabilityRequest({
       clientInstanceId: this.clientInstanceId,

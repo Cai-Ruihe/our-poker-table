@@ -192,7 +192,7 @@ function Home({
   readonly onJoinSession: (url: string) => void;
   readonly onPairDisplay?: () => void;
 }) {
-  const { t } = useLanguage();
+  const { language, t } = useLanguage();
   const digitalChipsEnabled =
     new URLSearchParams(globalThis.location.search).get("experimental") ===
     "digital-chips";
@@ -282,7 +282,11 @@ function Home({
           <p className="section-label">
             {t("For the table already in front of you")}
           </p>
-          <h1 id="home-title">{t("Deal cards. Keep poker yours.")}</h1>
+          <h1 id="home-title">
+            {language === "zh"
+              ? "发牌交给我，牌局由你掌握"
+              : t("Deal cards. Keep poker yours.")}
+          </h1>
           <p className="home-intro__copy">
             {t(
               "Phones hold private cards. A tablet or TV shows the board. Chips and conversation stay on the physical table.",
@@ -1232,7 +1236,9 @@ function InvitePanel({
         </p>
         <h2>
           {replacementSeat
-            ? `${t("Replace")} ${replacementSeat.displayName} ${t("device")}`
+            ? language === "en"
+              ? `${t("Replace")} ${replacementSeat.displayName}'s ${t("device")}`
+              : `${t("Replace")} ${replacementSeat.displayName} 的${t("device")}`
             : tableSideMode
               ? t("Add a player")
               : t("Other devices join here")}
