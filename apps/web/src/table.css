@@ -579,7 +579,7 @@
 .public-table--quiet .showdown-note {
   position: absolute;
   z-index: 3;
-  top: calc(50% + min(14vw, 15rem));
+  top: calc(50% + min(14vw, 15rem) - 0.5rem);
   left: 50%;
   width: max-content;
   max-width: calc(100% - 3rem);

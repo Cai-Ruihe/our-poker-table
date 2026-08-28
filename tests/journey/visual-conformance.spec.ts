@@ -266,8 +266,13 @@ async function expectRosterMapGeometry(
         Number(seat.getAttribute("data-table-edge-position")),
       ),
     );
-  const expectedPositions = Array.from({ length: expectedCount }, (_, index) =>
-    expectedCount <= 1 ? 5 : Math.round((index * 10) / expectedCount) % 10,
+  // Table-side positions are physical chair numbers. They do not reflow when
+  // only some chairs are occupied, otherwise an existing player would appear
+  // to move when somebody leaves or joins.
+  const physicalChairMap = [0, 5, 2, 7, 1, 3, 4, 6, 8, 9] as const;
+  const expectedPositions = Array.from(
+    { length: expectedCount },
+    (_, index) => physicalChairMap[index] ?? 5,
   );
   expect(actualPositions).toEqual(expectedPositions);
   const upright = await seatButtons.evaluateAll((buttons) =>
