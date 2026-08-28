@@ -2,7 +2,7 @@
 id: PRD-M03
 kind: module
 status: current
-last_reconciled: 2026-08-16
+last_reconciled: 2026-08-28
 decision_ids:
   - PHASE1-TABLE-SIZE
   - GOV-CUSTOM-HOST
@@ -76,6 +76,7 @@ The interface opens/closes invitation scopes, redeems a one-use invitation into 
 - Join invitations bind the active host key independently of signaling. Typed codes/files remain deferred.
 - Joining on the host device redeems the same ordinary one-use Player invitation and creates the same revocable Seat Credential as an external player. The host recovery URL may reference the local player slot, but the credential secret remains in encrypted browser recovery storage.
 - Visual `displayPosition` never changes logical seat/dealer/blind order.
+- A permanent Table-side departure releases its physical display position without renumbering any surviving player. During an active hand, the release is queued until the hand boundary; otherwise it is immediate. The next Player invitation claims the lowest vacant physical position, while device replacement remains a separate operation on an occupied seat.
 
 ## Testing Decisions
 

@@ -2,7 +2,7 @@
 id: PRD-M06
 kind: module
 status: current
-last_reconciled: 2026-08-24
+last_reconciled: 2026-08-28
 decision_ids:
   - BRAND-IDENTITY-V1
   - PHASE1-TABLE-SIZE
@@ -99,6 +99,8 @@ Each mode has a renderer over a shared semantic design system. Renderers consume
 - **Our Poker Table** uses the approved four-rotation corner-and-dot mark, Brand Green on light surfaces, and UI Gold on Brand Green; repository/package names need separate migration authority.
 - Fold is provisional until its safe boundary. Show has no secrecy undo.
 - Table-side Player has one compact seat/role/state row, no connection or **Your cards** heading, and a disabled-until-needed Reconnect. Private cards follow it without a blank band. **See your table position** and **Reconnect to table** share a centered utility row below the community-card rail, with equal upper/lower divider gaps, never the topbar; the former opens the private map and the latter enables only for recovery.
+- Once a player initiates a required reconnect, its control immediately says **Reconnecting…**, is disabled against repeat input, and keeps that acknowledgement through a brief projection refresh. This does not change the three-miss Host-liveness policy.
+- A folded seat keeps the familiar two-card glyph and adds a high-contrast red diagonal; it is not represented solely by faint grey styling.
 - A completed Table-side Player Show slide reveals; a short tap or duplicate confirmation does not. Its 13.2rem rail gives the one-line action label side clearance.
 - Table-side Player Leave is a top-right pop-out with the approved Sit out copy/switch, divider, and red endpoint slider before permanent-leave confirmation. It shares Show's custom handle, drag, and arrow; is 84% of drawer width; is centered; and carries its action only inside the rail. It has a smaller close circle/X. The state-card outline is vertically centered against its text and the Leave glyph horizontally centered. Airplane retains its separate implementation.
 - Visual seat movement never changes logical action/dealer/blind order.
@@ -108,7 +110,7 @@ Each mode has a renderer over a shared semantic design system. Renderers consume
 
 ## Testing Decisions
 
-Use rendered journeys and browser/device tests for recovery, card isolation, Show/Leave safeguards, phone geometry, Tablet/TV input, ten seats, names, accessibility, and offline fallback. At iPad viewports, verify viewport-aligned launchers, glyph centers, bottom seats, and hand/board separation. Verify English/Chinese on Host creation, invited Player, Tablet/TV menus, and Airplane without changing offline transport.
+Use rendered journeys and browser/device tests for recovery, card isolation, Show/Leave safeguards, phone geometry, Tablet/TV input, ten seats, names, accessibility, and offline fallback. At iPad viewports, verify viewport-aligned launchers, glyph centers, bottom seats, and hand/board separation. Verify English/Chinese on Host creation, invited Player, Tablet/TV menus, user-facing runtime failures, and Airplane without changing offline transport.
 
 ## Out of Scope
 

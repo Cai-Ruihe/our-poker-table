@@ -353,6 +353,49 @@ describe("complete Phase 1 hand lifecycle", () => {
     );
   });
 
+  it("releases a departed physical-chip seat only between hands so its position can be reused", async () => {
+    const authority = createAuthority();
+    await createAndStart(authority);
+
+    await authority.submit(
+      command(
+        "end-before-release",
+        2,
+        { type: "EndHand" },
+        { handId: "hand-1" },
+      ),
+    );
+    await expect(
+      authority.submit(
+        command("release-seat-b", 3, {
+          seatId: "seat-b",
+          type: "UnregisterSeat",
+        }),
+      ),
+    ).resolves.toMatchObject({
+      events: [{ type: "SeatUnregistered" }],
+      status: "accepted",
+    });
+    expect(authority.project({ kind: "public" }).seats).toEqual([
+      expect.objectContaining({ seatId: "seat-a" }),
+    ]);
+
+    await expect(
+      authority.submit(
+        command("join-new-seat-b", 4, {
+          seat: { displayName: "Faye", seatId: "seat-new-b" },
+          type: "RegisterSeat",
+        }),
+      ),
+    ).resolves.toMatchObject({ events: [{ type: "SeatRegistered" }] });
+    expect(authority.project({ kind: "public" }).seats).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ seatId: "seat-a" }),
+        expect.objectContaining({ seatId: "seat-new-b" }),
+      ]),
+    );
+  });
+
   it("moves the dealer button to an eligible seat before a sitting-out dealer is dealt", async () => {
     const authority = createAuthority();
     await authority.submit(

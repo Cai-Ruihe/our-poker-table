@@ -37,12 +37,17 @@ test.describe("bilingual product presentation", () => {
     ).toBeGreaterThanOrEqual(16);
     expect(
       languageBox.y,
-      "language switch must not touch the brand-bar divider",
-    ).toBeGreaterThanOrEqual(brandBox.y + brandBox.height + 12);
+      "language switch must live inside the aligned host brand bar",
+    ).toBeGreaterThanOrEqual(brandBox.y + 8);
+    expect(
+      languageBox.y + languageBox.height,
+      "language switch must clear the brand-bar divider without creating a second strip",
+    ).toBeLessThanOrEqual(brandBox.y + brandBox.height - 8);
     expect(
       layoutBox.y,
       "the language control must not add a blank row above the creation panel",
     ).toBeLessThanOrEqual(brandBox.y + brandBox.height + 1);
+    await expect(page.locator(".home-language-control")).toHaveCount(0);
 
     await page.getByRole("button", { name: "中文" }).click();
 

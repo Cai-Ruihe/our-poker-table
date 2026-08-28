@@ -344,6 +344,9 @@ const chinese: Readonly<Record<string, string>> = {
   "Your cards": "你的手牌",
   "See your table position": "查看你的座位位置",
   "Reconnect to table": "重新连接牌桌",
+  "Reconnecting…": "正在重新连接…",
+  "Reconnecting to the table. Please wait.": "正在重新连接牌桌，请稍候。",
+  "Change language": "切换语言",
   Playing: "游戏中",
   "Not connected": "未连接",
   "Sit out next hand": "下一手暂不参加",
@@ -397,6 +400,17 @@ const chinese: Readonly<Record<string, string>> = {
   "Table-side pairing": "桌边模式配对",
   "This room surface could not be opened": "无法打开此牌桌显示界面",
   "Ask the host for a fresh link.": "请向主机索取新的链接。",
+  "No route reached the Trusted Host. This table link may be stale after the host or Connection Service restarted. Ask the Trusted Host to refresh the relay ticket and share a new link, or create a new table.":
+    "无法连接到可信主机。主机或连接服务重启后，这个牌桌链接可能已失效。请让可信主机刷新中继凭证并分享新链接，或重新创建牌桌。",
+  "Connection did not resume. Check the network and choose Reconnect to table.":
+    "连接尚未恢复。请检查网络后，重新连接牌桌。",
+  "Connection did not resume. Check the network and try again.":
+    "连接尚未恢复。请检查网络后重试。",
+  "The table did not respond.": "牌桌暂未响应，请稍后重试。",
+  "The action was not accepted.": "此操作未被接受，请稍后重试。",
+  "The seat could not be left safely.": "暂时无法安全离开牌桌，请稍后重试。",
+  "Full screen was not accepted by this browser.":
+    "浏览器未允许进入全屏模式，请稍后重试。",
   "The host scans this answer on their device. Then join over the direct local WebRTC channel.":
     "主机在其设备上扫描回应码后，即可通过本地 WebRTC 直连加入。",
   "Point this device's camera at the offer QR shown by the Trusted Host. It is decoded only on this device.":
@@ -459,6 +473,22 @@ const chinese: Readonly<Record<string, string>> = {
 
 export function translate(language: Language, english: string): string {
   return language === "zh" ? (chinese[english] ?? english) : english;
+}
+
+/**
+ * Runtime errors originate below the presentation layer. Preserve a known,
+ * useful explanation when it is translated; otherwise never expose an
+ * untranslated implementation detail as a Chinese product message.
+ */
+export function localizeRuntimeError(
+  language: Language,
+  message: string,
+): string {
+  const localized = translate(language, message);
+  if (language === "zh" && localized === message) {
+    return "暂时无法完成此操作，请检查连接后重试。";
+  }
+  return localized;
 }
 
 function validLanguage(value: string | null | undefined): Language | undefined {

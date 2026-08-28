@@ -24,13 +24,14 @@ export {
   LanguageSwitch,
   languageFromNavigator,
   languageFromUrl,
+  localizeRuntimeError,
   persistLanguage,
   readStoredLanguage,
   translate,
   useLanguage,
   type Language,
 } from "./i18n";
-import { LanguageSwitch, useLanguage } from "./i18n";
+import { LanguageSwitch, localizeRuntimeError, useLanguage } from "./i18n";
 
 declare const __HTML_POKER_AIRPLANE_BUILD__: boolean | undefined;
 
@@ -44,6 +45,13 @@ const airplaneBuild =
 export type PresentationMode = "host" | "player" | "tablet" | "tv" | "public";
 
 type ActionResult = boolean | void | Promise<boolean | void>;
+
+// The recovery callback may replace the Player surface synchronously (for
+// example when a local projection arrives immediately). Keep this tiny,
+// page-local acknowledgement across that harmless remount so the user still
+// sees the retry was accepted and cannot accidentally send it again.
+let reconnectFeedbackUntil = 0;
+const reconnectFeedbackDurationMs = 500;
 
 export interface TableSurfaceProps {
   readonly brandSymbolSrc: string;
@@ -70,6 +78,8 @@ export interface TableSurfaceProps {
   readonly onMyHand?: () => void;
   readonly onPrepareSettlement?: () => ActionResult;
   readonly onReconnect?: () => ActionResult;
+  /** Parent-owned recovery state survives a transient player-surface refresh. */
+  readonly reconnecting?: boolean;
   readonly onRevealStreet?: (street: Street) => ActionResult;
   readonly onShowCards?: () => void;
   readonly onStartNextHand?: () => ActionResult;
@@ -432,8 +442,11 @@ function blindSeatIds(projection: PublicProjection | SeatProjection): {
 }
 
 export function tableSeatPosition(index: number, count: number): number {
-  if (count <= 1) return 5;
-  return Math.round((index * 10) / count) % 10;
+  // A display-position is a persistent physical chair number, not a rank in
+  // the current roster. The fixed spread keeps existing players in place when
+  // someone leaves or a new player joins.
+  void count;
+  return [0, 5, 2, 7, 1, 3, 4, 6, 8, 9][index] ?? 5;
 }
 
 function seatCanHoldPosition(seat: PublicProjection["seats"][number]): boolean {
@@ -533,7 +546,7 @@ function QuietSeatGrid({
         const winningSelection = winners.has(seat.seatId)
           ? seat.evaluation
           : undefined;
-        const position = tableSeatPosition(index, projection.seats.length);
+        const position = tableSeatPosition(seat.displayPosition ?? index, 10);
         return (
           <div
             aria-label={`${seat.displayName}, ${t(statusLabel)}`}
@@ -642,7 +655,7 @@ function SeatGrid({
         >
           <header>
             <span className="seat-tile__number">
-              {t("Seat")} {index + 1}
+              {t("Seat")} {(seat.displayPosition ?? index) + 1}
             </span>
             {seatCanHoldPosition(seat) &&
             seat.seatId === projection.dealerSeatId ? (
@@ -1014,21 +1027,91 @@ function CardStyleButtons(props: TableSurfaceProps) {
 
 function ReconnectAction({
   onReconnect,
+  reconnecting: parentReconnecting = false,
 }: {
   readonly onReconnect: (() => ActionResult) | undefined;
+  readonly reconnecting?: boolean;
 }) {
   const { t } = useLanguage();
+  const [localReconnecting, setLocalReconnecting] = useState(
+    () => Date.now() < reconnectFeedbackUntil,
+  );
+  const reconnecting = parentReconnecting || localReconnecting;
+  useEffect(() => {
+    const remainingFeedbackMs = reconnectFeedbackUntil - Date.now();
+    if (remainingFeedbackMs <= 0) return;
+    setLocalReconnecting(true);
+    const timer = globalThis.setTimeout(() => {
+      setLocalReconnecting(false);
+    }, remainingFeedbackMs);
+    return () => globalThis.clearTimeout(timer);
+  }, []);
+  async function reconnect(): Promise<void> {
+    if (!onReconnect || reconnecting) return;
+    reconnectFeedbackUntil = Date.now() + reconnectFeedbackDurationMs;
+    setLocalReconnecting(true);
+    try {
+      await onReconnect();
+    } finally {
+      // A successful local retry can resolve in the same task. Keep the
+      // acknowledged state visible briefly so a tap never feels ignored or
+      // invites repeated presses.
+      const remainingFeedbackMs = reconnectFeedbackUntil - Date.now();
+      if (remainingFeedbackMs > 0) {
+        await new Promise<void>((resolve) => {
+          globalThis.setTimeout(resolve, remainingFeedbackMs);
+        });
+      }
+      reconnectFeedbackUntil = 0;
+      setLocalReconnecting(false);
+    }
+  }
   return (
     <button
+      aria-label={t("Reconnect to table")}
+      aria-busy={reconnecting || undefined}
       className="reconnect-action"
       data-qa-action="reconnect"
       data-qa-control="table-reconnect"
-      disabled={!onReconnect}
-      onClick={() => void onReconnect?.()}
+      data-reconnect-state={reconnecting ? "reconnecting" : "idle"}
+      disabled={!onReconnect || reconnecting}
+      onClick={() => void reconnect()}
       type="button"
     >
-      {t("Reconnect to table")}
+      {reconnecting ? t("Reconnecting…") : t("Reconnect to table")}
     </button>
+  );
+}
+
+function SurfaceLanguageMenu({
+  className = "",
+}: {
+  readonly className?: string;
+}) {
+  const { language, t } = useLanguage();
+  const [open, setOpen] = useState(false);
+  return (
+    <div className={`surface-language-menu ${className}`.trim()}>
+      <button
+        aria-expanded={open}
+        aria-label={t("Change language")}
+        className="surface-language-menu__trigger"
+        data-qa-control="surface-language-menu-open"
+        onClick={() => setOpen((visible) => !visible)}
+        type="button"
+      >
+        {language === "zh" ? "中文" : "EN"}
+      </button>
+      {open ? (
+        <div
+          aria-label={t("Language / 语言")}
+          className="surface-language-menu__panel"
+          role="group"
+        >
+          <LanguageSwitch compact />
+        </div>
+      ) : null}
+    </div>
   );
 }
 
@@ -1125,7 +1208,7 @@ function TabletControls(
     readonly playerNamesVisible: boolean;
   },
 ) {
-  const { t } = useLanguage();
+  const { language, t } = useLanguage();
   const [corner, setCorner] = useState<TableCorner>();
   const [fullscreenError, setFullscreenError] = useState<string>();
   const [moreOpen, setMoreOpen] = useState(false);
@@ -1298,7 +1381,14 @@ function TabletControls(
           }}
           type="button"
         >
-          <span aria-hidden="true" />
+          <svg
+            aria-hidden="true"
+            data-table-corner-glyph="true"
+            viewBox="0 0 24 24"
+          >
+            <path d="M4 20V4H20" />
+            <circle cx="20" cy="4" r="1.7" />
+          </svg>
         </button>
       ))}
 
@@ -1586,7 +1676,7 @@ function TabletControls(
             </div>
             {fullscreenError ? (
               <p className="secondary-controls__error" role="alert">
-                {fullscreenError}
+                {localizeRuntimeError(language, fullscreenError)}
               </p>
             ) : null}
             <button
@@ -1735,7 +1825,7 @@ function HostControlCenter({
   onClose,
   ...props
 }: TableSurfaceProps & { readonly onClose: () => void }) {
-  const { t } = useLanguage();
+  const { language, t } = useLanguage();
   const [fullscreenError, setFullscreenError] = useState<string>();
 
   function closeAndRun(action?: () => void): void {
@@ -1912,7 +2002,7 @@ function HostControlCenter({
         </div>
         {fullscreenError ? (
           <p className="secondary-controls__error" role="alert">
-            {fullscreenError}
+            {localizeRuntimeError(language, fullscreenError)}
           </p>
         ) : null}
         <button
@@ -1921,7 +2011,7 @@ function HostControlCenter({
           onClick={onClose}
           type="button"
         >
-          Return to table
+          {t("Return to table")}
         </button>
       </section>
     </div>
@@ -2671,7 +2761,6 @@ function PrivateHand(
                 "Sit out skips the incoming hands while keeping your seat till you back.",
               )}
             </p>
-            <LanguageSwitch compact />
             <PlayerDepartureControls
               airplaneMode={props.airplaneMode ?? false}
               beforeLeave={() => setLeaveOptionsOpen(false)}
@@ -2692,7 +2781,7 @@ function PrivateHand(
 }
 
 export function TableSurface(props: TableSurfaceProps) {
-  const { t } = useLanguage();
+  const { language, t } = useLanguage();
   const [hostRootOpen, setHostRootOpen] = useState(false);
   const [playerPositionOpen, setPlayerPositionOpen] = useState(false);
   const [tablePlayerNamesVisible, setTablePlayerNamesVisible] = useState(false);
@@ -2789,12 +2878,20 @@ export function TableSurface(props: TableSurfaceProps) {
         </button>
       ) : null}
 
+      {!props.airplaneMode &&
+      (props.mode === "public" || props.mode === "tv") ? (
+        <SurfaceLanguageMenu className="surface-language-menu--quiet" />
+      ) : null}
+
       {isPlayer ? (
         <div className="player-status-bar">
           {props.airplaneMode ? (
             <>
               <span aria-live="polite">{t(props.connectionLabel)}</span>
-              <ReconnectAction onReconnect={props.onReconnect} />
+              <ReconnectAction
+                onReconnect={props.onReconnect}
+                reconnecting={props.reconnecting ?? false}
+              />
             </>
           ) : (
             <PlayerTableStatus projection={props.projection} />
@@ -2866,6 +2963,7 @@ export function TableSurface(props: TableSurfaceProps) {
                 {t("See your table position")}
               </button>
               <ReconnectAction onReconnect={props.onReconnect} />
+              {!props.airplaneMode ? <SurfaceLanguageMenu /> : null}
             </div>
           ) : null}
           <SeatGrid
@@ -2878,9 +2976,12 @@ export function TableSurface(props: TableSurfaceProps) {
 
       {props.errorMessage ? (
         <div className="surface-error" role="alert">
-          <span>{props.errorMessage}</span>
+          <span>{localizeRuntimeError(language, props.errorMessage)}</span>
           {props.onReconnect ? (
-            <ReconnectAction onReconnect={props.onReconnect} />
+            <ReconnectAction
+              onReconnect={props.onReconnect}
+              reconnecting={props.reconnecting ?? false}
+            />
           ) : null}
         </div>
       ) : null}

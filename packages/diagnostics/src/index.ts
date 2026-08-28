@@ -92,6 +92,7 @@ export type DiagnosticCommandKind =
   | "RelocateDealer"
   | "VoidHand"
   | "RegisterSeat"
+  | "UnregisterSeat"
   | "SetSeatParticipation"
   | "RecordCorrection"
   | "SubmitBettingAction"
@@ -201,6 +202,7 @@ const commandKinds = new Set<DiagnosticCommandKind>([
   "RelocateDealer",
   "VoidHand",
   "RegisterSeat",
+  "UnregisterSeat",
   "SetSeatParticipation",
   "RecordCorrection",
   "SubmitBettingAction",

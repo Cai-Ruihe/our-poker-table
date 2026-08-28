@@ -157,24 +157,6 @@ button:disabled {
   min-height: 100svh;
 }
 
-.home-language-control {
-  position: absolute;
-  z-index: 2;
-  top: calc(4.4rem + 0.75rem);
-  right: 0;
-  left: 0;
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  min-height: 3.7rem;
-  padding: 0.62rem clamp(1rem, 3vw, 3rem);
-  background: var(--canvas);
-}
-
-.home-language-control .language-switch {
-  margin: 0;
-}
-
 .home-layout {
   display: grid;
   grid-template-columns: minmax(0, 1.15fr) minmax(21rem, 0.85fr);
@@ -2968,13 +2950,6 @@ button:disabled {
 }
 
 @media (max-width: 620px) {
-  .home-language-control {
-    justify-content: center;
-    min-height: 3.55rem;
-    padding-right: max(1rem, env(safe-area-inset-right));
-    padding-left: max(1rem, env(safe-area-inset-left));
-  }
-
   .host-device-switcher {
     gap: 0.2rem;
     padding-right: max(0.4rem, env(safe-area-inset-right));

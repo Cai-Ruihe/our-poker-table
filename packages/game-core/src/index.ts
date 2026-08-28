@@ -114,6 +114,7 @@ export type CommandPayload =
   | { readonly dealerSeatId: string; readonly type: "RelocateDealer" }
   | { readonly reason: string; readonly type: "VoidHand" }
   | { readonly seat: SeatDefinition; readonly type: "RegisterSeat" }
+  | { readonly seatId: string; readonly type: "UnregisterSeat" }
   | {
       readonly seatId: string;
       readonly sittingOut: boolean;
@@ -166,6 +167,7 @@ export type EventType =
   | "HandVoided"
   | "CorrectionRecorded"
   | "SeatRegistered"
+  | "SeatUnregistered"
   | "SeatParticipationChanged"
   | "AccountingSessionCreated"
   | "AccountingHandStarted"
@@ -277,6 +279,8 @@ export interface HandEvaluation {
 export interface ProjectedSeat {
   readonly connected?: boolean;
   readonly displayName: string;
+  /** Presentation-only physical seat number injected by the Trusted Host. */
+  readonly displayPosition?: number;
   readonly evaluation?: HandEvaluation;
   readonly holeCards?: readonly Card[];
   readonly seatId: string;
@@ -628,13 +632,16 @@ function appendHistory(
     const seatDetails =
       command.payload.type === "RegisterSeat" && event.type === "SeatRegistered"
         ? { seatId: command.payload.seat.seatId }
-        : command.payload.type === "SetSeatParticipation" &&
-            event.type === "SeatParticipationChanged"
-          ? {
-              seatId: command.payload.seatId,
-              sittingOut: command.payload.sittingOut,
-            }
-          : {};
+        : command.payload.type === "UnregisterSeat" &&
+            event.type === "SeatUnregistered"
+          ? { seatId: command.payload.seatId }
+          : command.payload.type === "SetSeatParticipation" &&
+              event.type === "SeatParticipationChanged"
+            ? {
+                seatId: command.payload.seatId,
+                sittingOut: command.payload.sittingOut,
+              }
+            : {};
     return {
       commandId: command.commandId,
       ...correctionDetails,
@@ -687,7 +694,6 @@ export function createTrustedHostAuthority(
       (state.tableTheme === undefined || isTableTheme(state.tableTheme)) &&
       (state.cardStyle === undefined || isCardStyle(state.cardStyle)) &&
       accountingMatchesProfile &&
-      state.seats.length >= 2 &&
       state.seats.length <= 10 &&
       state.history.every(
         (event) => event.revision >= 1 && event.revision <= state.revision,
@@ -1431,6 +1437,32 @@ export function createTrustedHostAuthority(
           ],
         };
         events = [{ type: "SeatRegistered" }];
+        break;
+      }
+      case "UnregisterSeat": {
+        const seatId = command.payload.seatId;
+        const betweenHands =
+          current && ["lobby", "complete"].includes(current.phase);
+        if (
+          !current ||
+          !betweenHands ||
+          !isHost(command.actor) ||
+          accountingFor(rulesProfileOf(current)) ||
+          !current.seats.some((seat) => seat.seatId === seatId)
+        ) {
+          return rejected("command-not-allowed", revision);
+        }
+        const seats = current.seats.filter((seat) => seat.seatId !== seatId);
+        next = {
+          ...current,
+          dealerSeatId:
+            current.dealerSeatId === seatId
+              ? (seats[0]?.seatId ?? "")
+              : current.dealerSeatId,
+          revision: revision + 1,
+          seats,
+        };
+        events = [{ type: "SeatUnregistered" }];
         break;
       }
       case "SetSeatParticipation": {

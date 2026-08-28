@@ -142,91 +142,28 @@ async function expectLaunchersFlush(
   ]);
   const glyphGeometry = await launchers.evaluateAll((elements) =>
     elements.map((element) => {
-      const span = element.querySelector("span");
-      if (!span) throw new Error("Expected a corner glyph span.");
-      const spanStyle = getComputedStyle(span);
-      const dotStyle = getComputedStyle(element, "::after");
-      const px = (value: string) => {
-        const parsed = Number.parseFloat(value);
-        return Number.isFinite(parsed) ? Math.round(parsed) : 0;
-      };
+      const glyph = element.querySelector("svg[data-table-corner-glyph]");
+      const path = glyph?.querySelector("path");
+      const dot = glyph?.querySelector("circle");
       return {
-        borderBottom: px(spanStyle.borderBottomWidth),
-        borderLeft: px(spanStyle.borderLeftWidth),
-        borderRight: px(spanStyle.borderRightWidth),
-        borderTop: px(spanStyle.borderTopWidth),
-        dotBottom: px(dotStyle.bottom),
-        dotLeft: px(dotStyle.left),
-        dotRight: px(dotStyle.right),
-        dotTop: px(dotStyle.top),
-        spanBottom: px(spanStyle.bottom),
-        spanLeft: px(spanStyle.left),
-        spanRight: px(spanStyle.right),
-        spanTop: px(spanStyle.top),
+        dotCx: dot?.getAttribute("cx"),
+        dotCy: dot?.getAttribute("cy"),
+        path: path?.getAttribute("d"),
+        viewBox: glyph?.getAttribute("viewBox"),
       };
     }),
   );
   expect(
     glyphGeometry,
-    "all four corner glyphs use mirrored L-and-dot geometry",
-  ).toEqual([
-    {
-      borderBottom: 0,
-      borderLeft: 3,
-      borderRight: 0,
-      borderTop: 3,
-      dotBottom: 45,
-      dotLeft: 48,
-      dotRight: 16,
-      dotTop: 19,
-      spanBottom: 24,
-      spanLeft: 20,
-      spanRight: 24,
-      spanTop: 20,
-    },
-    {
-      borderBottom: 0,
-      borderLeft: 0,
-      borderRight: 3,
-      borderTop: 3,
-      dotBottom: 45,
-      dotLeft: 16,
-      dotRight: 48,
-      dotTop: 19,
-      spanBottom: 24,
-      spanLeft: 24,
-      spanRight: 20,
-      spanTop: 20,
-    },
-    {
-      borderBottom: 3,
-      borderLeft: 3,
-      borderRight: 0,
-      borderTop: 0,
-      dotBottom: 19,
-      dotLeft: 48,
-      dotRight: 16,
-      dotTop: 45,
-      spanBottom: 20,
-      spanLeft: 20,
-      spanRight: 24,
-      spanTop: 24,
-    },
-    {
-      borderBottom: 3,
-      borderLeft: 0,
-      borderRight: 3,
-      borderTop: 0,
-      dotBottom: 19,
-      dotLeft: 16,
-      dotRight: 48,
-      dotTop: 45,
-      spanBottom: 20,
-      spanLeft: 24,
-      spanRight: 20,
-      spanTop: 24,
-    },
-  ]);
+    "all four controls must mirror one canonical, geometrically aligned L-and-dot glyph",
+  ).toEqual(
+    Array.from({ length: 4 }, () => ({
+      dotCx: "20",
+      dotCy: "4",
+      path: "M4 20V4H20",
+      viewBox: "0 0 24 24",
+    })),
+  );
 }
 
 async function expectShownHandsClearBoard(page: Page): Promise<void> {

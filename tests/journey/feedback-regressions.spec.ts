@@ -126,7 +126,10 @@ async function attachReviewScreenshot(
   testInfo: TestInfo,
   name: string,
 ): Promise<void> {
-  const path = testInfo.outputPath(`${name}.png`);
+  const captureDirectory = process.env.HTML_POKER_CAPTURE_DIR;
+  const path = captureDirectory
+    ? `${captureDirectory}/${name}.png`
+    : testInfo.outputPath(`${name}.png`);
   await page.screenshot({ animations: "disabled", fullPage: true, path });
   await testInfo.attach(name, { contentType: "image/png", path });
 }
@@ -1333,6 +1336,17 @@ test("PLAYER-TABLE-STATUS-001 / PLAYER-PHONE-STATUS-002: Table-side Player keeps
     "phone-player-status-reconnect-needed",
   );
   await reconnect.click();
+  await expect(reconnect).toHaveAttribute(
+    "data-reconnect-state",
+    "reconnecting",
+  );
+  await expect(reconnect).toHaveText("Reconnecting…");
+  await expect(reconnect).toBeDisabled();
+  await attachReviewScreenshot(
+    alice,
+    testInfo,
+    "phone-player-status-reconnecting",
+  );
   await expect(reconnect).toBeDisabled();
   await alice.evaluate(() => {
     Object.defineProperty(document, "visibilityState", {

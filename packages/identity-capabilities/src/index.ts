@@ -63,6 +63,8 @@ export interface RoomIdentityRecoveryState {
   readonly handActive: boolean;
   readonly invitations: readonly RoomIdentityRecoveryInvitation[];
   readonly joinWindowOpen: boolean;
+  /** Optional so persisted v1 state from before deferred release remains valid. */
+  readonly pendingReleaseSeatIds?: readonly string[];
   readonly privacyClass: "host-recovery-secret";
   readonly schemaVersion: 1;
   readonly seats: readonly RoomSeat[];
@@ -86,6 +88,14 @@ export type IdentityRejectionCode =
 
 export type IdentityMutationResult =
   | { readonly status: "accepted" }
+  | { readonly code: IdentityRejectionCode; readonly status: "rejected" };
+
+export type SeatReleaseResult =
+  | {
+      readonly releasedImmediately: boolean;
+      readonly seatId: string;
+      readonly status: "accepted";
+    }
   | { readonly code: IdentityRejectionCode; readonly status: "rejected" };
 
 export type AuthenticationResult =
@@ -123,6 +133,7 @@ export interface RoomIdentity {
   onHandEnded(): void;
   onHandStarted(): void;
   openJoinWindow(): void;
+  releaseSeat(input: { readonly credentialToken: string }): SeatReleaseResult;
   redeem(input: {
     readonly binding: PeerBinding;
     readonly clientInstanceId: string;
@@ -233,7 +244,7 @@ function assertRecoveryState(
       !seat.displayName ||
       !Number.isInteger(seat.displayPosition) ||
       seat.displayPosition < 0 ||
-      seat.displayPosition >= state.seats.length ||
+      seat.displayPosition >= 10 ||
       !seatStates.has(seat.state) ||
       typeof seat.connected !== "boolean" ||
       typeof seat.futureSittingOut !== "boolean" ||
@@ -244,6 +255,16 @@ function assertRecoveryState(
     }
     seatIds.add(seat.seatId);
     positions.add(seat.displayPosition);
+  }
+  const pendingRelease = state.pendingReleaseSeatIds ?? [];
+  if (
+    !Array.isArray(pendingRelease) ||
+    new Set(pendingRelease).size !== pendingRelease.length ||
+    pendingRelease.some((seatId) => !seatIds.has(seatId))
+  ) {
+    throw new Error(
+      "The identity recovery state pending release set is corrupt.",
+    );
   }
   const invitationTokens = new Set<string>();
   for (const invitation of state.invitations) {
@@ -280,7 +301,8 @@ function assertRecoveryState(
       credentialTokens.has(credential.token) ||
       capabilityIds.has(credential.capabilityId) ||
       (credential.role === "player"
-        ? !credential.seatId || !seatIds.has(credential.seatId)
+        ? !credential.seatId ||
+          (!credential.revoked && !seatIds.has(credential.seatId))
         : credential.seatId !== undefined)
     ) {
       throw new Error("The identity recovery state credential set is corrupt.");
@@ -303,6 +325,7 @@ export function createRoomIdentity(options: RoomIdentityOptions): RoomIdentity {
   const invitations = new Map<string, InvitationRecord>();
   const credentials = new Map<string, CredentialRecord>();
   const seats: MutableRoomSeat[] = [];
+  const pendingReleaseSeatIds = new Set<string>();
   let joinWindowOpen = false;
   let handActive = false;
   let seatSequence = 0;
@@ -313,6 +336,9 @@ export function createRoomIdentity(options: RoomIdentityOptions): RoomIdentity {
     handActive = options.recoveryState.handActive;
     seatSequence = options.recoveryState.seatSequence;
     for (const seat of options.recoveryState.seats) seats.push({ ...seat });
+    for (const seatId of options.recoveryState.pendingReleaseSeatIds ?? []) {
+      pendingReleaseSeatIds.add(seatId);
+    }
     for (const invitation of options.recoveryState.invitations) {
       invitations.set(invitation.token, {
         ...invitation,
@@ -425,6 +451,30 @@ export function createRoomIdentity(options: RoomIdentityOptions): RoomIdentity {
     };
   }
 
+  function firstVacantDisplayPosition(): number | undefined {
+    const occupied = new Set(seats.map((seat) => seat.displayPosition));
+    for (let position = 0; position < 10; position += 1) {
+      if (!occupied.has(position)) return position;
+    }
+    return undefined;
+  }
+
+  function removeSeat(seatId: string): void {
+    const index = seats.findIndex((seat) => seat.seatId === seatId);
+    if (index < 0) return;
+    seats.splice(index, 1);
+    pendingReleaseSeatIds.delete(seatId);
+    for (const credential of credentials.values()) {
+      // Retain a revoked record instead of forgetting it outright. A departed
+      // browser must receive a clear credential-revoked response, rather than
+      // an ambiguous "unknown credential" result after host recovery.
+      if (credential.seatId === seatId) credential.revoked = true;
+    }
+    for (const [token, invitation] of invitations) {
+      if (invitation.seatId === seatId) invitations.delete(token);
+    }
+  }
+
   function redeem(
     input: Parameters<RoomIdentity["redeem"]>[0],
   ): RedemptionResult {
@@ -453,7 +503,11 @@ export function createRoomIdentity(options: RoomIdentityOptions): RoomIdentity {
     if (invitation.role === "player" && !replacingSeat && !joinWindowOpen) {
       return { code: "join-window-closed", status: "rejected" };
     }
-    if (invitation.role === "player" && !replacingSeat && seats.length >= 10) {
+    if (
+      invitation.role === "player" &&
+      !replacingSeat &&
+      firstVacantDisplayPosition() === undefined
+    ) {
       return { code: "table-full", status: "rejected" };
     }
     if (invitation.seatId && !replacingSeat) {
@@ -475,10 +529,14 @@ export function createRoomIdentity(options: RoomIdentityOptions): RoomIdentity {
           return { code: "seat-unknown", status: "rejected" };
         }
         seatSequence += 1;
+        const displayPosition = firstVacantDisplayPosition();
+        if (displayPosition === undefined) {
+          return { code: "table-full", status: "rejected" };
+        }
         seat = {
           connected: true,
           displayName,
-          displayPosition: seats.length,
+          displayPosition,
           futureSittingOut: false,
           seatId: `seat-${seatSequence}`,
           state: "waiting",
@@ -541,6 +599,7 @@ export function createRoomIdentity(options: RoomIdentityOptions): RoomIdentity {
           binding: { ...invitation.binding },
         })),
         joinWindowOpen,
+        pendingReleaseSeatIds: [...pendingReleaseSeatIds],
         privacyClass: "host-recovery-secret",
         schemaVersion: 1,
         seats: seats.map(cloneSeat),
@@ -558,6 +617,7 @@ export function createRoomIdentity(options: RoomIdentityOptions): RoomIdentity {
           seat.state = "sitting-out";
         }
       }
+      for (const seatId of [...pendingReleaseSeatIds]) removeSeat(seatId);
     },
     onHandStarted() {
       handActive = true;
@@ -573,6 +633,32 @@ export function createRoomIdentity(options: RoomIdentityOptions): RoomIdentity {
         }
       }
       joinWindowOpen = true;
+    },
+    releaseSeat(input) {
+      const found = findCredential(input.credentialToken);
+      if (typeof found === "string") {
+        return { code: found, status: "rejected" };
+      }
+      if (found.role !== "player" || !found.seatId) {
+        return { code: "role-mismatch", status: "rejected" };
+      }
+      if (!seats.some((seat) => seat.seatId === found.seatId)) {
+        return { code: "seat-unknown", status: "rejected" };
+      }
+      if (handActive) {
+        pendingReleaseSeatIds.add(found.seatId);
+        return {
+          releasedImmediately: false,
+          seatId: found.seatId,
+          status: "accepted",
+        };
+      }
+      removeSeat(found.seatId);
+      return {
+        releasedImmediately: true,
+        seatId: found.seatId,
+        status: "accepted",
+      };
     },
     redeem,
     revoke(capabilityId) {
@@ -606,29 +692,18 @@ export function createRoomIdentity(options: RoomIdentityOptions): RoomIdentity {
       if (
         !Number.isInteger(input.displayPosition) ||
         input.displayPosition < 0 ||
-        input.displayPosition >= seats.length
+        input.displayPosition >= 10
       ) {
         return { code: "seat-unknown", status: "rejected" };
       }
       const moving = seats.find((seat) => seat.seatId === input.seatId);
       if (!moving) return { code: "seat-unknown", status: "rejected" };
-      const previous = moving.displayPosition;
-      for (const seat of seats) {
-        if (seat.seatId === moving.seatId) continue;
-        if (
-          previous < input.displayPosition &&
-          seat.displayPosition > previous &&
-          seat.displayPosition <= input.displayPosition
-        ) {
-          seat.displayPosition -= 1;
-        } else if (
-          previous > input.displayPosition &&
-          seat.displayPosition >= input.displayPosition &&
-          seat.displayPosition < previous
-        ) {
-          seat.displayPosition += 1;
-        }
-      }
+      const occupant = seats.find(
+        (seat) =>
+          seat.seatId !== moving.seatId &&
+          seat.displayPosition === input.displayPosition,
+      );
+      if (occupant) occupant.displayPosition = moving.displayPosition;
       moving.displayPosition = input.displayPosition;
       return { status: "accepted" };
     },

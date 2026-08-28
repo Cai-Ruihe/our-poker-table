@@ -294,6 +294,94 @@ describe("room-scoped identity and capabilities", () => {
     expect(identity.roster().seats[0]).toMatchObject({ state: "sitting-out" });
   });
 
+  it("keeps surviving physical seat numbers and reuses a permanently vacated seat for the next player", () => {
+    const identity = createIdentity();
+    identity.openJoinWindow();
+    const alice = redeemPlayer(
+      identity,
+      identity.issueInvitation({ role: "player", ttlMs: 30_000 }).token,
+      "Alice",
+      "alice-phone",
+    );
+    const bob = redeemPlayer(
+      identity,
+      identity.issueInvitation({ role: "player", ttlMs: 30_000 }).token,
+      "Bob",
+      "bob-phone",
+    );
+    const carol = redeemPlayer(
+      identity,
+      identity.issueInvitation({ role: "player", ttlMs: 30_000 }).token,
+      "Carol",
+      "carol-phone",
+    );
+    const dana = redeemPlayer(
+      identity,
+      identity.issueInvitation({ role: "player", ttlMs: 30_000 }).token,
+      "Dana",
+      "dana-phone",
+    );
+    const evan = redeemPlayer(
+      identity,
+      identity.issueInvitation({ role: "player", ttlMs: 30_000 }).token,
+      "Evan",
+      "evan-phone",
+    );
+    if (
+      alice.status !== "accepted" ||
+      bob.status !== "accepted" ||
+      carol.status !== "accepted" ||
+      dana.status !== "accepted" ||
+      evan.status !== "accepted" ||
+      !carol.seat ||
+      !dana.seat ||
+      !evan.seat
+    ) {
+      throw new Error("Expected five player-seat fixtures.");
+    }
+
+    expect(
+      identity.releaseSeat({ credentialToken: dana.credential.token }),
+    ).toMatchObject({ status: "accepted" });
+    expect(
+      identity
+        .roster()
+        .seats.map((seat) => [seat.displayName, seat.displayPosition]),
+    ).toEqual([
+      ["Alice", 0],
+      ["Bob", 1],
+      ["Carol", 2],
+      ["Evan", 4],
+    ]);
+
+    const newcomer = redeemPlayer(
+      identity,
+      identity.issueInvitation({ role: "player", ttlMs: 30_000 }).token,
+      "Faye",
+      "faye-phone",
+    );
+    expect(newcomer).toMatchObject({
+      seat: { displayName: "Faye", displayPosition: 3 },
+      status: "accepted",
+    });
+
+    identity.onHandStarted();
+    expect(
+      identity.releaseSeat({ credentialToken: carol.credential.token }),
+    ).toMatchObject({ status: "accepted" });
+    expect(
+      identity
+        .roster()
+        .seats.some((seat) => seat.seatId === carol.seat?.seatId),
+    ).toBe(true);
+    identity.onHandEnded();
+    expect(
+      identity
+        .roster()
+        .seats.some((seat) => seat.seatId === carol.seat?.seatId),
+    ).toBe(false);
+  });
+
   it("restores seats, credentials, invitation replay state, and scoped roles", () => {
     const original = createIdentity();
     original.openJoinWindow();

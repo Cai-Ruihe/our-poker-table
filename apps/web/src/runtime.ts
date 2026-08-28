@@ -2258,7 +2258,7 @@ export class HostTableRuntime {
         const phase = runtime.projection?.phase;
         const identityState = runtime.identity.exportRecoveryState();
         if (phase === "complete" && identityState.handActive) {
-          runtime.identity.onHandEnded();
+          await runtime.completeHandIdentity();
           await runtime.persistRecovery();
         } else if (
           phase &&
@@ -2629,8 +2629,7 @@ export class HostTableRuntime {
       if (receipt.status === "rejected") {
         throw new Error(`Void rejected: ${receipt.code}`);
       }
-      this.identity.onHandEnded();
-      await this.syncParticipation();
+      await this.completeHandIdentity();
       await this.persistRecovery();
       this.refreshProjection();
       this.broadcastChange();
@@ -2759,8 +2758,7 @@ export class HostTableRuntime {
       if (receipt.status === "rejected") {
         throw new Error(`End hand rejected: ${receipt.code}`);
       }
-      this.identity.onHandEnded();
-      await this.syncParticipation();
+      await this.completeHandIdentity();
       await this.persistRecovery();
       this.refreshProjection();
       this.broadcastChange();
@@ -2788,8 +2786,7 @@ export class HostTableRuntime {
       if (receipt.status === "rejected") {
         throw new Error(`Settlement confirmation rejected: ${receipt.code}`);
       }
-      this.identity.onHandEnded();
-      await this.syncParticipation();
+      await this.completeHandIdentity();
       await this.persistRecovery();
       this.refreshProjection();
       this.broadcastChange();
@@ -3161,8 +3158,7 @@ export class HostTableRuntime {
       if (receipt.status === "rejected") {
         throw new Error(`Tablet action rejected: ${receipt.code}`);
       }
-      this.identity.onHandEnded();
-      await this.syncParticipation();
+      await this.completeHandIdentity();
     } else if (action.type === "prepare-settlement") {
       const receipt = await this.submitHostInternal(
         { type: "PrepareSettlement" },
@@ -3179,8 +3175,7 @@ export class HostTableRuntime {
       if (receipt.status === "rejected") {
         throw new Error(`Tablet action rejected: ${receipt.code}`);
       }
-      this.identity.onHandEnded();
-      await this.syncParticipation();
+      await this.completeHandIdentity();
     } else {
       const receipt = await this.submitHostInternal({ type: "StartHand" });
       if (receipt.status === "rejected") {
@@ -3219,6 +3214,9 @@ export class HostTableRuntime {
       return;
     }
     if (action.type === "leave") {
+      const seatsBefore = new Set(
+        this.identity.roster().seats.map((seat) => seat.seatId),
+      );
       this.identity.setFutureParticipation({
         credentialToken,
         sittingOut: true,
@@ -3234,9 +3232,27 @@ export class HostTableRuntime {
         }
       }
       this.identity.setConnected({ connected: false, credentialToken });
-      const revoked = this.identity.revoke(capabilityId);
-      if (revoked.status === "rejected") {
-        throw new Error(`Leave rejected: ${revoked.code}`);
+      // Digital Accounting owns its own immutable seat ledger. This physical-
+      // chip flow may release a position, immediately between hands or at the
+      // next hand boundary, without renumbering anyone else.
+      if (this.rulesProfile.id === "deal-only-v1") {
+        const released = this.identity.releaseSeat({ credentialToken });
+        if (released.status === "rejected") {
+          throw new Error(`Leave rejected: ${released.code}`);
+        }
+        if (released.releasedImmediately) {
+          await this.reconcileReleasedSeats(seatsBefore);
+        } else {
+          const revoked = this.identity.revoke(capabilityId);
+          if (revoked.status === "rejected") {
+            throw new Error(`Leave rejected: ${revoked.code}`);
+          }
+        }
+      } else {
+        const revoked = this.identity.revoke(capabilityId);
+        if (revoked.status === "rejected") {
+          throw new Error(`Leave rejected: ${revoked.code}`);
+        }
       }
       return;
     }
@@ -3402,6 +3418,48 @@ export class HostTableRuntime {
     this.projection = this.orderProjection(projection);
   }
 
+  /**
+   * A permanent departure may be requested mid-hand, but the current hand must
+   * retain its original actors until it ends. Reconcile the identity roster
+   * with Game Core only at that safe boundary.
+   */
+  private async completeHandIdentity(): Promise<void> {
+    const seatsBefore = new Set(
+      this.identity.roster().seats.map((seat) => seat.seatId),
+    );
+    this.identity.onHandEnded();
+    await this.reconcileReleasedSeats(seatsBefore);
+    await this.syncParticipation();
+  }
+
+  private async reconcileReleasedSeats(
+    seatsBefore: ReadonlySet<string>,
+  ): Promise<void> {
+    if (!this.authority) return;
+    const seatsNow = this.identity.roster().seats;
+    const activeSeatIds = new Set(seatsNow.map((seat) => seat.seatId));
+    const releasedSeatIds = [...seatsBefore].filter(
+      (seatId) => !activeSeatIds.has(seatId),
+    );
+    for (const seatId of releasedSeatIds) {
+      const receipt = await this.submitHostInternal({
+        seatId,
+        type: "UnregisterSeat",
+      });
+      if (receipt.status === "rejected") {
+        throw new Error(`Seat release rejected: ${receipt.code}`);
+      }
+    }
+    if (
+      releasedSeatIds.length > 0 &&
+      this.identity.roster().joinWindowOpen &&
+      seatsNow.length < 10 &&
+      !this.invitations.get("player")
+    ) {
+      await this.issueInvitationInternal("player");
+    }
+  }
+
   private orderProjection<T extends PublicProjection | SeatProjection>(
     projection: T,
   ): T {
@@ -3412,12 +3470,15 @@ export class HostTableRuntime {
     const connections = new Map(
       roster.seats.map((seat) => [seat.seatId, seat.connected]),
     );
+    const activeSeatIds = new Set(positions.keys());
     return {
       ...structuredClone(projection),
       seats: [...projection.seats]
+        .filter((seat) => activeSeatIds.has(seat.seatId))
         .map((seat) => ({
           ...seat,
           connected: connections.get(seat.seatId) ?? false,
+          displayPosition: positions.get(seat.seatId),
         }))
         .sort(
           (left, right) =>

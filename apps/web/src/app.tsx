@@ -15,6 +15,7 @@ import type { CardStyle, TableTheme } from "@html-poker/game-core";
 import {
   LanguageProvider,
   LanguageSwitch,
+  localizeRuntimeError,
   TableSurface,
   languageFromUrl,
   readStoredLanguage,
@@ -272,11 +273,13 @@ function Home({
   return (
     <main className="home-shell">
       <BrandBar
-        aside={<span className="build-label">Build {BUILD_VERSION}</span>}
+        aside={
+          <div className="brand-bar__actions">
+            <LanguageSwitch compact />
+            <span className="build-label">Build {BUILD_VERSION}</span>
+          </div>
+        }
       />
-      <div className="home-language-control">
-        <LanguageSwitch />
-      </div>
       <div className="home-layout">
         <section className="home-intro" aria-labelledby="home-title">
           <p className="section-label">
@@ -419,7 +422,7 @@ function Home({
           ) : null}
           {error ? (
             <p className="inline-warning" role="alert">
-              {error}
+              {localizeRuntimeError(language, error)}
             </p>
           ) : null}
           {relayRequiresOperatorToken ? (
@@ -501,7 +504,7 @@ function Home({
             </label>
             {joinError ? (
               <p className="inline-warning" role="alert">
-                {joinError}
+                {localizeRuntimeError(language, joinError)}
               </p>
             ) : null}
             <div className="button-row">
@@ -1443,7 +1446,7 @@ function TableSideDisplayPairingCard({
 }: {
   readonly runtime: HostTableRuntime;
 }) {
-  const { t } = useLanguage();
+  const { language, t } = useLanguage();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string>();
   const [pairedRole, setPairedRole] = useState<"public-table" | "tv">();
@@ -1482,7 +1485,7 @@ function TableSideDisplayPairingCard({
       </p>
       {error ? (
         <p className="inline-warning" role="alert">
-          {error}
+          {localizeRuntimeError(language, error)}
         </p>
       ) : null}
       {pairedRole ? (
@@ -1516,7 +1519,7 @@ function RelaySessionCard({
   readonly runtime: HostTableRuntime;
   readonly snapshot: HostRuntimeSnapshot;
 }) {
-  const { t } = useLanguage();
+  const { language, t } = useLanguage();
   const [operatorToken, setOperatorToken] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string>();
@@ -1572,7 +1575,7 @@ function RelaySessionCard({
       </p>
       {error ? (
         <p className="inline-warning" role="alert">
-          {error}
+          {localizeRuntimeError(language, error)}
         </p>
       ) : null}
       {refreshed ? (
@@ -1750,11 +1753,8 @@ function SeatRoster({
             className="roster-table-map"
             data-seat-count={orderedSeats.length}
           >
-            {orderedSeats.map((seat, index) => {
-              const edgePosition = tableSeatPosition(
-                index,
-                orderedSeats.length,
-              );
+            {orderedSeats.map((seat) => {
+              const edgePosition = tableSeatPosition(seat.displayPosition, 10);
               const status = seat.connected
                 ? seat.state.replace("-", " ")
                 : `${seat.state.replace("-", " ")} · offline`;
@@ -1766,7 +1766,7 @@ function SeatRoster({
                   key={seat.seatId}
                 >
                   <button
-                    aria-label={`Seat ${index + 1}, ${seat.displayName}, ${tableEdgeLabel(edgePosition)}, ${status}`}
+                    aria-label={`Seat ${seat.displayPosition + 1}, ${seat.displayName}, ${tableEdgeLabel(edgePosition)}, ${status}`}
                     aria-pressed={selectedSeat?.seatId === seat.seatId}
                     className="roster-map-seat-button"
                     data-qa-control="roster-map-seat"
@@ -1774,7 +1774,7 @@ function SeatRoster({
                     onClick={() => setSelectedSeatId(seat.seatId)}
                     type="button"
                   >
-                    <span>{index + 1}</span>
+                    <span>{seat.displayPosition + 1}</span>
                     <span className="roster-seat-copy">
                       <strong>{seat.displayName}</strong>
                       <small>{status}</small>
@@ -1799,12 +1799,12 @@ function SeatRoster({
             >
               <div>
                 <span>
-                  {t("Seat")} {selectedSeatIndex + 1}
+                  {t("Seat")} {selectedSeat.displayPosition + 1}
                 </span>
                 <strong>{selectedSeat.displayName}</strong>
                 <small>
                   {tableEdgeLabel(
-                    tableSeatPosition(selectedSeatIndex, orderedSeats.length),
+                    tableSeatPosition(selectedSeat.displayPosition, 10),
                   )}
                 </small>
               </div>
@@ -1817,9 +1817,14 @@ function SeatRoster({
                         data-qa-control="roster-seat-move-up"
                         data-qa-variant={selectedSeat.seatId}
                         disabled={selectedSeatIndex === 0}
-                        onClick={() =>
-                          onMove(selectedSeat.seatId, selectedSeatIndex - 1)
-                        }
+                        onClick={() => {
+                          const previous = orderedSeats[selectedSeatIndex - 1];
+                          if (previous)
+                            onMove(
+                              selectedSeat.seatId,
+                              previous.displayPosition,
+                            );
+                        }}
                         type="button"
                       >
                         {t("Move anticlockwise")}
@@ -1829,9 +1834,11 @@ function SeatRoster({
                         data-qa-control="roster-seat-move-down"
                         data-qa-variant={selectedSeat.seatId}
                         disabled={selectedSeatIndex === orderedSeats.length - 1}
-                        onClick={() =>
-                          onMove(selectedSeat.seatId, selectedSeatIndex + 1)
-                        }
+                        onClick={() => {
+                          const next = orderedSeats[selectedSeatIndex + 1];
+                          if (next)
+                            onMove(selectedSeat.seatId, next.displayPosition);
+                        }}
                         type="button"
                       >
                         {t("Move clockwise")}
@@ -2099,7 +2106,7 @@ function JoinOwnDeviceCard({
 }: {
   readonly onJoin: (displayName: string) => Promise<void>;
 }) {
-  const { t } = useLanguage();
+  const { language, t } = useLanguage();
   const [displayName, setDisplayName] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string>();
@@ -2149,7 +2156,7 @@ function JoinOwnDeviceCard({
         </label>
         {error ? (
           <p className="inline-warning" role="alert">
-            {error}
+            {localizeRuntimeError(language, error)}
           </p>
         ) : null}
         <button
@@ -2182,7 +2189,7 @@ function HostLobby({
   readonly recoveryError?: string;
   readonly runtime: HostTableRuntime;
 }) {
-  const { t } = useLanguage();
+  const { language, t } = useLanguage();
   const snapshot = useHostSnapshot(runtime);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string>();
@@ -2274,7 +2281,10 @@ function HostLobby({
       <RelaySessionCard runtime={runtime} snapshot={snapshot} />
       {error || snapshot.error || recoveryError ? (
         <p className="inline-warning" role="alert">
-          {error ?? snapshot.error ?? recoveryError}
+          {localizeRuntimeError(
+            language,
+            error ?? snapshot.error ?? recoveryError ?? "",
+          )}
         </p>
       ) : null}
       <footer className="lobby-footer">
@@ -2714,7 +2724,7 @@ function PlayerExperience({
   readonly manageLifecycle?: boolean;
   readonly runtime: TableClientRuntime;
 }) {
-  const { t } = useLanguage();
+  const { language, t } = useLanguage();
   const snapshot = useClientSnapshot(runtime);
   const playerProjection =
     snapshot.projection?.view === "seat" ? snapshot.projection : undefined;
@@ -2729,6 +2739,7 @@ function PlayerExperience({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string>();
   const [leaveConfirmOpen, setLeaveConfirmOpen] = useState(false);
+  const [reconnecting, setReconnecting] = useState(false);
   useScreenWakeLock(snapshot.status === "playing");
 
   useEffect(() => {
@@ -2823,7 +2834,8 @@ function PlayerExperience({
   }
 
   async function reconnect(): Promise<boolean> {
-    if (busy) return false;
+    if (busy || reconnecting) return false;
+    setReconnecting(true);
     setBusy(true);
     setError(undefined);
     try {
@@ -2838,6 +2850,9 @@ function PlayerExperience({
       return false;
     } finally {
       setBusy(false);
+      // Keep the acknowledgement through the post-recovery surface refresh.
+      // Without this, a fast recovery can make the tap appear to do nothing.
+      globalThis.setTimeout(() => setReconnecting(false), 650);
     }
   }
 
@@ -2902,7 +2917,7 @@ function PlayerExperience({
             </label>
             {error ? (
               <p className="inline-warning" role="alert">
-                {error}
+                {localizeRuntimeError(language, error)}
               </p>
             ) : null}
             <button
@@ -2926,7 +2941,9 @@ function PlayerExperience({
           <p className="section-label">{t("Invitation unavailable")}</p>
           <h1>{t("This seat could not be opened")}</h1>
           <p>
-            {snapshot.error ?? t("Ask the host for a fresh player invitation.")}
+            {snapshot.error
+              ? localizeRuntimeError(language, snapshot.error)
+              : t("Ask the host for a fresh player invitation.")}
           </p>
         </section>
       </main>
@@ -2967,7 +2984,7 @@ function PlayerExperience({
           </span>
           {(error ?? snapshot.error) ? (
             <p className="inline-warning" role="alert">
-              {error ?? snapshot.error}
+              {localizeRuntimeError(language, error ?? snapshot.error ?? "")}
             </p>
           ) : null}
           <div className="waiting-seat-actions">
@@ -3037,6 +3054,7 @@ function PlayerExperience({
         {...(isAirplaneMode() || reconnectRequired
           ? { onReconnect: reconnect }
           : {})}
+        reconnecting={reconnecting}
         onShowCards={() => perform({ type: "show" })}
         onToggleSittingOut={(sittingOut) =>
           perform({ sittingOut, type: "set-sitting-out" })
@@ -3058,7 +3076,7 @@ function PlayerExperience({
 }
 
 function RoleExperience({ runtime }: { readonly runtime: TableClientRuntime }) {
-  const { t } = useLanguage();
+  const { language, t } = useLanguage();
   const snapshot = useClientSnapshot(runtime);
   const joinStarted = useRef(false);
   const actionGuard = useDealerActionGuard();
@@ -3126,7 +3144,9 @@ function RoleExperience({ runtime }: { readonly runtime: TableClientRuntime }) {
           <p className="section-label">{label}</p>
           <h1>{t("This room surface could not be opened")}</h1>
           <p>
-            {error ?? snapshot.error ?? t("Ask the host for a fresh link.")}
+            {error || snapshot.error
+              ? localizeRuntimeError(language, error ?? snapshot.error ?? "")
+              : t("Ask the host for a fresh link.")}
           </p>
           <button
             className="button button--primary"
