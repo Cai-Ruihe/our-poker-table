@@ -660,6 +660,10 @@ control_contract:
       surface: Table-side Player community-card utility row or Tablet recovery
       expected_result: Table-side Player places Reconnect to table beside See your table position below the community-card rail, keeps it grey and disabled while recovery is not required, enables after a recovery-required state, and then pulls the current table revision successfully.
       evidence: tests/journey/control-conformance.spec.ts
+    surface-language-menu-open:
+      surface: Table-side Player secondary utility menu
+      expected_result: The local English/Chinese chooser opens below the community-card rail and is not part of Leave options.
+      evidence: tests/journey/player-utility-menu.spec.ts
     tablet-corner-open:
       surface: Tablet quiet view
       expected_result: The matching seat-facing quick panel opens.

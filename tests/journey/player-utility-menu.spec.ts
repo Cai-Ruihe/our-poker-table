@@ -1,4 +1,5 @@
 import { expect, test, type BrowserContext, type Page } from "@playwright/test";
+import { exerciseControl } from "./control-qa";
 
 function capturePath(
   testInfo: { outputPath: (name: string) => string },
@@ -56,12 +57,18 @@ test("Table-side Player keeps language separate from the leave options", async (
     boardBox.y + boardBox.height - 1,
   );
 
-  await languageTrigger.click();
-  await expect(
-    alice.locator(
-      ".surface-language-menu__panel[data-language-switch], .surface-language-menu__panel [data-language-switch]",
-    ),
-  ).toBeVisible();
+  await exerciseControl(
+    "surface-language-menu-open",
+    languageTrigger,
+    (control) => control.click(),
+    async () => {
+      await expect(
+        alice.locator(
+          ".surface-language-menu__panel[data-language-switch], .surface-language-menu__panel [data-language-switch]",
+        ),
+      ).toBeVisible();
+    },
+  );
   await alice.screenshot({
     fullPage: true,
     path: capturePath(testInfo, "player-language-menu-390x844.png"),
