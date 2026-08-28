@@ -81,8 +81,8 @@ Each mode has a renderer over a shared semantic design system. Renderers consume
 ## Implementation Decisions
 
 - A Public Table can visually switch to Tablet Mode only when the device already holds/redeems Table-Control.
-- A Trusted Host device keeps one active document and offers Host Controls, My Hand only after an ordinary Player credential is present, and Table View only after the table starts. Each view renders its own projection; opening a background host/player tab is not the primary interaction.
-- Host, Player, Tablet, TV, and Public Table runtimes attempt authenticated projection/relay recovery when the browser returns on `pageshow`, visible `visibilitychange`, or `online`. iOS may suspend JavaScript while backgrounded; dependent screens wait, then catch up from the host projection after foreground return. A visible `Reconnect to table` action remains available when automatic recovery fails.
+- A Trusted Host keeps one active document: Host Controls, My Hand only with an ordinary Player credential, and Table View only after start. Views render their own projection; background tabs are not primary interaction.
+- Host, Player, Tablet, TV, and Public Table recover authenticated projection/relay on `pageshow`, visible `visibilitychange`, or `online`. After iOS background suspension, screens catch up from the host projection; **Reconnect to table** remains when automatic recovery fails.
 - An unpaired Table-side Mode TV/Public display may render its ephemeral reverse-pairing QR and plain-language status; it receives no table projection until an authorized scanner completes pairing.
 - Player private reveal and irreversible public Show remain separate actions. Hiding cards locally or backgrounding the page never reverses a public Show.
 - The Tablet quiet surface gives all four physical sides equal, orientation-correct corner entry points. Its quick panel contains a large Next card action beside a short horizontal Next hand slider and closes after an acknowledged action.
@@ -98,9 +98,9 @@ Each mode has a renderer over a shared semantic design system. Renderers consume
 - Browser/OS color preference cannot recolor the selected table palette or warm cards. The synchronized host-selected theme is the product appearance authority.
 - **Our Poker Table** uses the approved four-rotation corner-and-dot mark, Brand Green on light surfaces, and UI Gold on Brand Green; repository/package names need separate migration authority.
 - Fold is provisional until its safe boundary. Show has no secrecy undo.
-- Table-side Player has one compact seat/role/state row, no connection or **Your cards** heading, and a disabled-until-needed Reconnect. Private cards follow it without a blank band. **See your table position** and **Reconnect to table** share a centered utility row below the community-card rail, with equal upper/lower divider gaps, never the topbar; the former opens the private map and the latter enables only for recovery.
-- Once a player initiates a required reconnect, its control immediately says **Reconnecting…**, is disabled against repeat input, and keeps that acknowledgement through a brief projection refresh. This does not change the three-miss Host-liveness policy.
-- A folded seat keeps the familiar two-card glyph and adds a high-contrast red diagonal; it is not represented solely by faint grey styling.
+- Table-side Player has one compact seat/role/state row, no connection or **Your cards** heading, and a disabled-until-needed Reconnect. Cards follow without a blank band. **See your table position** and **Reconnect to table** share a centered row below the community rail, with equal divider gaps; position opens the map and Reconnect enables only for recovery.
+- After reconnect starts, its control says **Reconnecting…** and disables repeat taps until projection refresh; liveness still uses three misses.
+- A folded seat keeps the two-card glyph with a high-contrast red diagonal, not grey alone.
 - A completed Table-side Player Show slide reveals; a short tap or duplicate confirmation does not. Its 13.2rem rail gives the one-line action label side clearance.
 - Table-side Player Leave is a top-right pop-out with the approved Sit out copy/switch, divider, and red endpoint slider before permanent-leave confirmation. It shares Show's custom handle, drag, and arrow; is 84% of drawer width; is centered; and carries its action only inside the rail. It has a smaller close circle/X. The state-card outline is vertically centered against its text and the Leave glyph horizontally centered. Airplane retains its separate implementation.
 - Visual seat movement never changes logical action/dealer/blind order.
@@ -110,7 +110,7 @@ Each mode has a renderer over a shared semantic design system. Renderers consume
 
 ## Testing Decisions
 
-Use rendered journeys and browser/device tests for recovery, card isolation, Show/Leave safeguards, phone geometry, Tablet/TV input, ten seats, names, accessibility, and offline fallback. At iPad viewports, verify viewport-aligned launchers, glyph centers, bottom seats, and hand/board separation. Verify English/Chinese on Host creation, invited Player, Tablet/TV menus, user-facing runtime failures, and Airplane without changing offline transport.
+Use rendered journeys and browser/device tests for recovery, card isolation, safeguards, phone geometry, Tablet/TV input, ten seats, names, accessibility, and offline fallback. At iPad viewports, verify edge launchers, glyph centers, bottom seats, and hand/board separation. Verify English/Chinese on Host creation, invited Player, Tablet/TV menus, runtime failures, and Airplane without changing offline transport.
 
 ## Out of Scope
 
