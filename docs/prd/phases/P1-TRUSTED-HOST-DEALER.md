@@ -2,7 +2,7 @@
 id: PRD-P1
 kind: phase
 status: current
-last_reconciled: 2026-08-16
+last_reconciled: 2026-08-29
 decision_ids:
   - SCOPE-PLAY-MONEY
   - PHASE1-DEAL-ONLY
@@ -87,3 +87,10 @@ Digital betting/accounting, real money, remote-first human play, tournaments, va
 ## Further Notes
 
 China readiness, standalone browser support, storage-key protection, and compromise resistance remain Test Gates—not release claims. Interaction timing and exact button placement remain soft-set until prototypes validate the minimal surface.
+
+The [Phase 1 next-version backlog](../backlog/P1-NEXT-VERSION-BACKLOG.md)
+records
+[`RECOVERY-RECONNECT-STORM-CONTROL`](../reference/DECISION-REGISTER.md#joining-identity-and-recovery)
+as a Table-side-only recovery requirement owned by
+[M04](../modules/M04-CONNECTIVITY-SERVICE.md#next-table-side-release-backlog--not-implemented-in-the-current-release).
+It is not implemented or released by the current Phase 1 build.
