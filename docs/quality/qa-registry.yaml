@@ -626,6 +626,22 @@ control_contract:
       surface: Host dealer controls
       expected_result: A new committed hand enters pre-flop.
       evidence: tests/journey/control-conformance.spec.ts
+    host-top-up-seat:
+      surface: Digital player administration
+      expected_result: Selects the existing player to receive play chips between hands.
+      evidence: tests/journey/phase2-preview.spec.ts
+    host-top-up-submit:
+      surface: Digital player administration
+      expected_result: Reviews the amount then commits one top-up, preserved after reload.
+      evidence: tests/journey/phase2-preview.spec.ts
+    tablet-review-settlement:
+      surface: Digital Tablet quick controls
+      expected_result: Reviews settlement without ending the hand or changing balances.
+      evidence: tests/journey/phase2-preview.spec.ts
+    tablet-confirm-settlement:
+      surface: Digital Tablet quick controls
+      expected_result: Confirms awards before the next hand becomes available.
+      evidence: tests/journey/phase2-preview.spec.ts
     dealer-review-settlement:
       surface: Digital-chip dealer controls
       expected_result: Settlement review is prepared without mutating stacks.
@@ -687,7 +703,7 @@ control_contract:
       evidence: tests/journey/control-conformance.spec.ts
     tablet-next-hand:
       surface: Tablet quick controls
-      expected_result: One guarded drag ends the current hand when needed, immediately starts the next hand, and closes the panel; clicks and double-clicks alone do nothing.
+      expected_result: One guarded drag starts the next hand and closes the panel; digital play requires confirmed settlement first, while physical-chip play may end the previous hand. Clicks and double-clicks alone do nothing.
       evidence: tests/journey/control-conformance.spec.ts
     tablet-secondary-close:
       surface: Tablet secondary controls
@@ -864,7 +880,9 @@ performance_contract:
   artifacts:
     table_side_javascript_raw_bytes: 1100000
     table_side_javascript_gzip_bytes: 330000
-    table_side_css_raw_bytes: 100000
+    # Feedback UI adds ~2.8 KB raw CSS for seat cues, stacks, pot and top-up.
+    # Preserve measured enforcement with <1% headroom; Phase 1 hosted bytes stay pinned.
+    table_side_css_raw_bytes: 103500
     airplane_html_raw_bytes: 1350000
   browser_interaction_timeout_ms: 5000
 

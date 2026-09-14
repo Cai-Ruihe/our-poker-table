@@ -34,8 +34,8 @@ const chinese: Readonly<Record<string, string>> = {
   "Deal-only mode. Players move chips on the table.":
     "仅负责发牌，玩家在真实牌桌上移动筹码。",
   "Digital chips · development tracer": "数字筹码 · 开发测试版",
-  "Two players and one hand only; not party-ready.":
-    "仅支持两名玩家和一手牌，暂不适合正式牌局。",
+  "Consecutive hands with the same seats; top up between hands.":
+    "同一组玩家可连续开局，两手之间可以补充筹码。",
   "Experimental chip mode": "实验性筹码模式",
   "Starting stack": "起始筹码",
   "Small blind": "小盲注",
@@ -90,6 +90,11 @@ const chinese: Readonly<Record<string, string>> = {
   "This street": "本轮",
   "Current bet": "当前下注",
   "to act": "行动中",
+  "To act": "行动中",
+  "Table stacks": "牌桌筹码",
+  "Complete settlement to unlock the next hand.": "完成结算后即可开始下一手。",
+  "At least two players need chips.": "至少需要两名有筹码的玩家。",
+  "Waiting for the next hand.": "等待下一手准备就绪。",
   "Betting round closed": "本轮下注已结束",
   "Confirmed result": "已确认结果",
   "Host confirmation gate": "主机确认",
@@ -445,8 +450,8 @@ const chinese: Readonly<Record<string, string>> = {
     "请输入整数，并满足 0 < 小盲注 < 大盲注 < 起始筹码。",
   "New players locked": "新玩家加入已锁定",
   "New seats are paused": "新座位暂时关闭",
-  "This one-hand Digital Chips tracer does not admit late seats. Existing seat recovery and device replacement still work.":
-    "数字筹码测试版只支持一手牌，不能中途加入；已有座位仍可恢复或更换设备。",
+  "This Digital Chips preview keeps the same seats after dealing. Existing seat recovery and device replacement still work.":
+    "数字筹码预览版发牌后保持原有座位；已有座位仍可恢复或更换设备。",
   "Allow new players to reveal a one-use QR and link. Existing seat recovery and device replacement still work.":
     "允许新玩家获取一次性二维码和链接；已有座位仍可恢复或更换设备。",
   "Existing seat recovery and device replacement still work.":
@@ -483,7 +488,52 @@ export function translate(language: Language, english: string): string {
 export function localizeRuntimeError(
   language: Language,
   message: string,
+  context: { readonly digitalAccounting?: boolean } = {},
 ): string {
+  const prefix = [
+    "Chip top-up rejected:",
+    "Next deal rejected:",
+    "Street reveal rejected:",
+    "End hand rejected:",
+    "Settlement review rejected:",
+    "Settlement confirmation rejected:",
+  ].find((candidate) =>
+    message.toLowerCase().startsWith(candidate.toLowerCase()),
+  );
+  if (prefix) {
+    const digital = context.digitalAccounting ?? false;
+    const english: Record<string, string> = {
+      "Chip top-up rejected:":
+        "The chip top-up was rejected. Check the amount and the player's available stack.",
+      "Next deal rejected:":
+        "The next hand could not start. At least two eligible players need chips.",
+      "Street reveal rejected:": digital
+        ? "The digital hand is waiting for player actions; the table cannot reveal a card manually."
+        : "The hand is not ready to show the next community card.",
+      "End hand rejected:": digital
+        ? "The digital hand ends after betting closes; the host cannot end it manually."
+        : "The hand could not end yet. Resolve the remaining player actions first.",
+      "Settlement review rejected:":
+        "The settlement could not be prepared. Review the hand state and try again.",
+      "Settlement confirmation rejected:":
+        "The settlement was not confirmed. Review the proposed result and try again.",
+    };
+    const chinese: Record<string, string> = {
+      "Chip top-up rejected:": "筹码补充未获接受。请检查数量和玩家可用筹码。",
+      "Next deal rejected:":
+        "无法开始下一手。至少需要两名符合条件且有筹码的玩家。",
+      "Street reveal rejected:": digital
+        ? "数字牌局仍在等待玩家操作；牌桌不能手动推进公共牌。"
+        : "当前还不能发出下一张公共牌。",
+      "End hand rejected:": digital
+        ? "数字牌局会在下注结束后自动进入结算，主机不能手动结束。"
+        : "暂时无法结束本手，请先完成剩余的玩家操作。",
+      "Settlement review rejected:": "无法准备结算，请检查牌局状态后重试。",
+      "Settlement confirmation rejected:":
+        "结算未获确认，请检查待确认结果后重试。",
+    };
+    return (language === "zh" ? chinese[prefix] : english[prefix]) ?? message;
+  }
   const localized = translate(language, message);
   if (language === "zh" && localized === message) {
     return "暂时无法完成此操作，请检查连接后重试。";

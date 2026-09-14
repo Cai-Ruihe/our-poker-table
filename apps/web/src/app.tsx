@@ -68,6 +68,17 @@ function invitationReleaseMessage(
     : "This invitation belongs to another version of Our Poker Table. Ask the host for a current link.";
 }
 
+function tableErrorProps(error?: string) {
+  return error
+    ? {
+        errorMessage: error,
+        errorRecovery: /rejected:\s*[a-z-]+/iu.test(error)
+          ? ("none" as const)
+          : ("connection" as const),
+      }
+    : {};
+}
+
 interface CapabilityCheck {
   readonly available: boolean;
   readonly label: string;
@@ -341,8 +352,8 @@ function Home({
           {IS_PHASE2_BUILD ? (
             <p className="inline-warning" role="note">
               {language === "zh"
-                ? "第二阶段测试预览：每张牌桌只支持一手牌。要进行下一手，请重新创建牌桌。"
-                : "Phase 2 test preview: one hand per table. Create a new table for the next hand."}
+                ? "第二阶段测试预览：确认结算后可继续下一手，并在两手之间补充筹码。暂不支持中途新增玩家。"
+                : "Phase 2 test preview: confirm settlement before the next hand. Top up between hands; new seats after dealing are not supported."}
             </p>
           ) : null}
           <div className="deck-statement" aria-hidden="true">
@@ -425,9 +436,11 @@ function Home({
                   <small>
                     {IS_PHASE2_BUILD
                       ? language === "zh"
-                        ? "每张牌桌支持一手牌。要进行下一手，请重新创建牌桌。"
-                        : "One hand per table. Create a new table for the next hand."
-                      : t("Two players and one hand only; not party-ready.")}
+                        ? "确认结算后继续下一手；两手之间可补充筹码。"
+                        : "Continue after confirmed settlement; top up between hands."
+                      : t(
+                          "Consecutive hands with the same seats; top up between hands.",
+                        )}
                   </small>
                 </span>
               </label>
@@ -1209,7 +1222,7 @@ function InvitePanel({
           <p>
             {digitalJoinLocked
               ? t(
-                  "This one-hand Digital Chips tracer does not admit late seats. Existing seat recovery and device replacement still work.",
+                  "This Digital Chips preview keeps the same seats after dealing. Existing seat recovery and device replacement still work.",
                 )
               : tableSideMode
                 ? t(
@@ -2525,9 +2538,7 @@ function HostTable({
         busy={busy || actionGuard.busy}
         connectionLabel={snapshot.connectionLabel}
         developerMode={developerMode}
-        {...((error ?? snapshot.error)
-          ? { errorMessage: error ?? snapshot.error }
-          : {})}
+        {...tableErrorProps(error ?? snapshot.error)}
         hostPlayerAdministrationOpen={adminOpen}
         hostPlayerCount={snapshot.roster.seats.length}
         mode={
@@ -2626,6 +2637,15 @@ function HostTable({
               </button>
             </div>
           </header>
+          {projection.accounting && adminFocus === "players" ? (
+            <ChipTopUp
+              busy={busy || actionGuard.busy}
+              onTopUp={(seatId, amount) =>
+                performDealerAction(() => runtime.topUpChips(seatId, amount))
+              }
+              projection={projection}
+            />
+          ) : null}
           <InvitePanel compact runtime={runtime} snapshot={snapshot} />
           <RoleInvitations
             onUseThisDevice={(role) => {
@@ -2647,9 +2667,12 @@ function HostTable({
             onMove={(seatId, position) =>
               perform(() => runtime.setDisplayPosition(seatId, position))
             }
-            onRelocateDealer={(seatId) =>
-              perform(() => runtime.relocateDealer(seatId))
-            }
+            {...(!projection.accounting
+              ? {
+                  onRelocateDealer: (seatId: string) =>
+                    perform(() => runtime.relocateDealer(seatId)),
+                }
+              : {})}
             onReplace={(seatId) =>
               perform(() => runtime.issuePlayerReplacement(seatId))
             }
@@ -2673,6 +2696,169 @@ function HostTable({
         </aside>
       ) : null}
     </div>
+  );
+}
+
+function ChipTopUp({
+  busy,
+  onTopUp,
+  projection,
+}: {
+  readonly busy: boolean;
+  readonly onTopUp: (seatId: string, amount: number) => Promise<boolean>;
+  readonly projection: NonNullable<HostRuntimeSnapshot["projection"]>;
+}) {
+  const { language } = useLanguage();
+  const zh = language === "zh";
+  const [seatId, setSeatId] = useState(projection.seats[0]?.seatId ?? "");
+  const [amountText, setAmountText] = useState("");
+  const [confirmation, setConfirmation] = useState<{
+    seatId: string;
+    amount: number;
+    revision: number;
+  }>();
+  const [message, setMessage] = useState("");
+  const submitting = useRef(false);
+  const amount = Number(amountText);
+  const seat = projection.seats.find(
+    (candidate) => candidate.seatId === seatId,
+  );
+  const stack = projection.accounting?.seats.find(
+    (candidate) => candidate.seatId === seatId,
+  )?.stack;
+  const allowed =
+    projection.phase === "complete" &&
+    projection.accounting?.phase === "complete";
+  const valid =
+    allowed &&
+    Boolean(seat) &&
+    seat?.status !== "sitting-out" &&
+    stack !== undefined &&
+    /^\d+$/u.test(amountText) &&
+    Number.isSafeInteger(amount) &&
+    amount > 0 &&
+    Number.isSafeInteger(stack + amount) &&
+    Number.isSafeInteger((projection.accounting?.sessionTotal ?? NaN) + amount);
+  const confirming =
+    confirmation?.seatId === seatId &&
+    confirmation.amount === amount &&
+    confirmation.revision === projection.revision &&
+    valid;
+  async function submit(event: FormEvent) {
+    event.preventDefault();
+    if (busy || submitting.current || !valid) return;
+    setMessage("");
+    if (!confirming) {
+      setConfirmation({ seatId, amount, revision: projection.revision });
+      return;
+    }
+    submitting.current = true;
+    try {
+      const accepted = await onTopUp(seatId, amount);
+      setConfirmation(undefined);
+      if (accepted) {
+        setAmountText("");
+        setMessage(
+          zh
+            ? `已为 ${seat?.displayName} 补充 ${amount} 筹码。`
+            : `Added ${amount} chips to ${seat?.displayName}.`,
+        );
+      } else {
+        setMessage(
+          zh
+            ? "未补充筹码，请检查牌桌当前状态后重试。"
+            : "No chips added. Check the current table state and try again.",
+        );
+      }
+    } finally {
+      submitting.current = false;
+    }
+  }
+  return (
+    <section
+      className="admin-section chip-top-up"
+      aria-label={zh ? "补充筹码" : "Chip top-up"}
+    >
+      <h3>{zh ? "补充筹码" : "Top up chips"}</h3>
+      <p>
+        {allowed
+          ? zh
+            ? "为选定玩家增加游戏筹码，确认后生效。"
+            : "Add play chips to the selected player after confirmation."
+          : zh
+            ? "请先完成本手并确认结算，再补充筹码。"
+            : "Finish the hand and confirm settlement before topping up."}
+      </p>
+      {allowed && seat?.status === "sitting-out" ? (
+        <p role="status">
+          {zh
+            ? "此座位已错过发牌。本预览版暂不支持重新入局，请开新桌。"
+            : "This seat has missed a deal. Re-entry is not supported in this preview; start a new table."}
+        </p>
+      ) : null}
+      <form onSubmit={(event) => void submit(event)}>
+        <div className="digital-chip-settings">
+          <label>
+            <span>{zh ? "玩家" : "Player"}</span>
+            <select
+              data-qa-control="host-top-up-seat"
+              disabled={busy || !allowed}
+              value={seatId}
+              onChange={(event) => {
+                setSeatId(event.target.value);
+                setConfirmation(undefined);
+                setMessage("");
+              }}
+            >
+              {projection.seats.map((candidate) => (
+                <option key={candidate.seatId} value={candidate.seatId}>
+                  {candidate.displayName}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label>
+            <span>{zh ? "补充数量" : "Chips to add"}</span>
+            <input
+              data-qa-control="host-top-up-amount"
+              disabled={busy || !allowed}
+              type="number"
+              min="1"
+              step="1"
+              inputMode="numeric"
+              value={amountText}
+              onChange={(event) => {
+                setAmountText(event.target.value);
+                setConfirmation(undefined);
+                setMessage("");
+              }}
+            />
+          </label>
+        </div>
+        {confirming ? (
+          <p role="status">
+            {zh
+              ? `为 ${seat?.displayName} 增加 ${amount} 筹码：${stack} → ${Number(stack) + amount}。`
+              : `Add ${amount} chips to ${seat?.displayName}: ${stack} → ${Number(stack) + amount}.`}
+          </p>
+        ) : null}
+        <button
+          className="button button--primary"
+          data-qa-control="host-top-up-submit"
+          type="submit"
+          disabled={busy || !valid}
+        >
+          {confirming
+            ? zh
+              ? "确认补充"
+              : "Confirm top-up"
+            : zh
+              ? "检查补充数量"
+              : "Review top-up"}
+        </button>
+        {message ? <p role="status">{message}</p> : null}
+      </form>
+    </section>
   );
 }
 
@@ -2796,6 +2982,9 @@ function PlayerExperience({
 }) {
   const { language, t } = useLanguage();
   const snapshot = useClientSnapshot(runtime);
+  const fixedDigitalSeats =
+    snapshot.rulesProfileId === "nlhe-home-v1" ||
+    Boolean(snapshot.projection?.accounting);
   const playerProjection =
     snapshot.projection?.view === "seat" ? snapshot.projection : undefined;
   const reconnectRequired = Boolean(
@@ -3058,7 +3247,7 @@ function PlayerExperience({
             </p>
           ) : null}
           <div className="waiting-seat-actions">
-            {stayingOutNextHand ? (
+            {stayingOutNextHand && !fixedDigitalSeats ? (
               <button
                 className="button button--primary"
                 data-qa-control="player-return-next-hand"
@@ -3080,15 +3269,17 @@ function PlayerExperience({
             >
               {t("Refresh table status")}
             </button>
-            <button
-              className="waiting-seat-leave"
-              data-qa-control="player-leave-waiting"
-              disabled={busy}
-              onClick={() => setLeaveConfirmOpen(true)}
-              type="button"
-            >
-              {t("Leave table permanently")}
-            </button>
+            {!fixedDigitalSeats ? (
+              <button
+                className="waiting-seat-leave"
+                data-qa-control="player-leave-waiting"
+                disabled={busy}
+                onClick={() => setLeaveConfirmOpen(true)}
+                type="button"
+              >
+                {t("Leave table permanently")}
+              </button>
+            ) : null}
           </div>
         </section>
         {leaveConfirmOpen ? (
@@ -3110,15 +3301,13 @@ function PlayerExperience({
         brandSymbolSrc={brandSymbolGold}
         busy={busy}
         connectionLabel={snapshot.connectionLabel}
-        {...((error ?? snapshot.error)
-          ? { errorMessage: error ?? snapshot.error }
-          : {})}
+        {...tableErrorProps(error ?? snapshot.error)}
         futureSittingOut={snapshot.futureSittingOut}
         mode="player"
         onBettingAction={(action) => perform({ action, type: "betting" })}
         onFinalizeFold={() => perform({ type: "finalize-fold" })}
         onFold={() => perform({ type: "fold" })}
-        {...(manageLifecycle
+        {...(manageLifecycle && !fixedDigitalSeats
           ? { onLeaveTable: () => setLeaveConfirmOpen(true) }
           : {})}
         {...(isAirplaneMode() || reconnectRequired
@@ -3126,9 +3315,12 @@ function PlayerExperience({
           : {})}
         reconnecting={reconnecting}
         onShowCards={() => perform({ type: "show" })}
-        onToggleSittingOut={(sittingOut) =>
-          perform({ sittingOut, type: "set-sitting-out" })
-        }
+        {...(!fixedDigitalSeats
+          ? {
+              onToggleSittingOut: (sittingOut: boolean) =>
+                perform({ sittingOut, type: "set-sitting-out" }),
+            }
+          : {})}
         onUndoFold={() => perform({ type: "undo-fold" })}
         projection={playerProjection}
         productName={PRODUCT_NAME}
@@ -3281,9 +3473,7 @@ function RoleExperience({ runtime }: { readonly runtime: TableClientRuntime }) {
       brandSymbolSrc={brandSymbolGold}
       busy={actionGuard.busy}
       connectionLabel={snapshot.connectionLabel}
-      {...((error ?? snapshot.error)
-        ? { errorMessage: error ?? snapshot.error }
-        : {})}
+      {...tableErrorProps(error ?? snapshot.error)}
       mode={
         runtime.role === "public-table"
           ? "public"

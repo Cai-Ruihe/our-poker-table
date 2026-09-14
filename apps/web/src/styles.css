@@ -3093,3 +3093,8 @@ button:disabled {
     animation-iteration-count: 1 !important;
   }
 }
+
+.admin-drawer[data-admin-focus="players"] > .chip-top-up {
+  order: 1;
+  flex-shrink: 0;
+}

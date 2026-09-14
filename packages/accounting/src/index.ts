@@ -69,6 +69,11 @@ export type AccountingCommand =
       readonly handId: string;
       readonly type: "StartHand";
     }
+  | {
+      readonly amount: number;
+      readonly seatId: string;
+      readonly type: "TopUpChips";
+    }
   | { readonly seatId: string; readonly type: "Call" }
   | { readonly seatId: string; readonly type: "Check" }
   | { readonly seatId: string; readonly type: "Fold" }
@@ -87,6 +92,11 @@ export type AccountingCommand =
 
 export type AccountingEvent =
   | { readonly type: "AccountingSessionCreated" }
+  | {
+      readonly amount: number;
+      readonly seatId: string;
+      readonly type: "ChipsToppedUp";
+    }
   | {
       readonly amount: number;
       readonly forcedBet: "big-blind" | "small-blind";
@@ -317,6 +327,45 @@ export function createDigitalAccounting(
             totalContribution: 0,
           })),
           smallBlind: options.smallBlind,
+        },
+        status: "accepted",
+      };
+    }
+
+    if (command.type === "TopUpChips") {
+      if (
+        !state ||
+        !["between-hands", "complete"].includes(state.phase) ||
+        !state.seats.some((seat) => seat.seatId === command.seatId)
+      ) {
+        return { code: "command-not-allowed", status: "rejected" };
+      }
+      if (!isPositiveChipAmount(command.amount)) {
+        return { code: "invalid-amount", status: "rejected" };
+      }
+      const target = state.seats.find((seat) => seat.seatId === command.seatId);
+      if (!target) return { code: "command-not-allowed", status: "rejected" };
+      const stack = target.stack + command.amount;
+      const sessionTotal = state.sessionTotal + command.amount;
+      if (!Number.isSafeInteger(stack) || !Number.isSafeInteger(sessionTotal)) {
+        return { code: "invalid-amount", status: "rejected" };
+      }
+      return {
+        events: [
+          {
+            amount: command.amount,
+            seatId: command.seatId,
+            type: "ChipsToppedUp",
+          },
+        ],
+        state: {
+          ...state,
+          seats: state.seats.map((seat) =>
+            seat.seatId === command.seatId
+              ? { ...seat, stack, status: "active" }
+              : seat,
+          ),
+          sessionTotal,
         },
         status: "accepted",
       };

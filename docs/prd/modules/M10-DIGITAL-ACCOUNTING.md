@@ -60,6 +60,8 @@ Given committed public hand state and one player's private eligibility, expose e
 - A short big blind does not lower the nominal bring-in while multiple players can still bet. When only one player has chips, require only the outstanding actual contribution; when no response remains, run out the board. Reject zero-stack hand participants.
 - Accounting snapshots version the per-player reopening state. Unsupported snapshots fail recovery closed rather than reconstructing unknown raise rights.
 - Settlement proposal and balance mutation are separate. `p2-house-1` pins explicit host confirmation, clockwise odd-chip allocation beginning left of the dealer, blinds without antes/straddles, between-hand top-ups, and wait-for-big-blind re-entry.
+- `TopUpChips` is a host-only, positive safe-integer addition between hands. It updates the existing seat stack and session total in the same persisted authority transaction, records the amount and seat, and preserves duplicate-command receipts. Settlement must be confirmed before the next hand or a top-up.
+- The preview retains a fixed roster. Its next hand uses the remaining stacks, rotates the dealer, and excludes zero-stack or sitting-out seats; manual re-entry remains unavailable pending wait-for-big-blind enforcement.
 - Every correction references original entries and preserves total conservation.
 - Histories separate public facts, the player's own cards, and diagnostics; no all-card export.
 
@@ -73,10 +75,15 @@ Real money, payments, rake, credit, clubs, tournament lifecycle, multi-table bal
 
 ## Further Notes
 
-The deep module and its first heads-up tracer are active development work. The
-default Phase 1 party path does not expose it; the browser selector requires
-`?experimental=digital-chips`. Reopening/blind edge vectors and seeded
-conservation/replay sequences extend the local accounting evidence. Independent
-differential qualification, top-up/re-entry, corrections, replayable exports,
-physical devices, and release behavior remain required before the module can
-be called complete or party-ready.
+The separate `/multiplayer/` preview defaults to digital chips; retained Phase 1
+artifacts do not expose this module. The feedback increment adds fixed-roster
+consecutive hands and between-hand top-ups. Local betting/reopening and recovery
+tests do not establish independent differential qualification or real-device
+readiness. Blind-aware re-entry, corrections, and privacy-filtered history exports
+remain deferred. See the [preview release record](../../releases/PHASE-2-PREVIEW.md)
+for verified release evidence and limitations.
+
+Preview re-entry boundary: an existing player may reload immediately after a
+hand, including after reaching zero, before missing a subsequent deal. Once a
+seat has sat out a deal, top-up/return is unavailable until blind-aware re-entry
+is implemented. This does not change the settled wait-for-big-blind rule.

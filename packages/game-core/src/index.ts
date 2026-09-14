@@ -132,6 +132,11 @@ export type CommandPayload =
     }
   | { readonly type: "PrepareSettlement" }
   | { readonly type: "ConfirmSettlement" }
+  | {
+      readonly amount: number;
+      readonly seatId: string;
+      readonly type: "TopUpChips";
+    }
   | { readonly tableTheme: TableTheme; readonly type: "SetTableTheme" }
   | { readonly cardStyle: CardStyle; readonly type: "SetCardStyle" };
 
@@ -171,6 +176,7 @@ export type EventType =
   | "SeatUnregistered"
   | "SeatParticipationChanged"
   | "AccountingSessionCreated"
+  | "ChipsToppedUp"
   | "AccountingHandStarted"
   | "ForcedBetPosted"
   | "BettingActionCommitted"
@@ -183,6 +189,8 @@ export type EventType =
   | "CardStyleChanged";
 
 export interface EventSummary {
+  readonly amount?: number;
+  readonly seatId?: string;
   readonly type: EventType;
 }
 
@@ -194,7 +202,6 @@ export interface TableEvent extends EventSummary {
   readonly handId?: string;
   readonly reason?: string;
   readonly revision: number;
-  readonly seatId?: string;
   readonly sittingOut?: boolean;
 }
 
@@ -421,8 +428,12 @@ function accountingFor(profile: RulesProfile): DigitalAccounting | undefined {
 function eligibleDealerSeatId(
   state: PersistedAuthorityState,
   playingSeats: readonly SeatState[],
+  advance = false,
 ): string {
-  if (playingSeats.some((seat) => seat.seatId === state.dealerSeatId)) {
+  if (
+    !advance &&
+    playingSeats.some((seat) => seat.seatId === state.dealerSeatId)
+  ) {
     return state.dealerSeatId;
   }
 
@@ -462,6 +473,16 @@ function toAccountingCommand(
     case "fold":
       return { seatId, type: "Fold" };
   }
+}
+
+function accountingEventSummaries(
+  events: readonly AccountingEvent[],
+): readonly EventSummary[] {
+  return events.map((event) => ({
+    type: event.type,
+    ...("seatId" in event ? { seatId: event.seatId } : {}),
+    ...("amount" in event ? { amount: event.amount } : {}),
+  }));
 }
 
 function commandFingerprint(command: CommandEnvelope): string {
@@ -643,14 +664,21 @@ function appendHistory(
                 sittingOut: command.payload.sittingOut,
               }
             : {};
+    const accountingDetails = {
+      ...(event.seatId ? { seatId: event.seatId } : {}),
+      ...(event.amount !== undefined ? { amount: event.amount } : {}),
+    };
     return {
       commandId: command.commandId,
       ...correctionDetails,
       ...relocationDetails,
       eventId: `${command.commandId}:${state.revision}:${index}`,
-      ...(state.handId ? { handId: state.handId } : {}),
+      ...(command.payload.type !== "TopUpChips" && state.handId
+        ? { handId: state.handId }
+        : {}),
       revision: state.revision,
       ...seatDetails,
+      ...accountingDetails,
       type: event.type,
       ...voidDetails,
     };
@@ -929,18 +957,27 @@ export function createTrustedHostAuthority(
           return rejected("command-not-allowed", revision);
         }
         const rulesProfile = rulesProfileOf(current);
-        if (
-          rulesProfile.id === "nlhe-home-v1" &&
-          current.phase === "complete"
-        ) {
-          return rejected("command-not-allowed", revision);
-        }
+        const seatsWithChips =
+          rulesProfile.id === "nlhe-home-v1"
+            ? new Set(
+                current.accounting?.seats
+                  .filter((seat) => seat.stack > 0)
+                  .map((seat) => seat.seatId) ?? [],
+              )
+            : undefined;
         const playingSeats = current.seats.filter(
-          (seat) => !seat.sittingOutNextHand,
+          (seat) =>
+            !seat.sittingOutNextHand &&
+            (seatsWithChips === undefined || seatsWithChips.has(seat.seatId)),
         );
         if (playingSeats.length < 2)
           return rejected("command-not-allowed", revision);
-        const dealerSeatId = eligibleDealerSeatId(current, playingSeats);
+        const playingSeatIds = new Set(playingSeats.map((seat) => seat.seatId));
+        const dealerSeatId = eligibleDealerSeatId(
+          current,
+          playingSeats,
+          rulesProfile.id === "nlhe-home-v1" && current.phase === "complete",
+        );
         const handId = options.handIdFactory();
         const accounting = accountingFor(rulesProfile);
         let accountingState = current.accounting;
@@ -981,13 +1018,47 @@ export function createTrustedHostAuthority(
           revision: revision + 1,
           seats: current.seats.map((seat) => ({
             ...seat,
-            status: seat.sittingOutNextHand ? "sitting-out" : "active",
+            status: playingSeatIds.has(seat.seatId) ? "active" : "sitting-out",
           })),
         };
         events = [
           { type: "HandStarted" },
           ...accountingEvents.map((event) => ({ type: event.type })),
         ];
+        break;
+      }
+      case "TopUpChips": {
+        const seatId = command.payload.seatId;
+        const seat = current?.seats.find(
+          (candidate) => candidate.seatId === seatId,
+        );
+        if (
+          !current ||
+          !isHost(command.actor) ||
+          !["lobby", "complete"].includes(current.phase) ||
+          !current.accounting ||
+          !seat ||
+          seat.status === "sitting-out" ||
+          seat.sittingOutNextHand
+        ) {
+          return rejected("command-not-allowed", revision);
+        }
+        const accounting = accountingFor(rulesProfileOf(current));
+        if (!accounting) return rejected("command-not-allowed", revision);
+        const transition = accounting.submit(current.accounting, {
+          amount: command.payload.amount,
+          seatId: command.payload.seatId,
+          type: "TopUpChips",
+        });
+        if (transition.status === "rejected") {
+          return rejected("command-not-allowed", revision);
+        }
+        next = {
+          ...current,
+          accounting: transition.state,
+          revision: revision + 1,
+        };
+        events = accountingEventSummaries(transition.events);
         break;
       }
       case "RevealStreet": {
@@ -1061,7 +1132,8 @@ export function createTrustedHostAuthority(
             const accountingSeat = transition.state.seats.find(
               (candidate) => candidate.seatId === seat.seatId,
             );
-            return accountingSeat?.status === "folded"
+            return accountingSeat?.status === "folded" &&
+              seat.status !== "sitting-out"
               ? { ...seat, status: "folded" as const }
               : seat;
           }),
@@ -1168,7 +1240,9 @@ export function createTrustedHostAuthority(
               (candidate) => candidate.seatId === seat.seatId,
             );
             if (accountingSeat?.status === "folded") {
-              return { ...seat, status: "folded" as const };
+              return seat.status === "sitting-out"
+                ? seat
+                : { ...seat, status: "folded" as const };
             }
             if (contestedWinnerIds.has(seat.seatId)) {
               return { ...seat, status: "shown" as const };
@@ -1363,6 +1437,8 @@ export function createTrustedHostAuthority(
         break;
       }
       case "RelocateDealer": {
+        if (current?.accounting && current.phase !== "lobby")
+          return rejected("command-not-allowed", revision);
         const dealerSeatId = command.payload.dealerSeatId;
         if (
           !current ||

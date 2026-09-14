@@ -4,15 +4,17 @@
 
 ## Current slice
 
-The implemented vertical slice lets a host select Deal-Only or Digital Chips at
-table creation only after deliberately opening the development URL with
-`?experimental=digital-chips`. The default Phase 1 party URL exposes Deal-Only
-only. A two-player Digital Chips table completes one tracer hand: it posts
-blinds, exposes seat-private legal actions, advances streets only after
-committed betting actions, derives a settlement proposal, and updates stacks
-only after host confirmation. The Digital Chips join window closes when that
-first deal begins; replacement credentials remain available, but late new seats
-and a second hand fail closed until the session-policy slice is implemented.
+The separate `/multiplayer/` preview defaults to Digital Chips while the retained
+Phase 1 deployment remains unchanged. Digital betting advances streets through
+committed actions, stages settlement for host confirmation, and supports another
+hand after confirmation. Host-only `TopUpChips` increases an existing stack and
+the session total atomically between hands, with idempotent receipts.
+
+The original roster is retained after the first deal. New seats and manual
+sit-out/return are unavailable until blind-aware re-entry is implemented.
+Disconnect/reconnect and device replacement preserve the original seat. The next
+hand uses fresh custody and a fresh hand ID, rotates the dealer, and deals only
+to eligible seats with positive stacks. At least two such seats are required.
 
 ```mermaid
 flowchart LR
@@ -148,9 +150,15 @@ qualification gaps below remain open.
 
 ## Deliberately incomplete
 
-This tracer is not a Phase 2 release candidate or a party-ready mode. Multi-hand
-sessions, late seats, independent multiway/short-all-in qualification,
-top-up/re-entry workflows, dealer rotation, correction/reopen policy,
-privacy-filtered history export, remote Public Table qualification,
-broader property/differential testing, and physical-device/Airplane verification remain
-open.
+The preview does not establish complete Phase 2 or party readiness. Late seats,
+wait-for-big-blind re-entry, correction/reopen policy, privacy-filtered history
+export, independent differential settlement tests, remote Public Table
+qualification, and physical-device/Airplane verification remain open.
+
+Earlier dated test results above are historical milestones. Current feedback and
+release evidence belongs to [the preview record](../releases/PHASE-2-PREVIEW.md).
+
+Preview re-entry boundary: an existing player may reload immediately after a
+hand, including after reaching zero, before missing a subsequent deal. Once a
+seat has sat out a deal, top-up/return is unavailable until blind-aware re-entry
+is implemented. This does not change the settled wait-for-big-blind rule.

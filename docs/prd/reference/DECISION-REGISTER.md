@@ -153,3 +153,12 @@ This is the searchable source of settled product choices. Load rows by ID rather
 | TEST-AI-GTO-TRAINER      | Solver licence/API or local-build eligibility, accuracy labeling, per-decision coverage, latency/cost, failure handling, style transformation, privacy, and deterministic replay/export round-trip. | M12      |
 | TEST-SKINS               | Schema/malicious-package fuzzing, non-executability, asset rights, accessibility, performance, and deterministic fallback.                                                                          | M11      |
 | TEST-MENTAL-POKER        | Separate protocol, performance, dropout, collusion, and independent cryptographic review.                                                                                                           | M02      |
+
+## Phase 2 feedback clarification — 2026-09-14
+
+The [research-backed PRD clarity audit](../../research/PHASE-2-PRD-CLARITY-AUDIT-2026-09-14.md)
+records stable aliases, evidence, classifications, and revisit triggers for
+fixed-roster consecutive hands, immediate reloads before a missed deal, deferred
+blind-aware re-entry, correction/history, and session archival. No new major
+question is admitted. Existing house-policy and remote-human-play decisions are
+not reopened by this feedback repair.

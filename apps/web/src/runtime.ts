@@ -388,6 +388,7 @@ type CapabilityResponsePayload =
   | {
       readonly cardStyle: CardStyle;
       readonly futureSittingOut?: boolean;
+      readonly rulesProfileId: RulesProfile["id"];
       readonly role: CapabilityRole;
       readonly relayRoutes?: RelayRouteConfiguration;
       readonly seat?: RoomSeat;
@@ -2070,6 +2071,11 @@ export class HostTableRuntime {
   readonly hostKey: string;
   readonly tableId: string;
   private authority: TrustedHostAuthority | undefined;
+  private closed = false;
+  private finishInitialization: () => void = () => undefined;
+  private readonly initialized = new Promise<void>((resolve) => {
+    this.finishInitialization = resolve;
+  });
   private readonly airplanePairings = new Map<string, HostAirplanePairing>();
   private readonly capabilitySecrets = new Map<string, string>();
   private readonly cachedResponses = new Map<
@@ -2140,26 +2146,28 @@ export class HostTableRuntime {
     }
     this.endpoint = new RoomEndpoint(this.binding, "host", this.relayRoutes);
     this.endpoint.subscribe((event) => {
-      const message = event.message;
-      if (message.kind === "join-request") {
-        void this.runExclusive(() =>
-          this.handleJoin(message, event.senderPeerId, event.route),
-        ).catch((error) => this.captureError(error));
-      } else if (message.kind === "capability-request") {
-        void this.runExclusive(() =>
-          this.handleCapabilityRequest(
+      // Recovery must reconcile durable authority and identity before any inbound
+      // request can redeem invitations, mutate seats, or expose a projection.
+      void this.runExclusive(async () => {
+        await this.initialized;
+        if (this.closed) return;
+        const message = event.message;
+        if (message.kind === "join-request") {
+          await this.handleJoin(message, event.senderPeerId, event.route);
+        } else if (message.kind === "capability-request") {
+          await this.handleCapabilityRequest(
             message,
             event.senderPeerId,
             event.route,
-          ),
-        ).catch((error) => this.captureError(error));
-      } else if (message.kind === "liveness-request") {
-        void this.handleLivenessRequest(
-          message,
-          event.senderPeerId,
-          event.route,
-        ).catch((error) => this.captureError(error));
-      }
+          );
+        } else if (message.kind === "liveness-request") {
+          await this.handleLivenessRequest(
+            message,
+            event.senderPeerId,
+            event.route,
+          );
+        }
+      }).catch((error) => this.captureError(error));
     });
   }
 
@@ -2213,14 +2221,21 @@ export class HostTableRuntime {
       recoveryStore: hostRecoveryStore(tableId),
       rulesProfile,
     });
-    await runtime.issueInvitationInternal("player");
-    await runtime.persistRecovery();
-    runtime.recordDiagnostic("lifecycle", "accepted");
-    return runtime;
+    try {
+      await runtime.issueInvitationInternal("player");
+      await runtime.persistRecovery();
+      runtime.recordDiagnostic("lifecycle", "accepted");
+      runtime.finishInitialization();
+      return runtime;
+    } catch (error) {
+      runtime.close();
+      throw error;
+    }
   }
 
   static async recover(tableId: string): Promise<HostTableRuntime> {
     const lease = await acquireHostLease(tableId, true);
+    let runtime: HostTableRuntime | undefined;
     try {
       const recoveryStore = hostRecoveryStore(tableId);
       const saved = await recoveryStore.load();
@@ -2231,7 +2246,7 @@ export class HostTableRuntime {
         recoveryState: saved.state.identity,
         secretFactory: () => makeId("secret"),
       });
-      const runtime = new HostTableRuntime({
+      runtime = new HostTableRuntime({
         authorityEpoch: saved.state.authorityEpoch,
         binding: saved.state.binding,
         diagnosticSalt: saved.state.diagnosticSalt,
@@ -2255,10 +2270,11 @@ export class HostTableRuntime {
         rulesProfile: saved.state.rulesProfile ?? { id: "deal-only-v1" },
       });
       await runtime.rebuildInvitationDigests();
+      const recoveringRuntime = runtime;
       const authority = createTrustedHostAuthority({
         authorityEpoch: runtime.authorityEpoch,
         custody: createCardCustody(),
-        handIdFactory: () => runtime.handIds.next(),
+        handIdFactory: () => recoveringRuntime.handIds.next(),
         store: authorityStore(tableId),
         tableId,
       });
@@ -2271,6 +2287,15 @@ export class HostTableRuntime {
         runtime.authority = authority;
         runtime.refreshProjection();
         const phase = runtime.projection?.phase;
+        if (runtime.rulesProfile.id === "nlhe-home-v1") {
+          // Authority persistence may precede the runtime's join-window commit.
+          // Recovered digital authority is already bound to its original roster.
+          runtime.identity.closeJoinWindow();
+          const invitation = runtime.invitations.get("player");
+          if (invitation && !invitation.seatId)
+            await runtime.removeInvitation(invitation);
+          await runtime.persistRecovery();
+        }
         const identityState = runtime.identity.exportRecoveryState();
         if (phase === "complete" && identityState.handActive) {
           await runtime.completeHandIdentity();
@@ -2288,14 +2313,18 @@ export class HostTableRuntime {
         throw new Error("The saved runtime and hand history disagree.");
       }
       runtime.recordDiagnostic("recovery", "accepted");
+      runtime.finishInitialization();
       return runtime;
     } catch (error) {
+      runtime?.close();
       lease.release();
       throw error;
     }
   }
 
   close(): void {
+    this.closed = true;
+    this.finishInitialization();
     for (const pairing of this.airplanePairings.values()) pairing.close();
     this.airplanePairings.clear();
     this.endpoint.close();
@@ -2808,6 +2837,22 @@ export class HostTableRuntime {
     });
   }
 
+  async topUpChips(seatId: string, amount: number): Promise<void> {
+    await this.runExclusive(async () => {
+      const receipt = await this.submitHostInternal({
+        type: "TopUpChips",
+        seatId,
+        amount,
+      });
+      if (receipt.status === "rejected") {
+        throw new Error(`Chip top-up rejected: ${receipt.code}`);
+      }
+      // submitHostInternal has already atomically persisted the chip ledger
+      // and published the committed projection. No identity state changed.
+      // A second unrelated recovery write could misreport a committed top-up.
+    });
+  }
+
   async startNextHand(): Promise<void> {
     await this.runExclusive(async () => {
       const receipt = await this.submitHostInternal({ type: "StartHand" });
@@ -2875,12 +2920,20 @@ export class HostTableRuntime {
       return;
     }
     let response: JoinResponsePayload;
-    const redeemed = this.identity.redeem({
-      binding: payload.binding,
-      clientInstanceId: payload.clientInstanceId,
-      ...(payload.displayName ? { displayName: payload.displayName } : {}),
-      invitationToken: payload.invitationToken,
-    });
+    const redeemed: RedemptionResult =
+      this.rulesProfile.id === "nlhe-home-v1" &&
+      this.authority &&
+      invitation.role === "player" &&
+      !invitation.seatId
+        ? { code: "join-window-closed", status: "rejected" }
+        : this.identity.redeem({
+            binding: payload.binding,
+            clientInstanceId: payload.clientInstanceId,
+            ...(payload.displayName
+              ? { displayName: payload.displayName }
+              : {}),
+            invitationToken: payload.invitationToken,
+          });
     if (redeemed.status === "accepted") {
       if (
         redeemed.role === "player" &&
@@ -3000,6 +3053,15 @@ export class HostTableRuntime {
       !isDealerAction(request.action)
     ) {
       response = { code: "invalid-action", status: "rejected" };
+    } else if (
+      this.rulesProfile.id === "nlhe-home-v1" &&
+      request.type === "player-action" &&
+      (request.action.type === "leave" ||
+        request.action.type === "set-sitting-out")
+    ) {
+      // The preview retains its original seats until blind-aware re-entry exists.
+      // Reject before changing identity participation or the chip ledger.
+      response = { code: "command-not-allowed", status: "rejected" };
     } else {
       if (authenticated.role === "player") {
         this.identity.setConnected({
@@ -3106,6 +3168,7 @@ export class HostTableRuntime {
           role,
           seat,
           status: "waiting",
+          rulesProfileId: this.rulesProfile.id,
           cardStyle,
           tableTheme,
         };
@@ -3131,6 +3194,7 @@ export class HostTableRuntime {
           role,
           seat,
           status: "waiting",
+          rulesProfileId: this.rulesProfile.id,
           cardStyle,
           tableTheme,
         };
@@ -3141,6 +3205,7 @@ export class HostTableRuntime {
         ...optionalRelayRoutes(relayRoutes),
         role,
         status: "waiting",
+        rulesProfileId: this.rulesProfile.id,
         cardStyle,
         tableTheme,
       };
@@ -3573,7 +3638,9 @@ export class HostTableRuntime {
   }
 
   private async syncParticipation(): Promise<void> {
-    if (!this.authority) return;
+    // The digital preview has no manual participation changes. Preserve Core's
+    // skipped-deal status so a later top-up cannot bypass blind-aware re-entry.
+    if (!this.authority || this.rulesProfile.id === "nlhe-home-v1") return;
     for (const seat of this.identity.roster().seats) {
       await this.submitHostInternal({
         seatId: seat.seatId,
@@ -3589,6 +3656,7 @@ export class HostTableRuntime {
 }
 
 export interface ClientRuntimeSnapshot {
+  readonly rulesProfileId?: RulesProfile["id"];
   readonly cardStyle: CardStyle;
   readonly connectionLabel: string;
   readonly error?: string;
@@ -3641,6 +3709,7 @@ export class TableClientRuntime {
   private readonly endpoint: RoomEndpoint;
   private error: string | undefined;
   private futureSittingOut = false;
+  private rulesProfileId: RulesProfile["id"] | undefined;
   private readonly invitationToken: string | undefined;
   private lease: ExclusiveHostLease | undefined;
   private readonly listeners = new Set<() => void>();
@@ -3958,6 +4027,7 @@ export class TableClientRuntime {
       cardStyle: this.cardStyle,
       ...(this.error ? { error: this.error } : {}),
       futureSittingOut: this.futureSittingOut,
+      ...(this.rulesProfileId ? { rulesProfileId: this.rulesProfileId } : {}),
       ...(this.projection
         ? { projection: structuredClone(this.projection) }
         : {}),
@@ -4027,6 +4097,7 @@ export class TableClientRuntime {
       }
       if (response.relayRoutes) this.updateRelayRoutes(response.relayRoutes);
       if (response.status === "waiting") {
+        this.rulesProfileId = response.rulesProfileId;
         this.seat = response.seat;
         this.tableTheme = response.tableTheme;
         this.cardStyle = response.cardStyle;
@@ -4039,6 +4110,7 @@ export class TableClientRuntime {
         this.projection = undefined;
         this.status = "waiting";
       } else {
+        this.rulesProfileId = response.projection.rulesProfileId;
         this.tableTheme = response.projection.tableTheme;
         this.cardStyle = response.projection.cardStyle;
         this.futureSittingOut =

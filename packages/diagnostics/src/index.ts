@@ -98,6 +98,7 @@ export type DiagnosticCommandKind =
   | "SubmitBettingAction"
   | "PrepareSettlement"
   | "ConfirmSettlement"
+  | "TopUpChips"
   | "SetTableTheme"
   | "SetCardStyle";
 export type DiagnosticHandPhase =
@@ -208,6 +209,7 @@ const commandKinds = new Set<DiagnosticCommandKind>([
   "SubmitBettingAction",
   "PrepareSettlement",
   "ConfirmSettlement",
+  "TopUpChips",
   "SetTableTheme",
   "SetCardStyle",
 ]);

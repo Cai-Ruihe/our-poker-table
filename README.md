@@ -128,10 +128,11 @@ pnpm build
 players with private phone hands, public screens, guarded hand controls,
 reconnect/replacement flows, and Table-side plus Airplane routes.
 
-**Digital Chips is experimental:** the two-player tracer can prove a narrow
-play-chip hand, but multiway hardening, side pots, re-entry, full device
-verification, and release qualification remain open. It is not the ordinary
-party path and is available only through `?experimental=digital-chips`.
+**Digital Chips test preview:** use [Multiplayer](https://ourpokertable.com/multiplayer/).
+It supports betting, explicit settlement, consecutive hands with the same seats,
+and host-controlled top-ups between hands. Late joins and manual sit-out/return
+remain unavailable. History exports, corrections, and broader device qualification
+are unfinished; see [the preview record](docs/releases/PHASE-2-PREVIEW.md).
 
 **The honest release boundary:** automated browser and contract evidence exists,
 but physical iOS/iPadOS, Android, TV, WAN-removal, hostile-network, and

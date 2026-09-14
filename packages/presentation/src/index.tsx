@@ -45,6 +45,7 @@ const airplaneBuild =
 export type PresentationMode = "host" | "player" | "tablet" | "tv" | "public";
 
 type ActionResult = boolean | void | Promise<boolean | void>;
+type SurfaceProjection = PublicProjection | SeatProjection;
 
 // The recovery callback may replace the Player surface synchronously (for
 // example when a local projection arrives immediately). Keep this tiny,
@@ -59,6 +60,8 @@ export interface TableSurfaceProps {
   readonly connectionLabel: string;
   readonly developerMode?: boolean;
   readonly errorMessage?: string;
+  /** Whether this error can be recovered by reconnecting. Unset keeps legacy behavior. */
+  readonly errorRecovery?: "connection" | "none";
   readonly futureSittingOut?: boolean;
   readonly hostPlayerAdministrationOpen?: boolean;
   readonly hostPlayerCount?: number;
@@ -93,6 +96,37 @@ export interface TableSurfaceProps {
   readonly productName: string;
   /** Airplane is intentionally limited to its compact four-colour deck. */
   readonly airplaneMode?: boolean;
+}
+
+function accountingStackFor(
+  projection: SurfaceProjection,
+  seatId: string,
+): number | undefined {
+  return projection.accounting?.seats.find((seat) => seat.seatId === seatId)
+    ?.stack;
+}
+
+function actingSeatIdFor(projection: SurfaceProjection): string | undefined {
+  if (projection.phase === "complete") return undefined;
+  return projection.accounting?.phase === "betting"
+    ? projection.accounting.currentActorSeatId
+    : undefined;
+}
+
+function eligiblePositiveStackCount(projection: SurfaceProjection): number {
+  const accounting = projection.accounting;
+  if (!accounting) return 0;
+  const projectedSeats = new Map(
+    projection.seats.map((seat) => [seat.seatId, seat]),
+  );
+  return accounting.seats.filter((seat) => {
+    const projectedSeat = projectedSeats.get(seat.seatId);
+    return (
+      seat.stack > 0 &&
+      projectedSeat !== undefined &&
+      projectedSeat.status !== "sitting-out"
+    );
+  }).length;
 }
 
 const suitDetails = {
@@ -362,6 +396,7 @@ function BoardRail({
   compactGlyphsOnly = false,
   fullFace = false,
   minimal = false,
+  potTotal,
 }: {
   readonly bestCards?: ReadonlySet<Card>;
   readonly board: readonly Card[];
@@ -369,10 +404,14 @@ function BoardRail({
   readonly compactGlyphsOnly?: boolean;
   readonly fullFace?: boolean;
   readonly minimal?: boolean;
+  readonly potTotal?: number;
 }) {
   const { t } = useLanguage();
   return (
-    <section className="dealer-rail" aria-label={t("Community cards")}>
+    <section
+      className={`dealer-rail${potTotal !== undefined ? " dealer-rail--with-pot" : ""}`}
+      aria-label={t("Community cards")}
+    >
       <h2 className="visually-hidden">{t("Community cards")}</h2>
       <div className="dealer-rail__cards">
         {Array.from({ length: 5 }, (_, index) => {
@@ -401,6 +440,7 @@ function BoardRail({
           );
         })}
       </div>
+      {potTotal !== undefined ? <BoardPot total={potTotal} /> : null}
     </section>
   );
 }
@@ -531,6 +571,7 @@ function QuietSeatGrid({
   const { t } = useLanguage();
   const { bigBlindSeatId, smallBlindSeatId } = blindSeatIds(projection);
   const winners = new Set(projection.showdown?.leaders ?? []);
+  const actingSeatId = actingSeatIdFor(projection);
   return (
     <section
       className="quiet-seat-grid"
@@ -547,10 +588,18 @@ function QuietSeatGrid({
           ? seat.evaluation
           : undefined;
         const position = tableSeatPosition(seat.displayPosition ?? index, 10);
+        const stack = accountingStackFor(projection, seat.seatId);
+        const isActing = seat.seatId === actingSeatId;
+        const accessibleSeatDetails = [
+          seat.displayName,
+          t(statusLabel),
+          ...(projection.accounting ? [`${t("Stack")} ${stack ?? "—"}`] : []),
+          ...(isActing ? [t("To act")] : []),
+        ].join(", ");
         return (
           <div
-            aria-label={`${seat.displayName}, ${t(statusLabel)}`}
-            className={`seat-edge-status seat-edge-status--${position}${showNames ? " seat-edge-status--show-name" : ""}${seat.seatId === selfSeatId ? " seat-edge-status--self" : ""}`}
+            aria-label={accessibleSeatDetails}
+            className={`seat-edge-status seat-edge-status--${position}${showNames ? " seat-edge-status--show-name" : ""}${seat.seatId === selfSeatId ? " seat-edge-status--self" : ""}${isActing ? " seat-edge-status--acting" : ""}`}
             data-seat-edge-position={position}
             data-seat-edge-status={statusLabel}
             {...(seat.holeCards && showShownHands
@@ -560,6 +609,10 @@ function QuietSeatGrid({
               ? { "data-seat-self": "true" }
               : {})}
             data-seat-id={seat.seatId}
+            data-seat-acting={isActing ? "true" : "false"}
+            {...(projection.accounting
+              ? { "data-seat-stack": stack ?? "unknown" }
+              : {})}
             key={seat.seatId}
             role="img"
           >
@@ -609,6 +662,12 @@ function QuietSeatGrid({
                 {seat.displayName}
               </span>
             ) : null}
+            {projection.accounting ? (
+              <span className="seat-edge-status__stack">{stack ?? "—"}</span>
+            ) : null}
+            {isActing ? (
+              <span className="seat-edge-status__turn">{t("To act")}</span>
+            ) : null}
           </div>
         );
       })}
@@ -645,83 +704,90 @@ function SeatGrid({
   const selfSeatId =
     projection.view === "seat" ? projection.self.seatId : undefined;
   const winners = new Set(projection.showdown?.leaders ?? []);
+  const actingSeatId = actingSeatIdFor(projection);
   return (
     <section className={`seat-grid seat-grid--${mode}`} aria-label={t("Seats")}>
-      {projection.seats.map((seat, index) => (
-        <article
-          className={`seat-tile${seat.seatId === selfSeatId ? " seat-tile--self" : ""}`}
-          data-seat-status={seat.status}
-          key={seat.seatId}
-        >
-          <header>
-            <span className="seat-tile__number">
-              {t("Seat")} {(seat.displayPosition ?? index) + 1}
+      {projection.seats.map((seat, index) => {
+        const stack = accountingStackFor(projection, seat.seatId);
+        const isActing = seat.seatId === actingSeatId;
+        return (
+          <article
+            aria-label={`${seat.displayName}${isActing ? `, ${t("To act")}` : ""}`}
+            className={`seat-tile${seat.seatId === selfSeatId ? " seat-tile--self" : ""}${isActing ? " seat-tile--acting" : ""}`}
+            data-seat-id={seat.seatId}
+            data-seat-status={seat.status}
+            data-seat-acting={isActing ? "true" : "false"}
+            {...(projection.accounting
+              ? { "data-seat-stack": stack ?? "unknown" }
+              : {})}
+            key={seat.seatId}
+          >
+            <header>
+              <span className="seat-tile__number">
+                {t("Seat")} {(seat.displayPosition ?? index) + 1}
+              </span>
+              {seatCanHoldPosition(seat) &&
+              seat.seatId === projection.dealerSeatId ? (
+                <span className="dealer-chip" aria-label={t("Dealer")}>
+                  D
+                </span>
+              ) : null}
+            </header>
+            <strong>{seat.displayName}</strong>
+            <span className="seat-tile__status">
+              {seat.status.replace("-", " ")}
             </span>
-            {seatCanHoldPosition(seat) &&
-            seat.seatId === projection.dealerSeatId ? (
-              <span className="dealer-chip" aria-label={t("Dealer")}>
-                D
+            {projection.accounting ? (
+              <span
+                className="seat-tile__stack"
+                data-stack={stack ?? "unknown"}
+              >
+                {t("Stack")} {stack ?? "—"}
               </span>
             ) : null}
-          </header>
-          <strong>{seat.displayName}</strong>
-          <span className="seat-tile__status">
-            {seat.status.replace("-", " ")}
-          </span>
-          {projection.accounting ? (
-            <span
-              className="seat-tile__stack"
-              data-stack={
-                projection.accounting.seats.find(
-                  (accountingSeat) => accountingSeat.seatId === seat.seatId,
-                )?.stack
-              }
-            >
-              {t("Stack")}{" "}
-              {projection.accounting.seats.find(
-                (accountingSeat) => accountingSeat.seatId === seat.seatId,
-              )?.stack ?? "—"}
-            </span>
-          ) : null}
-          {seat.holeCards ? (
-            <div
-              className="mini-hand"
-              aria-label={`${seat.displayName} ${t("shown cards")}`}
-            >
-              {seat.holeCards.map((card) => (
-                <PlayingCard
-                  card={card}
-                  cardStyle={cardStyle}
-                  compact
-                  compactGlyphsOnly={compactGlyphsOnly}
-                  {...(winners.has(seat.seatId) && seat.evaluation
-                    ? {
-                        emphasis: seat.evaluation.bestFive.includes(card)
-                          ? "best"
-                          : "unused",
-                      }
-                    : {})}
-                  key={card}
-                  marker="shown"
-                />
-              ))}
-            </div>
-          ) : seat.status === "active" ||
-            seat.status === "folded-provisional" ? (
-            <div
-              className="card-back-pair"
-              aria-label={t("Cards not shown")}
-              role="img"
-            >
-              <span />
-              <span />
-            </div>
-          ) : null}
-          {seat.evaluation ? (
-            <span className="hand-label">{seat.evaluation.label}</span>
-          ) : null}
-        </article>
-      ))}
+            {isActing ? (
+              <span className="seat-tile__turn">{t("To act")}</span>
+            ) : null}
+            {seat.holeCards ? (
+              <div
+                className="mini-hand"
+                aria-label={`${seat.displayName} ${t("shown cards")}`}
+              >
+                {seat.holeCards.map((card) => (
+                  <PlayingCard
+                    card={card}
+                    cardStyle={cardStyle}
+                    compact
+                    compactGlyphsOnly={compactGlyphsOnly}
+                    {...(winners.has(seat.seatId) && seat.evaluation
+                      ? {
+                          emphasis: seat.evaluation.bestFive.includes(card)
+                            ? "best"
+                            : "unused",
+                        }
+                      : {})}
+                    key={card}
+                    marker="shown"
+                  />
+                ))}
+              </div>
+            ) : seat.status === "active" ||
+              seat.status === "folded-provisional" ? (
+              <div
+                className="card-back-pair"
+                aria-label={t("Cards not shown")}
+                role="img"
+              >
+                <span />
+                <span />
+              </div>
+            ) : null}
+            {seat.evaluation ? (
+              <span className="hand-label">{seat.evaluation.label}</span>
+            ) : null}
+          </article>
+        );
+      })}
     </section>
   );
 }
@@ -740,12 +806,6 @@ function ChipRail({
   return (
     <section className="chip-rail" aria-label={t("Digital chip accounting")}>
       <div>
-        <span>{t("In the middle")}</span>
-        <strong>
-          {t("Pot")} {accounting.potTotal}
-        </strong>
-      </div>
-      <div>
         <span>{t("This street")}</span>
         <strong>
           {t("Current bet")} {accounting.currentBet}
@@ -754,6 +814,54 @@ function ChipRail({
       <p>
         {actorName ? `${actorName} ${t("to act")}` : t("Betting round closed")}
       </p>
+    </section>
+  );
+}
+
+function BoardPot({ total }: { readonly total: number | undefined }) {
+  const { t } = useLanguage();
+  if (total === undefined) return null;
+  return (
+    <section
+      aria-label={t("In the middle")}
+      className="board-pot"
+      data-table-pot
+    >
+      <span>{t("Pot")}</span>
+      <strong>{total}</strong>
+    </section>
+  );
+}
+
+function PlayerStackList({
+  projection,
+}: {
+  readonly projection: SeatProjection;
+}) {
+  const { t } = useLanguage();
+  if (!projection.accounting) return null;
+  return (
+    <section
+      aria-label={t("Table stacks")}
+      className="player-stack-list"
+      data-player-stack-list
+    >
+      {projection.seats.map((seat) => {
+        const stack = accountingStackFor(projection, seat.seatId);
+        return (
+          <div
+            className="player-stack-list__seat"
+            data-seat-id={seat.seatId}
+            data-seat-stack={stack ?? "unknown"}
+            key={seat.seatId}
+          >
+            <span>{seat.displayName}</span>
+            <strong>
+              {t("Stack")} {stack ?? "—"}
+            </strong>
+          </div>
+        );
+      })}
     </section>
   );
 }
@@ -1218,11 +1326,18 @@ function TabletControls(
   const sliderCommitting = useRef(false);
   const sliderTrack = useRef<HTMLDivElement>(null);
   const progression = nextStreetByPhase[props.projection.phase];
+  const digitalPhase = props.projection.accounting?.phase;
+  const hasDigitalAccounting = digitalPhase !== undefined;
+  const eligibleStackCount = eligiblePositiveStackCount(props.projection);
+  const digitalNextHandReady =
+    digitalPhase === "complete" && eligibleStackCount >= 2;
   const nextHandUnavailable =
     props.busy ||
-    (props.projection.phase === "complete"
-      ? !props.onStartNextHand
-      : !props.onEndHand || !props.onStartNextHand);
+    (hasDigitalAccounting
+      ? !digitalNextHandReady || !props.onStartNextHand
+      : props.projection.phase === "complete"
+        ? !props.onStartNextHand
+        : !props.onEndHand || !props.onStartNextHand);
   const corners: readonly {
     readonly id: TableCorner;
     readonly label: string;
@@ -1249,8 +1364,11 @@ function TabletControls(
   async function commitNextHand(): Promise<void> {
     if (nextHandUnavailable || sliderCommitting.current) return;
     sliderCommitting.current = true;
-    const action =
-      props.projection.phase === "complete"
+    const action = hasDigitalAccounting
+      ? digitalNextHandReady
+        ? props.onStartNextHand
+        : undefined
+      : props.projection.phase === "complete"
         ? props.onStartNextHand
         : async (): Promise<boolean | void> => {
             const ended = await props.onEndHand?.();
@@ -1450,23 +1568,67 @@ function TabletControls(
               </button>
             </div>
             <div className="tablet-quick-panel__actions">
-              <button
-                className="next-card-action"
-                data-qa-control="tablet-next-card"
-                disabled={!progression || props.busy || !props.onRevealStreet}
-                onClick={() =>
-                  void invoke(
-                    progression
-                      ? () => props.onRevealStreet?.(progression.street)
-                      : undefined,
-                  )
-                }
-                type="button"
-              >
-                <span>{t("Next card")}</span>
-                <small>{progression?.label ?? t("Board complete")}</small>
-                <b className="arrow-glyph" aria-hidden="true" />
-              </button>
+              {hasDigitalAccounting ? (
+                <>
+                  {digitalPhase === "showdown" ? (
+                    <button
+                      aria-label={t("Review settlement")}
+                      className="next-card-action settlement-action"
+                      data-qa-control="tablet-review-settlement"
+                      disabled={props.busy || !props.onPrepareSettlement}
+                      onClick={() => void invoke(props.onPrepareSettlement)}
+                      type="button"
+                    >
+                      <span>{t("Review settlement")}</span>
+                      <small>{t("Showdown")}</small>
+                    </button>
+                  ) : digitalPhase === "settlement-pending" ? (
+                    <button
+                      aria-label={t("Confirm settlement")}
+                      className="next-card-action settlement-action"
+                      data-qa-control="tablet-confirm-settlement"
+                      disabled={props.busy || !props.onConfirmSettlement}
+                      onClick={() => void invoke(props.onConfirmSettlement)}
+                      type="button"
+                    >
+                      <span>{t("Confirm settlement")}</span>
+                      <small>{t("Host confirmation gate")}</small>
+                    </button>
+                  ) : (
+                    <p
+                      className="tablet-digital-progress"
+                      role="status"
+                      aria-live="polite"
+                    >
+                      {digitalPhase === "betting"
+                        ? t("Players act from their phones.")
+                        : digitalPhase === "complete"
+                          ? eligibleStackCount >= 2
+                            ? t("This hand is complete.")
+                            : t("At least two players need chips.")
+                          : t("Waiting for the next hand.")}
+                    </p>
+                  )}
+                </>
+              ) : (
+                <button
+                  className="next-card-action"
+                  data-qa-control="tablet-next-card"
+                  disabled={!progression || props.busy || !props.onRevealStreet}
+                  onClick={() =>
+                    void invoke(
+                      progression
+                        ? () => props.onRevealStreet?.(progression.street)
+                        : undefined,
+                    )
+                  }
+                  type="button"
+                >
+                  <span>{t("Next card")}</span>
+                  <small>{progression?.label ?? t("Board complete")}</small>
+                  <b className="arrow-glyph" aria-hidden="true" />
+                </button>
+              )}
               <div className="next-hand-control">
                 <div
                   aria-disabled={nextHandUnavailable}
@@ -1481,6 +1643,13 @@ function TabletControls(
                   }
                   className="next-hand-slider"
                   data-qa-control="tablet-next-hand"
+                  data-next-hand-ready={
+                    hasDigitalAccounting
+                      ? digitalNextHandReady
+                        ? "true"
+                        : "false"
+                      : undefined
+                  }
                   data-slider-travel="92"
                   onKeyDown={controlSliderFromKeyboard}
                   onPointerCancel={cancelSlider}
@@ -1506,9 +1675,15 @@ function TabletControls(
                 <span className="next-hand-control__copy">
                   <strong>{t("Next hand")}</strong>
                   <small>
-                    {props.projection.phase === "complete"
-                      ? t("Slide · deal now")
-                      : t("Slide · clear & deal")}
+                    {hasDigitalAccounting
+                      ? digitalPhase === "complete"
+                        ? eligibleStackCount >= 2
+                          ? t("Slide · deal now")
+                          : t("At least two players need chips.")
+                        : t("Complete settlement to unlock the next hand.")
+                      : props.projection.phase === "complete"
+                        ? t("Slide · deal now")
+                        : t("Slide · clear & deal")}
                   </small>
                 </span>
               </div>
@@ -1649,7 +1824,7 @@ function TabletControls(
                 <HostControlIcon kind="connection" />
                 <strong>{t("Connection & recovery")}</strong>
                 <small>{t("Catch up with the Trusted Host now")}</small>
-                {props.onReconnect ? (
+                {props.onReconnect && props.errorRecovery !== "none" ? (
                   <ReconnectAction onReconnect={props.onReconnect} />
                 ) : (
                   <em>{t("Local host active")}</em>
@@ -2888,10 +3063,12 @@ export function TableSurface(props: TableSurfaceProps) {
           {props.airplaneMode ? (
             <>
               <span aria-live="polite">{t(props.connectionLabel)}</span>
-              <ReconnectAction
-                onReconnect={props.onReconnect}
-                reconnecting={props.reconnecting ?? false}
-              />
+              {props.errorRecovery === "none" ? null : (
+                <ReconnectAction
+                  onReconnect={props.onReconnect}
+                  reconnecting={props.reconnecting ?? false}
+                />
+              )}
             </>
           ) : (
             <PlayerTableStatus projection={props.projection} />
@@ -2918,6 +3095,9 @@ export function TableSurface(props: TableSurfaceProps) {
               (props.mode === "tablet" || props.mode === "tv")
             }
             minimal={props.mode === "host"}
+            {...(props.projection.accounting
+              ? { potTotal: props.projection.accounting.potTotal }
+              : {})}
           />
           <SeatGrid
             cardStyle={cardStyle}
@@ -2951,6 +3131,8 @@ export function TableSurface(props: TableSurfaceProps) {
             compactGlyphsOnly={compactGlyphsOnly}
             minimal
           />
+          <BoardPot total={props.projection.accounting?.potTotal} />
+          <PlayerStackList projection={props.projection} />
           {!props.airplaneMode ? (
             <div className="player-board__connection-actions">
               <button
@@ -2962,7 +3144,9 @@ export function TableSurface(props: TableSurfaceProps) {
               >
                 {t("See your table position")}
               </button>
-              <ReconnectAction onReconnect={props.onReconnect} />
+              {props.errorRecovery === "none" ? null : (
+                <ReconnectAction onReconnect={props.onReconnect} />
+              )}
               {!props.airplaneMode ? <SurfaceLanguageMenu /> : null}
             </div>
           ) : null}
@@ -2976,8 +3160,12 @@ export function TableSurface(props: TableSurfaceProps) {
 
       {props.errorMessage ? (
         <div className="surface-error" role="alert">
-          <span>{localizeRuntimeError(language, props.errorMessage)}</span>
-          {props.onReconnect ? (
+          <span>
+            {localizeRuntimeError(language, props.errorMessage, {
+              digitalAccounting: Boolean(props.projection.accounting),
+            })}
+          </span>
+          {props.errorRecovery !== "none" && props.onReconnect ? (
             <ReconnectAction
               onReconnect={props.onReconnect}
               reconnecting={props.reconnecting ?? false}

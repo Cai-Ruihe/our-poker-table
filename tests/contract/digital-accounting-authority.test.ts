@@ -182,10 +182,11 @@ describe("Digital Chips Profile through the Trusted Host interface", () => {
   });
 
   test("proposes a tie without moving balances and commits it only after host confirmation", async () => {
+    let nextHand = 0;
     const authority = createTrustedHostAuthority({
       authorityEpoch: "epoch-1",
       custody: createCardCustody({ shuffler: () => orderedDeck }),
-      handIdFactory: () => "hand-1",
+      handIdFactory: () => `hand-${++nextHand}`,
       store: createMemoryTableStore(),
       tableId: "table-1",
     });
@@ -311,13 +312,17 @@ describe("Digital Chips Profile through the Trusted Host interface", () => {
       phase: "complete",
     });
     await expect(
-      authority.submit(
-        command("unsupported-second-hand", 12, { type: "StartHand" }),
-      ),
-    ).resolves.toEqual({
-      code: "command-not-allowed",
-      revision: 12,
-      status: "rejected",
+      authority.submit(command("second-hand", 12, { type: "StartHand" })),
+    ).resolves.toMatchObject({
+      events: [
+        { type: "HandStarted" },
+        { type: "AccountingHandStarted" },
+        { type: "ForcedBetPosted" },
+        { type: "ForcedBetPosted" },
+      ],
+      handId: "hand-2",
+      revision: 13,
+      status: "accepted",
     });
   });
 

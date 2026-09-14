@@ -51,7 +51,7 @@ At table creation, the host selects either the Phase 1 Deal-Only Profile or the 
 
 ## Implementation Decisions
 
-- Phase 2 will publish at its own entrypoint, provisionally `/multiplayer/`, while the released Phase 1 `/table-side/` continues independently. M09 owns artifact/version selection, rollback, and cross-phase state-isolation requirements. This is a distribution decision, not a change to the remote-human-play scope below; the existing experimental query remains a development gate until the separate entrypoint is implemented and qualified.
+- Phase 2 publishes its test preview at `/multiplayer/`, while the released Phase 1 `/table-side/` continues independently. M09 owns artifact/version selection, rollback, and cross-phase state-isolation requirements. This is a distribution decision, not a change to the remote-human-play scope below; the experimental query remains available for local development; hosted artifact qualification is recorded separately.
 - `PHASE2-NLHE-HOME-SESSION` is the initial profile; other betting structures and tournaments remain deferred behind Rules Profile seams.
 - Accounting is event-derived. Corrections append adjustments/approvals; they never overwrite earlier actions.
 - Street advance in digital mode requires `BettingRoundClosed`; Phase 1 continues to use an explicit dealer command.
@@ -74,14 +74,23 @@ Money, payment, rake, clubs, public matchmaking, tournament clocks/elimination/r
 
 ## Further Notes
 
-Phase 2 is active as development work as of 2026-08-15. Its selector is absent
-from the default Phase 1 party path and is exposed only by the explicit
-`?experimental=digital-chips` query. The first implemented tracer covers one
-heads-up Digital Chips hand through settlement confirmation and deliberately
-rejects late new seats or a second hand. Multi-hand sessions,
-multiway/short-all-in hardening, top-up/re-entry, corrections,
-histories/exports, Remote Public Table qualification, recovery fault coverage,
-and release evidence remain incomplete. It is not party-ready and is not a
-Phase 2 release candidate. See the [Phase 2 accounting
-foundation](../../research/PHASE-2-ACCOUNTING-FOUNDATION.md) and [current
-architecture](../../architecture/PHASE-2-ACCOUNTING.md).
+The hosted preview is narrower than the complete Phase 2 roadmap. The feedback
+increment supports consecutive hands with the original roster and host-confirmed
+between-hand top-ups. Every occupied seat exposes its remaining stack in both
+views, the acting seat is highlighted with text, and the pot sits directly below
+the community cards. Digital Tablet controls review and confirm settlement;
+manual end-hand and street commands are unavailable.
+
+Late joins, manual sit-out/return, and seat removal remain unavailable in this
+preview. Disconnect/reconnect and device replacement preserve the original seat.
+Wait-for-big-blind re-entry remains the settled full-profile requirement, not an
+implemented preview promise. Zero-stack seats receive no cards until topped up;
+at least two eligible seats are required. Correction/reopen, privacy-filtered
+history exports, differential qualification, and physical-device/remote/Airplane
+qualification remain incomplete. See the [preview release record](../../releases/PHASE-2-PREVIEW.md)
+and [architecture](../../architecture/PHASE-2-ACCOUNTING.md).
+
+Preview re-entry boundary: an existing player may reload immediately after a
+hand, including after reaching zero, before missing a subsequent deal. Once a
+seat has sat out a deal, top-up/return is unavailable until blind-aware re-entry
+is implemented. This does not change the settled wait-for-big-blind rule.

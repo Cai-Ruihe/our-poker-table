@@ -549,7 +549,7 @@
 
 .public-table--quiet .chip-rail {
   position: absolute;
-  top: max(1.1rem, env(safe-area-inset-top));
+  top: max(5.5rem, env(safe-area-inset-top));
   left: 50%;
   width: auto;
   min-width: 20rem;
@@ -559,6 +559,37 @@
   padding: 0.65rem 1rem;
   color: var(--table-ink);
   background: color-mix(in srgb, var(--table-panel) 78%, transparent);
+  transform: translateX(-50%);
+}
+
+.board-pot {
+  display: flex;
+  width: max-content;
+  min-width: 5.5rem;
+  align-items: center;
+  justify-content: center;
+  gap: 0.55rem;
+  border: 1px solid var(--table-accent);
+  border-radius: 999px;
+  padding: 0.38rem 0.85rem;
+  color: var(--table-ink);
+  background: color-mix(in srgb, var(--table-panel) 86%, transparent);
+  font-size: 0.85rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.board-pot strong,
+.seat-edge-status__stack,
+.player-stack-list__seat strong {
+  color: var(--table-accent);
+  font-variant-numeric: tabular-nums;
+}
+
+.public-table--quiet .board-pot {
+  position: absolute;
+  z-index: 4;
+  top: calc(100% + 0.75rem);
+  left: 50%;
   transform: translateX(-50%);
 }
 
@@ -579,7 +610,7 @@
 .public-table--quiet .showdown-note {
   position: absolute;
   z-index: 3;
-  top: calc(50% + min(14vw, 15rem) - 0.5rem);
+  top: calc(50% + min(14vw, 15rem) + 2.1rem);
   left: 50%;
   width: max-content;
   max-width: calc(100% - 3rem);
@@ -604,6 +635,38 @@
   min-height: 3rem;
   color: var(--table-ink-soft);
   transform-origin: center;
+}
+
+.seat-edge-status[data-seat-acting="true"] {
+  z-index: 4;
+  outline: 2px solid var(--table-accent);
+  outline-offset: 2px;
+  border-radius: 0.85rem;
+  padding: 0.3rem 0.42rem;
+  color: var(--table-ink);
+  background: color-mix(in srgb, var(--table-panel) 86%, transparent);
+  box-shadow: 0 0 1rem var(--table-accent-soft);
+}
+
+.seat-edge-status__stack {
+  border: 1px solid var(--table-rule);
+  border-radius: 999px;
+  padding: 0.12rem 0.32rem;
+  background: var(--table-panel);
+  font-size: 0.66rem;
+  line-height: 1.15;
+}
+
+.seat-edge-status__turn,
+.seat-tile__turn {
+  border-radius: 999px;
+  padding: 0.16rem 0.42rem;
+  color: var(--table-felt-deep);
+  background: var(--table-accent);
+  font-size: 0.64rem;
+  font-weight: 800;
+  line-height: 1.2;
+  white-space: nowrap;
 }
 
 .seat-edge-status--0 {
@@ -867,7 +930,9 @@
   display: grid;
   grid-template-areas:
     "state roles"
-    "name name";
+    "name name"
+    "stack stack"
+    "turn turn";
   grid-template-columns: auto auto;
   justify-items: center;
   column-gap: 0.65rem;
@@ -917,7 +982,10 @@
   display: grid;
   grid-template-areas:
     "hand hand"
-    "state roles";
+    "state roles"
+    "name name"
+    "stack stack"
+    "turn turn";
   grid-template-columns: auto auto;
   justify-items: center;
   column-gap: 0.65rem;
@@ -1805,6 +1873,12 @@ button.secondary-control-card:disabled {
   border-color: var(--table-accent);
   box-shadow: none;
 }
+
+.table-surface .seat-tile[data-seat-acting="true"] {
+  outline: 2px solid var(--table-accent);
+  outline-offset: 2px;
+  box-shadow: 0 0 1.2rem var(--table-accent-soft);
+}
 .table-surface .seat-tile[data-seat-status="folded"],
 .table-surface .seat-tile[data-seat-status="mucked"],
 .table-surface .seat-tile[data-seat-status="sitting-out"] {
@@ -2633,6 +2707,38 @@ button.secondary-control-card:disabled {
   width: min(34rem, 100%);
 }
 
+.table-surface .player-board .board-pot {
+  margin: 0.8rem auto 0;
+}
+
+.player-stack-list {
+  display: grid;
+  width: min(34rem, 100%);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.4rem;
+  margin: 0.9rem auto 0;
+}
+
+.player-stack-list__seat {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.4rem;
+  border: 1px solid var(--table-rule);
+  border-radius: 0.65rem;
+  padding: 0.45rem 0.55rem;
+  color: var(--table-ink-soft);
+  background: var(--table-panel);
+  font-size: 0.72rem;
+}
+
+.player-stack-list__seat span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .table-surface[data-runtime="table-side"] .player-board__connection-actions {
   display: flex;
   width: min(34rem, 100%);
@@ -2718,6 +2824,22 @@ button.secondary-control-card:disabled {
 .table-surface .chip-rail p,
 .table-surface .chip-rail strong {
   color: var(--table-ink);
+}
+
+.tablet-digital-progress {
+  display: flex;
+  width: 190px;
+  height: 102px;
+  flex: 0 0 190px;
+  align-items: center;
+  border: 1px solid var(--table-rule);
+  border-radius: 27px;
+  padding: 1rem;
+  color: var(--table-ink);
+  background: var(--table-panel);
+  font-size: 0.82rem;
+  font-weight: 720;
+  line-height: 1.35;
 }
 
 .table-surface .settlement-panel {
@@ -3007,4 +3129,16 @@ button.secondary-control-card:disabled {
     animation: none !important;
     transition: none !important;
   }
+}
+
+.dealer-rail--with-pot {
+  position: relative;
+}
+.table-surface--host .board-pot {
+  margin: 0.75rem auto 0;
+}
+.table-surface--tablet .seat-edge-status[data-seat-stack].seat-edge-status--5,
+.table-surface--tablet .seat-edge-status[data-seat-stack].seat-edge-status--6,
+.table-surface--tablet .seat-edge-status[data-seat-stack].seat-edge-status--7 {
+  bottom: max(0.6rem, env(safe-area-inset-bottom));
 }
