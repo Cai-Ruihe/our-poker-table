@@ -25,6 +25,8 @@ ADRs record decisions that are cross-cutting, difficult to reverse, security-rel
 | [0009](0009-host-liveness-without-single-timeout-alerts.md) | Accepted | Lightweight Host liveness with a three-miss threshold and no custom polling coordinator |
 | [0010](0010-localized-table-presentation.md) | Accepted | Host-default, device-overridable bilingual presentation without changing Airplane transport |
 
+| [0012](0012-independent-phase-release-paths.md) | Accepted direction; implementation pending | Independent phase URLs and retained earlier artifacts |
+
 ## Creating or changing an ADR
 
 1. Copy [ADR-TEMPLATE.md](ADR-TEMPLATE.md) to the next four-digit number and a short kebab-case name.

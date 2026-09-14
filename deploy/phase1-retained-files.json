@@ -1,0 +1,795 @@
+{
+  "sourceRevision": "39d860db04d481fd16584672746cbf70fce47fc7",
+  "files": [
+    {
+      "path": "index.html",
+      "sha256": "167416e76e5e92e7e731196309633a0c4e8af2f562b9d5861bc0a410fcbb135f",
+      "size": 965
+    },
+    {
+      "path": "intro/assets/archivo-latin-ext-wght-normal-C4zznr8T.woff2",
+      "sha256": "ff4f17d21930e36d6d93baba663e624cb767afc3feebf7adaebd82242638de05",
+      "size": 32608
+    },
+    {
+      "path": "intro/assets/archivo-latin-wght-normal-E0tuGl4L.woff2",
+      "sha256": "8f704806dbedeaaeca334b11ec348bc3ac3a439d6431544b3afb54f534ee4967",
+      "size": 34928
+    },
+    {
+      "path": "intro/assets/archivo-vietnamese-wght-normal-XAtsl5Q_.woff2",
+      "sha256": "5a621c5598a31392555104ccdc41a46c3104f1cc22666024a8afb881ca9adaab",
+      "size": 13240
+    },
+    {
+      "path": "intro/assets/favicon-JlivOTEF.svg",
+      "sha256": "f46e085c925068a06add38b0af35e24c555ed9a004f8a9f2dffba1f27bb1e7de",
+      "size": 789
+    },
+    {
+      "path": "intro/assets/hero-chip-black-stack-BmQJJzQK.png",
+      "sha256": "5d3e46534b060cea121cc98c48b7099fc56f33a41a791feccf09fd36f4a39c0c",
+      "size": 41031
+    },
+    {
+      "path": "intro/assets/hero-chip-blue-DMnL_ye9.png",
+      "sha256": "113d91b80a539e78f073cbaafd8ee2c794a97a66b7ffeaee727da7cd2a87ba61",
+      "size": 35867
+    },
+    {
+      "path": "intro/assets/hero-chip-green-stack-DCDysYo3.png",
+      "sha256": "cbdc884ca931c103b64dbd0f9872aa8090a1627f465fc6c28c4afb46e9b70bb1",
+      "size": 40542
+    },
+    {
+      "path": "intro/assets/hero-chip-red-stack-DwDG9HAC.png",
+      "sha256": "58570a320d469e6fa4587d77a8af3fab809b478433c785084ded12b700cf0f86",
+      "size": 40127
+    },
+    {
+      "path": "intro/assets/hero-player-android-public-board-BNtzLwgo.png",
+      "sha256": "caf187622baa02ccf5454e64ddfb5036d4032eff613af76dee7a0576067c71ba",
+      "size": 209715
+    },
+    {
+      "path": "intro/assets/hero-player-private-board-BnPYFNVh.png",
+      "sha256": "b81956650b451fdb01aae9df5caa2b5c891191bf883e148361f73c91c03a4b42",
+      "size": 221008
+    },
+    {
+      "path": "intro/assets/hero-shared-board-ipad-B0yym97H.png",
+      "sha256": "9a5cab4ebb15bf7efc04e2cba9162c745deb96d7ccae3bdaa19093b184d299c1",
+      "size": 836681
+    },
+    {
+      "path": "intro/assets/home-start-yaX4yj_W.webp",
+      "sha256": "61dfb98dc54d1c8f5e53e7c16cd5be526b9f223c50d20347a01413d550252f63",
+      "size": 59324
+    },
+    {
+      "path": "intro/assets/horizontal-light-transparent-DvazotZn.svg",
+      "sha256": "a95b806e792087faea2e06de457baf36e3cec888dba7fedbc524fb2bfda08736",
+      "size": 11806
+    },
+    {
+      "path": "intro/assets/host-controls-EgE7z0EK.webp",
+      "sha256": "3e664b4f14610137f71d1936ca4460e9ebfdc81138441aa74f6231c6fabb8a29",
+      "size": 74476
+    },
+    {
+      "path": "intro/assets/host-lobby-BZk0vAeK.webp",
+      "sha256": "eee181600a8f60ba3784cad462767fb30bda899ad655de76413ffa335996576c",
+      "size": 71404
+    },
+    {
+      "path": "intro/assets/index-C_0o8dzt.css",
+      "sha256": "3ad1d8b78c382bcdeda4b0f29f61130f99e83d56b0db25fd0078b8ec93d5137b",
+      "size": 26432
+    },
+    {
+      "path": "intro/assets/player-private-BS63p4jI.webp",
+      "sha256": "4ad53eb261148e2145c8283ac61cd1ec8588932b947d2540eea0a0adca8ec428",
+      "size": 15520
+    },
+    {
+      "path": "intro/assets/player-revealed-7I_kZrrj.webp",
+      "sha256": "54e8d4213f536c5e9b82fae9f472c5791faaf71bd34b87403aff677c37dbbcab",
+      "size": 19806
+    },
+    {
+      "path": "intro/assets/shared-board-BNI5WMEr.webp",
+      "sha256": "9cc0965b31794bab4afb8f0b128a3fd5d409f6487b538d70566fbf571633aaf0",
+      "size": 68140
+    },
+    {
+      "path": "intro/assets/symbol-gold-D-KHAQRd.svg",
+      "sha256": "f3e5e9dbe85050ec6879db0705d696a4a221c3247f804a48c3904ff60f5fd6eb",
+      "size": 735
+    },
+    {
+      "path": "intro/assets/symbol-green-CBHAk5QD.svg",
+      "sha256": "dca533112c2b355f19b5fe7c879ef2d8191ddd1b1dfdf6ad0dbe2eb3b7f0dfb0",
+      "size": 739
+    },
+    {
+      "path": "intro/assets/table-showdown-DSzO50Ey.webp",
+      "sha256": "24c2cb9b40c4e78abc73ec1e75992b80246e1c76a27c5a0aea0d526659bd2dca",
+      "size": 77380
+    },
+    {
+      "path": "intro/index.html",
+      "sha256": "37a4a71bdfa74fedc4c87c3a110d9095384cccfca2bf84521f94c668fc14ede1",
+      "size": 44326
+    },
+    {
+      "path": "intro/product/README.md",
+      "sha256": "7f516170111ef2e36eafb4ebcff230221742b8f18e7b0fdfa07595b505ba85e3",
+      "size": 4055
+    },
+    {
+      "path": "intro/product/hero-chip-black-stack.png",
+      "sha256": "5d3e46534b060cea121cc98c48b7099fc56f33a41a791feccf09fd36f4a39c0c",
+      "size": 41031
+    },
+    {
+      "path": "intro/product/hero-chip-blue.png",
+      "sha256": "113d91b80a539e78f073cbaafd8ee2c794a97a66b7ffeaee727da7cd2a87ba61",
+      "size": 35867
+    },
+    {
+      "path": "intro/product/hero-chip-green-stack.png",
+      "sha256": "cbdc884ca931c103b64dbd0f9872aa8090a1627f465fc6c28c4afb46e9b70bb1",
+      "size": 40542
+    },
+    {
+      "path": "intro/product/hero-chip-red-stack.png",
+      "sha256": "58570a320d469e6fa4587d77a8af3fab809b478433c785084ded12b700cf0f86",
+      "size": 40127
+    },
+    {
+      "path": "intro/product/hero-player-android-public-board.png",
+      "sha256": "caf187622baa02ccf5454e64ddfb5036d4032eff613af76dee7a0576067c71ba",
+      "size": 209715
+    },
+    {
+      "path": "intro/product/hero-player-board-public.png",
+      "sha256": "842ed239b431b86c09f1b190dc8fe33a28a1aa38d059a1128c5edbec7bc38b29",
+      "size": 209295
+    },
+    {
+      "path": "intro/product/hero-player-board.png",
+      "sha256": "36f552e5cc1bddc8e8d47b408a239481dc8a41ae1d6add436ba7979a139225c9",
+      "size": 209226
+    },
+    {
+      "path": "intro/product/hero-player-private-board.png",
+      "sha256": "b81956650b451fdb01aae9df5caa2b5c891191bf883e148361f73c91c03a4b42",
+      "size": 221008
+    },
+    {
+      "path": "intro/product/hero-shared-board-ipad.png",
+      "sha256": "9a5cab4ebb15bf7efc04e2cba9162c745deb96d7ccae3bdaa19093b184d299c1",
+      "size": 836681
+    },
+    {
+      "path": "intro/product/hero-shared-board.png",
+      "sha256": "cecb9fbd1f6ce1ad42bc097948b183537a4b32f2e427a30bc7de615ca20d2b4f",
+      "size": 1067528
+    },
+    {
+      "path": "intro/product/home-start.webp",
+      "sha256": "61dfb98dc54d1c8f5e53e7c16cd5be526b9f223c50d20347a01413d550252f63",
+      "size": 59324
+    },
+    {
+      "path": "intro/product/host-controls.webp",
+      "sha256": "3e664b4f14610137f71d1936ca4460e9ebfdc81138441aa74f6231c6fabb8a29",
+      "size": 74476
+    },
+    {
+      "path": "intro/product/host-lobby.webp",
+      "sha256": "eee181600a8f60ba3784cad462767fb30bda899ad655de76413ffa335996576c",
+      "size": 71404
+    },
+    {
+      "path": "intro/product/player-private.webp",
+      "sha256": "4ad53eb261148e2145c8283ac61cd1ec8588932b947d2540eea0a0adca8ec428",
+      "size": 15520
+    },
+    {
+      "path": "intro/product/player-revealed.webp",
+      "sha256": "54e8d4213f536c5e9b82fae9f472c5791faaf71bd34b87403aff677c37dbbcab",
+      "size": 19806
+    },
+    {
+      "path": "intro/product/shared-board.webp",
+      "sha256": "9cc0965b31794bab4afb8f0b128a3fd5d409f6487b538d70566fbf571633aaf0",
+      "size": 68140
+    },
+    {
+      "path": "intro/product/table-showdown.webp",
+      "sha256": "24c2cb9b40c4e78abc73ec1e75992b80246e1c76a27c5a0aea0d526659bd2dca",
+      "size": 77380
+    },
+    {
+      "path": "phase-1-manifest.json",
+      "sha256": "0492d97b4496cbce7abe6a3f95ca6a166f35dabb6a2af1fb8d813d0696bd3e2f",
+      "size": 25574
+    },
+    {
+      "path": "poker-airplane.html",
+      "sha256": "282e26dcbf9a4ca90a523e583bc55aea0ff1da7a401af7b83dfe95769c27de0c",
+      "size": 858059
+    },
+    {
+      "path": "table-side/THIRD-PARTY-LICENSES.txt",
+      "sha256": "92abb5d436480e9dc41e25dc800201594e117a1fe9500a0e5163f3242a5104f1",
+      "size": 7999
+    },
+    {
+      "path": "table-side/assets/apple-touch-icon-180-C8QuYFND.png",
+      "sha256": "f18a5fe98d34a348726a3fafbf3e2cb9fc70066168cf3c224e9be70f7db33144",
+      "size": 5041
+    },
+    {
+      "path": "table-side/assets/archivo-latin-ext-wght-normal-C4zznr8T.woff2",
+      "sha256": "ff4f17d21930e36d6d93baba663e624cb767afc3feebf7adaebd82242638de05",
+      "size": 32608
+    },
+    {
+      "path": "table-side/assets/archivo-latin-wght-normal-E0tuGl4L.woff2",
+      "sha256": "8f704806dbedeaaeca334b11ec348bc3ac3a439d6431544b3afb54f534ee4967",
+      "size": 34928
+    },
+    {
+      "path": "table-side/assets/archivo-vietnamese-wght-normal-XAtsl5Q_.woff2",
+      "sha256": "5a621c5598a31392555104ccdc41a46c3104f1cc22666024a8afb881ca9adaab",
+      "size": 13240
+    },
+    {
+      "path": "table-side/assets/favicon-JlivOTEF.svg",
+      "sha256": "f46e085c925068a06add38b0af35e24c555ed9a004f8a9f2dffba1f27bb1e7de",
+      "size": 789
+    },
+    {
+      "path": "table-side/assets/index-CMOhN8Zm.css",
+      "sha256": "48d5f6c22fbe7aa3e3ac94ffa01aca57e5f63605bbe476351f9debb7b232cd32",
+      "size": 99978
+    },
+    {
+      "path": "table-side/assets/index-ZAem3uhY.js",
+      "sha256": "29e7f43cb10469e916318c0f960cc3765706adb00e9d2d008f9a7ba36c405292",
+      "size": 631328
+    },
+    {
+      "path": "table-side/assets/skins/revk-card-sets/classic/faces/2C.svg",
+      "sha256": "8beb83b8b25bd4e68c1ead2712fd9fd74f052e3ae528b13e4458b3e054708f3e",
+      "size": 1485
+    },
+    {
+      "path": "table-side/assets/skins/revk-card-sets/classic/faces/2D.svg",
+      "sha256": "b10be63c316c892af18508ba71b732f8eb59f4e8b59a67584afdcf39f80b1a8b",
+      "size": 1358
+    },
+    {
+      "path": "table-side/assets/skins/revk-card-sets/classic/faces/2H.svg",
+      "sha256": "db245b0f6cb236a42ac208defbb4d3231659a7074b11bf8f0fcc497d446c0e7c",
+      "size": 1428
+    },
+    {
+      "path": "table-side/assets/skins/revk-card-sets/classic/faces/2S.svg",
+      "sha256": "f99b52c6d22b039caf039e0face75c60cc9ecf4be976812e81962a7ab3d0115b",
+      "size": 1475
+    },
+    {
+      "path": "table-side/assets/skins/revk-card-sets/classic/faces/3C.svg",
+      "sha256": "dd1b9c874babb6435fbb57c0a932bdede7562f98221d242fe93484d7deb904a0",
+      "size": 1583
+    },
+    {
+      "path": "table-side/assets/skins/revk-card-sets/classic/faces/3D.svg",
+      "sha256": "90cbb77cda699c8955317ce5dbe38f61582871988a64af241aaa1a1a2592baac",
+      "size": 1456
+    },
+    {
+      "path": "table-side/assets/skins/revk-card-sets/classic/faces/3H.svg",
+      "sha256": "bcfd619cd3f197d957a10a1d759c161858d939e3c5fe6964edde4f7792528e1b",
+      "size": 1526
+    },
+    {
+      "path": "table-side/assets/skins/revk-card-sets/classic/faces/3S.svg",
+      "sha256": "51d1f4595aeb7b6436cbfba52bbeece7167c79f88debbd52c6cde7b9d99d5925",
+      "size": 1573
+    },
+    {
+      "path": "table-side/assets/skins/revk-card-sets/classic/faces/4C.svg",
+      "sha256": "66a4c9ed84e53ace8cd3a437a9073bd3737ea5858be8027d4a2944aba547540c",
+      "size": 1596
+    },
+    {
+      "path": "table-side/assets/skins/revk-card-sets/classic/faces/4D.svg",
+      "sha256": "d91613b482cbf921663f39a4969e69e106e17c0704c1093990acc02fe64477b3",
+      "size": 1469
+    },
+    {
+      "path": "table-side/assets/skins/revk-card-sets/classic/faces/4H.svg",
+      "sha256": "1771c9250afb0c966673778f0cf4fe4f767cc3ce9b05c822f47cff4ed63386fa",
+      "size": 1539
+    },
+    {
+      "path": "table-side/assets/skins/revk-card-sets/classic/faces/4S.svg",
+      "sha256": "750fac16716b80456bbc5d39ae283024879e75e953959deddfa18344afbc51e4",
+      "size": 1586
+    },
+    {
+      "path": "table-side/assets/skins/revk-card-sets/classic/faces/5C.svg",
+      "sha256": "3d78f1b50d8f5414f3c570f53ef9728960708bba75e2d27de9e2f3855a678376",
+      "size": 1738
+    },
+    {
+      "path": "table-side/assets/skins/revk-card-sets/classic/faces/5D.svg",
+      "sha256": "91c704ff175127392661f7a55fa72fb9e61b6f0c549ba68667d787ccc1a4854e",
+      "size": 1611
+    },
+    {
+      "path": "table-side/assets/skins/revk-card-sets/classic/faces/5H.svg",
+      "sha256": "81f1852159dab3d77575555f2a3014fec697e19ad3383953f56c63c72bec117a",
+      "size": 1681
+    },
+    {
+      "path": "table-side/assets/skins/revk-card-sets/classic/faces/5S.svg",
+      "sha256": "547c00c84fc80e6b67e989d83c1e4b5eb550659849144c8740f5cdd827e3cc53",
+      "size": 1728
+    },
+    {
+      "path": "table-side/assets/skins/revk-card-sets/classic/faces/6C.svg",
+      "sha256": "0f92c510d14613266b1761f637df6eea766b06817c335df003647789398fc658",
+      "size": 1801
+    },
+    {
+      "path": "table-side/assets/skins/revk-card-sets/classic/faces/6D.svg",
+      "sha256": "e2d035f2f585b6b1c85dd0f8943f6dbe76ea42a821422a7c4825e3287b196056",
+      "size": 1674
+    },
+    {
+      "path": "table-side/assets/skins/revk-card-sets/classic/faces/6H.svg",
+      "sha256": "3234c529c5d9f55a25484444341a3319e93e9dc847a674d94b6671bed27b8587",
+      "size": 1744
+    },
+    {
+      "path": "table-side/assets/skins/revk-card-sets/classic/faces/6S.svg",
+      "sha256": "f5944fdda428d4c806315948665891e789536bc36ebd29cd4adef572b82b9d4e",
+      "size": 1791
+    },
+    {
+      "path": "table-side/assets/skins/revk-card-sets/classic/faces/7C.svg",
+      "sha256": "01cc394e9a602e81dacbdc4e2f761c62875a7d54ad1ea94adc5f8b6213678ed0",
+      "size": 1807
+    },
+    {
+      "path": "table-side/assets/skins/revk-card-sets/classic/faces/7D.svg",
+      "sha256": "a45a1e7e2ed59034ec67c2242bf4e39571e4e3d9104cc7a6e20bd54c38d8d8cc",
+      "size": 1679
+    },
+    {
+      "path": "table-side/assets/skins/revk-card-sets/classic/faces/7H.svg",
+      "sha256": "71c33d7074cbb993edaef1d90baf6c9db4bae2abb111fbfede7dfe3c3d6fc01c",
+      "size": 1749
+    },
+    {
+      "path": "table-side/assets/skins/revk-card-sets/classic/faces/7S.svg",
+      "sha256": "3c2e422d87b6bf0284eb7b1af6ee739fd0658e48ce7442afb30d87cffed7491f",
+      "size": 1796
+    },
+    {
+      "path": "table-side/assets/skins/revk-card-sets/classic/faces/8C.svg",
+      "sha256": "a38fec11b143aa26f2e0b665ce1b2c6735ec4ffc2853c372697724a2b2147102",
+      "size": 1880
+    },
+    {
+      "path": "table-side/assets/skins/revk-card-sets/classic/faces/8D.svg",
+      "sha256": "d28032382aaaccbd44c0e26044a3558c9b4df18afb405d97cfd2f42752c0a670",
+      "size": 1751
+    },
+    {
+      "path": "table-side/assets/skins/revk-card-sets/classic/faces/8H.svg",
+      "sha256": "b16032cdc21b3775b74a7bea4379cbf4ab2191074f26a8427f44177b67a1842d",
+      "size": 1821
+    },
+    {
+      "path": "table-side/assets/skins/revk-card-sets/classic/faces/8S.svg",
+      "sha256": "078d825fe009c29b8464a50c0b17c33d3ae3316e547783ea0e2d9844f55248b6",
+      "size": 1868
+    },
+    {
+      "path": "table-side/assets/skins/revk-card-sets/classic/faces/9C.svg",
+      "sha256": "bfda711dc105520f24444ef6d836cb1152cd19f66f0185093e40dc7a1876e1ac",
+      "size": 2029
+    },
+    {
+      "path": "table-side/assets/skins/revk-card-sets/classic/faces/9D.svg",
+      "sha256": "0c0c9057985b07c865a90f6e5b5b7179be68350946743dbc3627c77baf39c01b",
+      "size": 1894
+    },
+    {
+      "path": "table-side/assets/skins/revk-card-sets/classic/faces/9H.svg",
+      "sha256": "bfae75999ec36dfe6fef19fd5561f9d3dcc9292f0f73e7d1315b7f47f39e70e1",
+      "size": 1964
+    },
+    {
+      "path": "table-side/assets/skins/revk-card-sets/classic/faces/9S.svg",
+      "sha256": "6e565bede3d8fb794710da1c5acf4b83846c028b70e96e78f2cf3454c2204df2",
+      "size": 2011
+    },
+    {
+      "path": "table-side/assets/skins/revk-card-sets/classic/faces/AC.svg",
+      "sha256": "97d528b6a8fdbc63fd5ad4ac451e1945c7cc4ad3568972c758f28af1b1d5736c",
+      "size": 1375
+    },
+    {
+      "path": "table-side/assets/skins/revk-card-sets/classic/faces/AD.svg",
+      "sha256": "eac9bdc7ba3aee0a5ee8cba06b5db6d7dff3101ab229a342c842f696ffd85fc0",
+      "size": 1248
+    },
+    {
+      "path": "table-side/assets/skins/revk-card-sets/classic/faces/AH.svg",
+      "sha256": "be13853c1379a1c978f5417ed1ef7771c119c9e51782bbd39a854e3492310025",
+      "size": 1318
+    },
+    {
+      "path": "table-side/assets/skins/revk-card-sets/classic/faces/AS.svg",
+      "sha256": "b6d545898efd0fa93e221bf80df5d3cded899f2eedf02a590071136889520499",
+      "size": 17263
+    },
+    {
+      "path": "table-side/assets/skins/revk-card-sets/classic/faces/JC.svg",
+      "sha256": "a6edc9766748d6fad6761f2a88b70895b9c9ecc751ff5825af371f1c7fd8993c",
+      "size": 37370
+    },
+    {
+      "path": "table-side/assets/skins/revk-card-sets/classic/faces/JD.svg",
+      "sha256": "504308b8adaa752a685abf53b8dfd3ff4707b1a540abd543d32be6514dd9683b",
+      "size": 32468
+    },
+    {
+      "path": "table-side/assets/skins/revk-card-sets/classic/faces/JH.svg",
+      "sha256": "7cc061ad708a831abde5603d3adf35e5101847376e9b728a8409172fdfee4b51",
+      "size": 38695
+    },
+    {
+      "path": "table-side/assets/skins/revk-card-sets/classic/faces/JS.svg",
+      "sha256": "16453a65b8c4f0e661e289c17117cac8942ba2447f9627edc218f30e3ab5d436",
+      "size": 43347
+    },
+    {
+      "path": "table-side/assets/skins/revk-card-sets/classic/faces/KC.svg",
+      "sha256": "feacf36db651e04641debbbe742b4616fdb597b9f08a2f99eec5743073294cb9",
+      "size": 37787
+    },
+    {
+      "path": "table-side/assets/skins/revk-card-sets/classic/faces/KD.svg",
+      "sha256": "2f6de442343a695e5972eae0e11cf0312e0448e483fbb862b5110c8bc17e3074",
+      "size": 34045
+    },
+    {
+      "path": "table-side/assets/skins/revk-card-sets/classic/faces/KH.svg",
+      "sha256": "f4c59c854cc29a51b0f0b1ec1807eb8daee9619f6b63c875cbf958a6360d0847",
+      "size": 51006
+    },
+    {
+      "path": "table-side/assets/skins/revk-card-sets/classic/faces/KS.svg",
+      "sha256": "08cac14e74d6590937c55ce5993619f3264a3e042de5e90b5779b767f55c3bfb",
+      "size": 63301
+    },
+    {
+      "path": "table-side/assets/skins/revk-card-sets/classic/faces/QC.svg",
+      "sha256": "de060a70e7ea022231b3981fe6ee0056a9c8c8563b4b444675c4521662fa39c9",
+      "size": 42320
+    },
+    {
+      "path": "table-side/assets/skins/revk-card-sets/classic/faces/QD.svg",
+      "sha256": "1409b7344dbefa8aee703b7e141667fd31f96d6067d44f684b185a20ce717583",
+      "size": 43266
+    },
+    {
+      "path": "table-side/assets/skins/revk-card-sets/classic/faces/QH.svg",
+      "sha256": "77281e00c00eb41cf31b52b53425af07f9251e45753e8d2ab02fec01e6f68049",
+      "size": 47732
+    },
+    {
+      "path": "table-side/assets/skins/revk-card-sets/classic/faces/QS.svg",
+      "sha256": "f9e217543bd49b71e2f266a2e92e935165d5ed4b45901a6c15981e00a94e7d10",
+      "size": 38808
+    },
+    {
+      "path": "table-side/assets/skins/revk-card-sets/classic/faces/TC.svg",
+      "sha256": "e4fee9a6b8105890233abd45e834776fc3791f002d89009f521389ae5cfc26f4",
+      "size": 2074
+    },
+    {
+      "path": "table-side/assets/skins/revk-card-sets/classic/faces/TD.svg",
+      "sha256": "a5bd873d401f94cd3f265677b36faddcede64792b9c2e468226b0dc428439d0d",
+      "size": 1931
+    },
+    {
+      "path": "table-side/assets/skins/revk-card-sets/classic/faces/TH.svg",
+      "sha256": "0c53ab6af9d6f998cc706650d4cfa26d7a3d34b6f6d619b2b3827ffe2539db78",
+      "size": 2001
+    },
+    {
+      "path": "table-side/assets/skins/revk-card-sets/classic/faces/TS.svg",
+      "sha256": "9501c78ef834ea2dbe88df549d008e0249ef08a66f664aac64b6e4b3c4a10c62",
+      "size": 2048
+    },
+    {
+      "path": "table-side/assets/skins/revk-card-sets/four-colour/faces/2C.svg",
+      "sha256": "59801605987f01a352dcd9065c2a8199a1916b64c2f998eee7c5340be1fc5be5",
+      "size": 1485
+    },
+    {
+      "path": "table-side/assets/skins/revk-card-sets/four-colour/faces/2D.svg",
+      "sha256": "023d7ce4babecc88882e4d50ed25e01e51caf94697bcd88cf1bcb9ee417d9d5f",
+      "size": 1360
+    },
+    {
+      "path": "table-side/assets/skins/revk-card-sets/four-colour/faces/2H.svg",
+      "sha256": "db245b0f6cb236a42ac208defbb4d3231659a7074b11bf8f0fcc497d446c0e7c",
+      "size": 1428
+    },
+    {
+      "path": "table-side/assets/skins/revk-card-sets/four-colour/faces/2S.svg",
+      "sha256": "f99b52c6d22b039caf039e0face75c60cc9ecf4be976812e81962a7ab3d0115b",
+      "size": 1475
+    },
+    {
+      "path": "table-side/assets/skins/revk-card-sets/four-colour/faces/3C.svg",
+      "sha256": "6a8e582121a8d8f68eefadabe368e045f80addd02f53d96dd7ceedc27b48a009",
+      "size": 1583
+    },
+    {
+      "path": "table-side/assets/skins/revk-card-sets/four-colour/faces/3D.svg",
+      "sha256": "9ffaa026f37c5d5ae9d6e8efe866ac520e6b5e6169143d02361561bb5304a3ec",
+      "size": 1458
+    },
+    {
+      "path": "table-side/assets/skins/revk-card-sets/four-colour/faces/3H.svg",
+      "sha256": "bcfd619cd3f197d957a10a1d759c161858d939e3c5fe6964edde4f7792528e1b",
+      "size": 1526
+    },
+    {
+      "path": "table-side/assets/skins/revk-card-sets/four-colour/faces/3S.svg",
+      "sha256": "51d1f4595aeb7b6436cbfba52bbeece7167c79f88debbd52c6cde7b9d99d5925",
+      "size": 1573
+    },
+    {
+      "path": "table-side/assets/skins/revk-card-sets/four-colour/faces/4C.svg",
+      "sha256": "20a2682a7d1492ed6b75269edbe6e2fe9988a638227d6dc03a4263d012bdce14",
+      "size": 1596
+    },
+    {
+      "path": "table-side/assets/skins/revk-card-sets/four-colour/faces/4D.svg",
+      "sha256": "249dc513df420bb4a11f94298e3805a637e3279a45757ed583df9220c8c8c9b4",
+      "size": 1471
+    },
+    {
+      "path": "table-side/assets/skins/revk-card-sets/four-colour/faces/4H.svg",
+      "sha256": "1771c9250afb0c966673778f0cf4fe4f767cc3ce9b05c822f47cff4ed63386fa",
+      "size": 1539
+    },
+    {
+      "path": "table-side/assets/skins/revk-card-sets/four-colour/faces/4S.svg",
+      "sha256": "750fac16716b80456bbc5d39ae283024879e75e953959deddfa18344afbc51e4",
+      "size": 1586
+    },
+    {
+      "path": "table-side/assets/skins/revk-card-sets/four-colour/faces/5C.svg",
+      "sha256": "8c2b36713a4fae15c2ca8b5ffd11c2b88bcd93204694845a0f0d966b60028b3c",
+      "size": 1738
+    },
+    {
+      "path": "table-side/assets/skins/revk-card-sets/four-colour/faces/5D.svg",
+      "sha256": "7497aa6c40d5a49788887c3dc7131d1aa22d7570e4ba9348f2adb7a40c4c61f5",
+      "size": 1613
+    },
+    {
+      "path": "table-side/assets/skins/revk-card-sets/four-colour/faces/5H.svg",
+      "sha256": "81f1852159dab3d77575555f2a3014fec697e19ad3383953f56c63c72bec117a",
+      "size": 1681
+    },
+    {
+      "path": "table-side/assets/skins/revk-card-sets/four-colour/faces/5S.svg",
+      "sha256": "547c00c84fc80e6b67e989d83c1e4b5eb550659849144c8740f5cdd827e3cc53",
+      "size": 1728
+    },
+    {
+      "path": "table-side/assets/skins/revk-card-sets/four-colour/faces/6C.svg",
+      "sha256": "0fa3c5148ff680358e2ee2bd1f368d01229b79a02b7084a8a6258efb9f677f43",
+      "size": 1801
+    },
+    {
+      "path": "table-side/assets/skins/revk-card-sets/four-colour/faces/6D.svg",
+      "sha256": "2a3fb7b7729e89bdf6a4c53ec3a07543a74311b3b30e998ba2bd00b5062ac3fb",
+      "size": 1676
+    },
+    {
+      "path": "table-side/assets/skins/revk-card-sets/four-colour/faces/6H.svg",
+      "sha256": "3234c529c5d9f55a25484444341a3319e93e9dc847a674d94b6671bed27b8587",
+      "size": 1744
+    },
+    {
+      "path": "table-side/assets/skins/revk-card-sets/four-colour/faces/6S.svg",
+      "sha256": "f5944fdda428d4c806315948665891e789536bc36ebd29cd4adef572b82b9d4e",
+      "size": 1791
+    },
+    {
+      "path": "table-side/assets/skins/revk-card-sets/four-colour/faces/7C.svg",
+      "sha256": "5ab131e6ef6854ad557d11108c6602b3ad9e9550412e21af4e67f7c0b0c8bdeb",
+      "size": 1807
+    },
+    {
+      "path": "table-side/assets/skins/revk-card-sets/four-colour/faces/7D.svg",
+      "sha256": "e3208903aed285be81ad8aaf32868551b8b9befffe37524367b36ede936186dc",
+      "size": 1681
+    },
+    {
+      "path": "table-side/assets/skins/revk-card-sets/four-colour/faces/7H.svg",
+      "sha256": "71c33d7074cbb993edaef1d90baf6c9db4bae2abb111fbfede7dfe3c3d6fc01c",
+      "size": 1749
+    },
+    {
+      "path": "table-side/assets/skins/revk-card-sets/four-colour/faces/7S.svg",
+      "sha256": "3c2e422d87b6bf0284eb7b1af6ee739fd0658e48ce7442afb30d87cffed7491f",
+      "size": 1796
+    },
+    {
+      "path": "table-side/assets/skins/revk-card-sets/four-colour/faces/8C.svg",
+      "sha256": "6be92f02ff8d05ce82c5cb04c9aa8cbfc5765c44eaf5e64d785ff7f3a994f512",
+      "size": 1880
+    },
+    {
+      "path": "table-side/assets/skins/revk-card-sets/four-colour/faces/8D.svg",
+      "sha256": "4b040b9c69db6472f0381938fdb4594ab58b985e261f62e85b2d7cf1915e8842",
+      "size": 1753
+    },
+    {
+      "path": "table-side/assets/skins/revk-card-sets/four-colour/faces/8H.svg",
+      "sha256": "b16032cdc21b3775b74a7bea4379cbf4ab2191074f26a8427f44177b67a1842d",
+      "size": 1821
+    },
+    {
+      "path": "table-side/assets/skins/revk-card-sets/four-colour/faces/8S.svg",
+      "sha256": "078d825fe009c29b8464a50c0b17c33d3ae3316e547783ea0e2d9844f55248b6",
+      "size": 1868
+    },
+    {
+      "path": "table-side/assets/skins/revk-card-sets/four-colour/faces/9C.svg",
+      "sha256": "71e3c8a1002c88dbb8c9df8fe8e97d7f1735887bc16297b157b4643b6ef1e83a",
+      "size": 2029
+    },
+    {
+      "path": "table-side/assets/skins/revk-card-sets/four-colour/faces/9D.svg",
+      "sha256": "ba633e62d601700a88ef71c30adcfaaf835bf8390159599a550aad9878e8089d",
+      "size": 1896
+    },
+    {
+      "path": "table-side/assets/skins/revk-card-sets/four-colour/faces/9H.svg",
+      "sha256": "bfae75999ec36dfe6fef19fd5561f9d3dcc9292f0f73e7d1315b7f47f39e70e1",
+      "size": 1964
+    },
+    {
+      "path": "table-side/assets/skins/revk-card-sets/four-colour/faces/9S.svg",
+      "sha256": "6e565bede3d8fb794710da1c5acf4b83846c028b70e96e78f2cf3454c2204df2",
+      "size": 2011
+    },
+    {
+      "path": "table-side/assets/skins/revk-card-sets/four-colour/faces/AC.svg",
+      "sha256": "59239776e2d5fb06aaa225252fc8fbe2015e9e5512a5a25b05514195c6d58463",
+      "size": 1375
+    },
+    {
+      "path": "table-side/assets/skins/revk-card-sets/four-colour/faces/AD.svg",
+      "sha256": "3bc05c787e3a36b87c3600c8f0a45cfdd59a38667af9c46bd6dbb87dcb6ece84",
+      "size": 1250
+    },
+    {
+      "path": "table-side/assets/skins/revk-card-sets/four-colour/faces/AH.svg",
+      "sha256": "be13853c1379a1c978f5417ed1ef7771c119c9e51782bbd39a854e3492310025",
+      "size": 1318
+    },
+    {
+      "path": "table-side/assets/skins/revk-card-sets/four-colour/faces/AS.svg",
+      "sha256": "b6d545898efd0fa93e221bf80df5d3cded899f2eedf02a590071136889520499",
+      "size": 17263
+    },
+    {
+      "path": "table-side/assets/skins/revk-card-sets/four-colour/faces/JC.svg",
+      "sha256": "69861de616ecdc46c09fce78bae2fee1603b63e5fc521aff5217f019f6aa9f7c",
+      "size": 37370
+    },
+    {
+      "path": "table-side/assets/skins/revk-card-sets/four-colour/faces/JD.svg",
+      "sha256": "d4c415e6626326fc5eb9821d717f2fd706209682f78b9a602c141c9a5f5d3bf0",
+      "size": 32470
+    },
+    {
+      "path": "table-side/assets/skins/revk-card-sets/four-colour/faces/JH.svg",
+      "sha256": "7cc061ad708a831abde5603d3adf35e5101847376e9b728a8409172fdfee4b51",
+      "size": 38695
+    },
+    {
+      "path": "table-side/assets/skins/revk-card-sets/four-colour/faces/JS.svg",
+      "sha256": "16453a65b8c4f0e661e289c17117cac8942ba2447f9627edc218f30e3ab5d436",
+      "size": 43347
+    },
+    {
+      "path": "table-side/assets/skins/revk-card-sets/four-colour/faces/KC.svg",
+      "sha256": "b70d227e524c956558d80724b23d0d348d074c54a4af7c19b42bd7b330093a0c",
+      "size": 37787
+    },
+    {
+      "path": "table-side/assets/skins/revk-card-sets/four-colour/faces/KD.svg",
+      "sha256": "a0309b739a0ce528f6bbd52c0b844d58bd2cc8aadc492c46459d47dadb2388ac",
+      "size": 34047
+    },
+    {
+      "path": "table-side/assets/skins/revk-card-sets/four-colour/faces/KH.svg",
+      "sha256": "f4c59c854cc29a51b0f0b1ec1807eb8daee9619f6b63c875cbf958a6360d0847",
+      "size": 51006
+    },
+    {
+      "path": "table-side/assets/skins/revk-card-sets/four-colour/faces/KS.svg",
+      "sha256": "08cac14e74d6590937c55ce5993619f3264a3e042de5e90b5779b767f55c3bfb",
+      "size": 63301
+    },
+    {
+      "path": "table-side/assets/skins/revk-card-sets/four-colour/faces/QC.svg",
+      "sha256": "4a0b0d1f5ff932a4c2ccebda71de50e6e6014dfc7e4a1d5cc2a5dca4d1dfe583",
+      "size": 42320
+    },
+    {
+      "path": "table-side/assets/skins/revk-card-sets/four-colour/faces/QD.svg",
+      "sha256": "e6bf76a16c451ad96b1bb0670864c70d008406605784d377b78dcb40e692cd76",
+      "size": 43268
+    },
+    {
+      "path": "table-side/assets/skins/revk-card-sets/four-colour/faces/QH.svg",
+      "sha256": "77281e00c00eb41cf31b52b53425af07f9251e45753e8d2ab02fec01e6f68049",
+      "size": 47732
+    },
+    {
+      "path": "table-side/assets/skins/revk-card-sets/four-colour/faces/QS.svg",
+      "sha256": "f9e217543bd49b71e2f266a2e92e935165d5ed4b45901a6c15981e00a94e7d10",
+      "size": 38808
+    },
+    {
+      "path": "table-side/assets/skins/revk-card-sets/four-colour/faces/TC.svg",
+      "sha256": "ca5941334ee9f2ef9c804f70305cbf9a26919552870a15f8a8064d07c5faff35",
+      "size": 2074
+    },
+    {
+      "path": "table-side/assets/skins/revk-card-sets/four-colour/faces/TD.svg",
+      "sha256": "d2580ec0583adf87c985fd463ad39d3453baa8a7d7b7ef30baf1bc10a8ae7e9e",
+      "size": 1933
+    },
+    {
+      "path": "table-side/assets/skins/revk-card-sets/four-colour/faces/TH.svg",
+      "sha256": "0c53ab6af9d6f998cc706650d4cfa26d7a3d34b6f6d619b2b3827ffe2539db78",
+      "size": 2001
+    },
+    {
+      "path": "table-side/assets/skins/revk-card-sets/four-colour/faces/TS.svg",
+      "sha256": "9501c78ef834ea2dbe88df549d008e0249ef08a66f664aac64b6e4b3c4a10c62",
+      "size": 2048
+    },
+    {
+      "path": "table-side/index.html",
+      "sha256": "b7b20a1b6a61cd9b590c86285d0481bad561f14306c615718306a99b65646be6",
+      "size": 1244
+    },
+    {
+      "path": "table-side/poker-config.js",
+      "sha256": "c535e777e7f8b8837d0ed11c5a871b8963eb2ec90eaa11cb3197ed8896dd201b",
+      "size": 176
+    }
+  ]
+}

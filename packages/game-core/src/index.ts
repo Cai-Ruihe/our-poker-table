@@ -8,6 +8,7 @@ import type {
 import {
   createDigitalAccounting,
   type AccountingCommand,
+  type AccountingEvent,
   type AccountingProjection,
   type AccountingState,
   type DigitalAccounting,
@@ -943,7 +944,7 @@ export function createTrustedHostAuthority(
         const handId = options.handIdFactory();
         const accounting = accountingFor(rulesProfile);
         let accountingState = current.accounting;
-        let accountingEvents: readonly EventSummary[] = [];
+        let accountingEvents: readonly AccountingEvent[] = [];
         if (accounting) {
           if (!accountingState)
             return rejected("command-not-allowed", revision);
@@ -957,26 +958,36 @@ export function createTrustedHostAuthority(
             return rejected("command-not-allowed", revision);
           }
           accountingState = started.state;
-          accountingEvents = started.events.map((event) => ({
-            type: event.type,
-          }));
+          accountingEvents = started.events;
+        }
+        let custody = options.custody.startHand(
+          playingSeats.map((seat) => seat.seatId),
+        );
+        for (const event of accountingEvents) {
+          if (
+            event.type === "AccountingStreetStarted" &&
+            event.street !== "preflop"
+          ) {
+            custody = options.custody.revealStreet(custody, event.street);
+          }
         }
         next = {
           ...current,
           ...(accountingState ? { accounting: accountingState } : {}),
-          custody: options.custody.startHand(
-            playingSeats.map((seat) => seat.seatId),
-          ),
+          custody,
           dealerSeatId,
           handId,
-          phase: "preflop",
+          phase: accountingState?.phase === "showdown" ? "showdown" : "preflop",
           revision: revision + 1,
           seats: current.seats.map((seat) => ({
             ...seat,
             status: seat.sittingOutNextHand ? "sitting-out" : "active",
           })),
         };
-        events = [{ type: "HandStarted" }, ...accountingEvents];
+        events = [
+          { type: "HandStarted" },
+          ...accountingEvents.map((event) => ({ type: event.type })),
+        ];
         break;
       }
       case "RevealStreet": {

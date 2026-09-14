@@ -43,7 +43,11 @@ export interface AccountingState {
     | "showdown"
     | "settlement-pending"
     | "complete";
-  readonly schemaVersion: 1;
+  readonly schemaVersion: 2;
+  readonly lastActions: readonly {
+    readonly seatId: string;
+    readonly bet: number;
+  }[];
   readonly sessionTotal: number;
   readonly seats: readonly AccountingSeatState[];
   readonly settlement?: SettlementProposal;
@@ -302,7 +306,8 @@ export function createDigitalAccounting(
           lastFullRaise: options.bigBlind,
           pendingSeatIds: [],
           phase: "between-hands",
-          schemaVersion: 1,
+          schemaVersion: 2,
+          lastActions: [],
           sessionTotal,
           seats: command.seats.map((seat) => ({
             seatId: seat.seatId,
@@ -335,6 +340,7 @@ export function createDigitalAccounting(
         command.activeSeatIds.length < 2 ||
         activeSeatSet.size !== command.activeSeatIds.length ||
         orderedActiveSeats.length !== command.activeSeatIds.length ||
+        orderedActiveSeats.some((seat) => seat.stack === 0) ||
         !activeSeatSet.has(command.dealerSeatId)
       ) {
         return { code: "command-not-allowed", status: "rejected" };
@@ -386,35 +392,44 @@ export function createDigitalAccounting(
         };
       });
       const preflopFirst = nextSeatId(activeSeatIds, bigBlindSeatId);
+      const activeCount = seats.filter(
+        (seat) => seat.status === "active",
+      ).length;
+      const currentBet = Math.max(
+        activeCount > 1 ? options.bigBlind : 0,
+        ...seats.map((seat) => seat.streetContribution),
+      );
       const pendingSeatIds = preflopFirst
         ? [
             ...activeSeatIds.slice(activeSeatIds.indexOf(preflopFirst)),
             ...activeSeatIds.slice(0, activeSeatIds.indexOf(preflopFirst)),
-          ].filter(
-            (seatId) =>
-              seats.find((seat) => seat.seatId === seatId)?.status === "active",
+          ].filter((seatId) =>
+            seats.some(
+              (seat) =>
+                seat.seatId === seatId &&
+                seat.status === "active" &&
+                (activeCount > 1 || seat.streetContribution < currentBet),
+            ),
           )
         : [];
       events.unshift({ handId: command.handId, type: "AccountingHandStarted" });
       const sessionWithoutSettlement = withoutSettlement(state);
-      return {
-        events,
-        state: {
-          ...sessionWithoutSettlement,
-          ...(pendingSeatIds[0]
-            ? { currentActorSeatId: pendingSeatIds[0] }
-            : {}),
-          currentBet: Math.max(...seats.map((seat) => seat.streetContribution)),
-          dealerSeatId: command.dealerSeatId,
-          handId: command.handId,
-          lastFullRaise: options.bigBlind,
-          pendingSeatIds,
-          phase: "betting",
-          seats,
-          street: "preflop",
-        },
-        status: "accepted",
+      const hand: AccountingState = {
+        ...withoutCurrentActor(sessionWithoutSettlement),
+        ...(pendingSeatIds[0] ? { currentActorSeatId: pendingSeatIds[0] } : {}),
+        currentBet,
+        dealerSeatId: command.dealerSeatId,
+        handId: command.handId,
+        lastFullRaise: options.bigBlind,
+        lastActions: [],
+        pendingSeatIds,
+        phase: "betting",
+        seats,
+        street: "preflop",
       };
+      return pendingSeatIds.length > 0
+        ? { events, state: hand, status: "accepted" }
+        : advanceClosedRound(hand, events);
     }
 
     if (command.type === "ProposeSettlement") {
@@ -496,6 +511,7 @@ export function createDigitalAccounting(
           ...withoutActor,
           currentBet: 0,
           pendingSeatIds: [],
+          lastActions: [],
           phase: "complete",
           seats: state.seats.map((seat) => {
             const stack = seat.stack + (awardsBySeat.get(seat.seatId) ?? 0);
@@ -580,7 +596,19 @@ export function createDigitalAccounting(
         : command.type === "AllIn"
           ? actingSeat.streetContribution + actingSeat.stack
           : undefined;
-    const pendingSeatIds =
+    const activeCount = seats.filter((seat) => seat.status === "active").length;
+    const currentBet = Math.max(
+      state.street === "preflop" && activeCount > 1 ? state.bigBlind : 0,
+      ...seats.map((seat) => seat.streetContribution),
+    );
+    const lastActions = [
+      ...state.lastActions.filter((entry) => entry.seatId !== command.seatId),
+      {
+        seatId: command.seatId,
+        bet: Math.max(state.currentBet, aggressiveTo ?? 0),
+      },
+    ];
+    const pendingSeatIds = (
       aggressiveTo !== undefined && aggressiveTo > state.currentBet
         ? (() => {
             const seatIds = seats.map((seat) => seat.seatId);
@@ -596,7 +624,14 @@ export function createDigitalAccounting(
                   "active",
             );
           })()
-        : state.pendingSeatIds.filter((seatId) => seatId !== command.seatId);
+        : state.pendingSeatIds.filter((seatId) => seatId !== command.seatId)
+    ).filter((seatId) => {
+      const seat = seats.find((candidate) => candidate.seatId === seatId);
+      return (
+        activeCount > 1 ||
+        (seat !== undefined && seat.streetContribution < currentBet)
+      );
+    });
     const action =
       command.type === "Call"
         ? "call"
@@ -640,24 +675,38 @@ export function createDigitalAccounting(
           ...(pendingSeatIds[0]
             ? { currentActorSeatId: pendingSeatIds[0] }
             : {}),
-          currentBet: Math.max(state.currentBet, aggressiveTo ?? 0),
+          currentBet,
           lastFullRaise:
             aggressiveTo !== undefined &&
             aggressiveTo - state.currentBet >= state.lastFullRaise
               ? aggressiveTo - state.currentBet
               : state.lastFullRaise,
           pendingSeatIds,
+          lastActions,
           seats,
         },
         status: "accepted",
       };
     }
 
+    return advanceClosedRound(
+      { ...withoutCurrentActor(state), seats, pendingSeatIds: [], lastActions },
+      events,
+    );
+  }
+
+  function advanceClosedRound(
+    state: AccountingState,
+    events: AccountingEvent[],
+  ): AccountingSubmitResult {
+    const seats = state.seats;
     const nextStreet: Partial<Record<AccountingStreet, AccountingStreet>> = {
       flop: "turn",
       preflop: "flop",
       turn: "river",
     };
+    if (!state.street)
+      return { code: "command-not-allowed", status: "rejected" };
     const street = nextStreet[state.street];
     if (!state.dealerSeatId) {
       return { code: "command-not-allowed", status: "rejected" };
@@ -673,6 +722,7 @@ export function createDigitalAccounting(
         state: {
           ...withoutActor,
           pendingSeatIds: [],
+          lastActions: [],
           phase: "showdown",
           seats,
         },
@@ -706,6 +756,7 @@ export function createDigitalAccounting(
           currentBet: 0,
           lastFullRaise: state.bigBlind,
           pendingSeatIds: [],
+          lastActions: [],
           phase: "showdown",
           seats: seats.map((seat) => ({ ...seat, streetContribution: 0 })),
           street: runoutStreet,
@@ -713,18 +764,16 @@ export function createDigitalAccounting(
         status: "accepted",
       };
     }
-    const firstSeatId = nextSeatId(
-      seats.map((seat) => seat.seatId),
-      state.dealerSeatId,
+    // Rotate the physical seating order before removing folded/all-in seats.
+    const dealerIndex = seats.findIndex(
+      (seat) => seat.seatId === state.dealerSeatId,
     );
-    const firstIndex = firstSeatId ? activeSeatIds.indexOf(firstSeatId) : -1;
-    const nextPendingSeatIds =
-      firstIndex >= 0
-        ? [
-            ...activeSeatIds.slice(firstIndex),
-            ...activeSeatIds.slice(0, firstIndex),
-          ]
-        : activeSeatIds;
+    const nextPendingSeatIds = [
+      ...seats.slice(dealerIndex + 1),
+      ...seats.slice(0, dealerIndex + 1),
+    ]
+      .filter((seat) => seat.status === "active")
+      .map((seat) => seat.seatId);
     events.push(
       { street: state.street, type: "BettingRoundClosed" },
       { street, type: "AccountingStreetStarted" },
@@ -739,6 +788,7 @@ export function createDigitalAccounting(
         currentBet: 0,
         lastFullRaise: state.bigBlind,
         pendingSeatIds: nextPendingSeatIds,
+        lastActions: [],
         seats: seats.map((seat) => ({ ...seat, streetContribution: 0 })),
         street,
       },
@@ -760,7 +810,16 @@ export function createDigitalAccounting(
     const actions: LegalAction[] = [{ type: "fold" }];
     if (toCall === 0) actions.push({ type: "check" });
     else actions.push({ amount: Math.min(toCall, seat.stack), type: "call" });
-    if (maxTo > state.currentBet) {
+    const hasRespondingOpponent = state.seats.some(
+      (opponent) => opponent.seatId !== seatId && opponent.status === "active",
+    );
+    const lastAction = state.lastActions.find(
+      (entry) => entry.seatId === seatId,
+    );
+    const canRaise =
+      lastAction === undefined ||
+      state.currentBet - lastAction.bet >= state.lastFullRaise;
+    if (maxTo > state.currentBet && hasRespondingOpponent && canRaise) {
       const minTo =
         state.currentBet === 0
           ? state.bigBlind
@@ -822,7 +881,8 @@ export function createDigitalAccounting(
         "river",
       ];
       if (
-        state.schemaVersion !== 1 ||
+        state.schemaVersion !== 2 ||
+        !Array.isArray(state.lastActions) ||
         state.bigBlind !== options.bigBlind ||
         state.smallBlind !== options.smallBlind ||
         state.housePolicyId !== options.housePolicyId ||
@@ -841,6 +901,15 @@ export function createDigitalAccounting(
       const seatIds = state.seats.map((seat) => seat.seatId);
       const seatIdSet = new Set(seatIds);
       if (
+        new Set(state.lastActions.map((entry) => entry.seatId)).size !==
+          state.lastActions.length ||
+        state.lastActions.some(
+          (entry) =>
+            !seatIdSet.has(entry.seatId) ||
+            !Number.isSafeInteger(entry.bet) ||
+            entry.bet < 0 ||
+            (state.phase === "betting" && entry.bet > state.currentBet),
+        ) ||
         seatIdSet.size !== seatIds.length ||
         seatIds.some(
           (seatId) => typeof seatId !== "string" || !seatId.trim(),
@@ -917,7 +986,14 @@ export function createDigitalAccounting(
           state.pendingSeatIds.length > 0 &&
           state.currentActorSeatId === state.pendingSeatIds[0] &&
           state.currentBet ===
-            Math.max(...state.seats.map((seat) => seat.streetContribution))
+            Math.max(
+              state.street === "preflop" &&
+                state.seats.filter((seat) => seat.status === "active").length >
+                  1
+                ? state.bigBlind
+                : 0,
+              ...state.seats.map((seat) => seat.streetContribution),
+            )
         );
       }
 

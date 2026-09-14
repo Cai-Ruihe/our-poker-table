@@ -2,7 +2,7 @@
 id: PRD-M10
 kind: module
 status: current
-last_reconciled: 2026-08-15
+last_reconciled: 2026-09-14
 decision_ids:
   - SCOPE-PLAY-MONEY
   - ACCOUNTING-PHASE-2
@@ -56,6 +56,9 @@ Given committed public hand state and one player's private eligibility, expose e
 - Initial profile is single-table, home-session No-Limit Texas Hold'em. `BettingStructure` and `SessionPolicy` remain explicit axes.
 - Phase 1 never instantiates this module or fake zero-valued accounting state.
 - Derive pots from immutable contributions/eligibility; never mutate a pot total as the sole truth.
+- Reopening is per player: short all-ins reopen a prior actor only when the cumulative increase faced reaches the last full bet/raise. Unacted players retain their raise option.
+- A short big blind does not lower the nominal bring-in while multiple players can still bet. When only one player has chips, require only the outstanding actual contribution; when no response remains, run out the board. Reject zero-stack hand participants.
+- Accounting snapshots version the per-player reopening state. Unsupported snapshots fail recovery closed rather than reconstructing unknown raise rights.
 - Settlement proposal and balance mutation are separate. `p2-house-1` pins explicit host confirmation, clockwise odd-chip allocation beginning left of the dealer, blinds without antes/straddles, between-hand top-ups, and wait-for-big-blind re-entry.
 - Every correction references original entries and preserves total conservation.
 - Histories separate public facts, the player's own cards, and diagnostics; no all-card export.
@@ -72,7 +75,8 @@ Real money, payments, rake, credit, clubs, tournament lifecycle, multi-table bal
 
 The deep module and its first heads-up tracer are active development work. The
 default Phase 1 party path does not expose it; the browser selector requires
-`?experimental=digital-chips`. Current tests do not yet qualify multiway
-short-all-in reopening, complex side pots, top-up/re-entry, corrections,
-replayable exports, physical devices, or release behavior; those remain
-required before the module can be called complete or party-ready.
+`?experimental=digital-chips`. Reopening/blind edge vectors and seeded
+conservation/replay sequences extend the local accounting evidence. Independent
+differential qualification, top-up/re-entry, corrections, replayable exports,
+physical devices, and release behavior remain required before the module can
+be called complete or party-ready.

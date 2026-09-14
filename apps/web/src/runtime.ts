@@ -46,8 +46,15 @@ import {
   type HostAirplanePairing,
 } from "./airplane";
 
-export const BUILD_VERSION = "0.1.6";
-export const PROTOCOL_VERSION = 2;
+import {
+  BUILD_VERSION,
+  invitationReleaseIssue,
+  phaseCryptoContext,
+  phaseScopedName,
+  PROTOCOL_VERSION,
+} from "./release-channel";
+
+export { BUILD_VERSION, PROTOCOL_VERSION } from "./release-channel";
 
 const requestTimeoutMs = 7_500;
 const invitationTtlMs = 15 * 60 * 1_000;
@@ -460,7 +467,9 @@ async function messageKey(secret: string): Promise<CryptoKey> {
   const keyBytes = await globalThis.crypto.subtle.digest(
     "SHA-256",
     bytesToBuffer(
-      new TextEncoder().encode(`html-poker-room-v1\u0000${secret}`),
+      new TextEncoder().encode(
+        `${phaseCryptoContext("html-poker-room-v1")}\u0000${secret}`,
+      ),
     ),
   );
   return globalThis.crypto.subtle.importKey(
@@ -481,7 +490,9 @@ async function seal(
   globalThis.crypto.getRandomValues(iv);
   const ciphertext = await globalThis.crypto.subtle.encrypt(
     {
-      additionalData: bytesToBuffer(new TextEncoder().encode(additionalData)),
+      additionalData: bytesToBuffer(
+        new TextEncoder().encode(phaseCryptoContext(additionalData)),
+      ),
       iv,
       name: "AES-GCM",
     },
@@ -501,7 +512,9 @@ async function unseal<T>(
 ): Promise<T> {
   const plaintext = await globalThis.crypto.subtle.decrypt(
     {
-      additionalData: bytesToBuffer(new TextEncoder().encode(additionalData)),
+      additionalData: bytesToBuffer(
+        new TextEncoder().encode(phaseCryptoContext(additionalData)),
+      ),
       iv: base64ToBytes(sealed.iv),
       name: "AES-GCM",
     },
@@ -531,7 +544,7 @@ function isRoomMessage(value: unknown): value is RoomMessage {
 }
 
 function channelName(tableId: string, hostKey: string): string {
-  return `html-poker-room:${tableId}:${hostKey}`;
+  return phaseScopedName("html-poker-room:" + tableId + ":" + hostKey);
 }
 
 function relayConfigForRoute(
@@ -1880,14 +1893,14 @@ class RoomEndpoint {
 
 function authorityStore(tableId: string) {
   return createIndexedDbTableStore<PersistedAuthorityState>({
-    databaseName: `html-poker-host:${tableId}`,
+    databaseName: phaseScopedName(`html-poker-host:${tableId}`),
     recordKey: "authority",
   });
 }
 
 function hostRecoveryStore(tableId: string) {
   return createIndexedDbTableStore<HostRecoveryState>({
-    databaseName: `html-poker-host:${tableId}`,
+    databaseName: phaseScopedName(`html-poker-host:${tableId}`),
     recordKey: "runtime",
   });
 }
@@ -1898,7 +1911,7 @@ function clientRecoveryStore(
   slotId: string,
 ) {
   return createIndexedDbTableStore<ClientRecoveryState>({
-    databaseName: `html-poker-client:${tableId}:${role}`,
+    databaseName: phaseScopedName(`html-poker-client:${tableId}:${role}`),
     recordKey: `client:${slotId}`,
   });
 }
@@ -1907,7 +1920,7 @@ async function acquireHostLease(
   tableId: string,
   retryUntilAvailable: boolean,
 ): Promise<ExclusiveHostLease> {
-  const name = `html-poker-host:${tableId}`;
+  const name = phaseScopedName(`html-poker-host:${tableId}`);
   const deadline = Date.now() + (retryUntilAvailable ? 2_500 : 0);
   let lease = await acquireExclusiveHostLease(name);
   while (!lease && Date.now() < deadline) {
@@ -1926,7 +1939,9 @@ async function acquireClientLease(
   slotId: string,
   retryUntilAvailable: boolean,
 ): Promise<ExclusiveHostLease> {
-  const name = `html-poker-client:${tableId}:${role}:${slotId}`;
+  const name = phaseScopedName(
+    `html-poker-client:${tableId}:${role}:${slotId}`,
+  );
   const deadline = Date.now() + (retryUntilAvailable ? 2_500 : 0);
   let lease = await acquireExclusiveHostLease(name);
   while (!lease && Date.now() < deadline) {
@@ -3713,6 +3728,11 @@ export class TableClientRuntime {
     details: InvitationDetails,
     options: ClientRuntimeLaunchOptions = {},
   ): TableClientRuntime {
+    if (invitationReleaseIssue(details.binding) !== undefined) {
+      throw new Error(
+        "This invitation belongs to a different version of Our Poker Table.",
+      );
+    }
     return new TableClientRuntime({
       binding: details.binding,
       clientInstanceId: makeId("client"),

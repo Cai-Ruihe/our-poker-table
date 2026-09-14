@@ -47,7 +47,9 @@
     "test:coverage": "vitest run --coverage",
     "test:e2e": "playwright test",
     "test:watch": "vitest",
-    "typecheck": "tsc --noEmit -p tsconfig.json"
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "build:multiplayer": "HTML_POKER_PHASE2_BUILD=1 HTML_POKER_OUTPUT_DIR=../../dist/multiplayer pnpm --filter @html-poker/web build",
+    "release:configure-multiplayer": "HTML_POKER_PHASE2_BUILD=1 node tools/release/configure-table-side.mjs"
   },
   "devDependencies": {
     "@html-poker/accounting": "workspace:*",

@@ -220,7 +220,7 @@ describe("Table-side release configuration", () => {
       path.join(process.cwd(), ".github", "workflows", "ci.yml"),
       "utf8",
     );
-    const configure = workflow.indexOf("Configure hosted Table-side Mode");
+    const configure = workflow.indexOf("Configure hosted Phase 2 preview");
     const liveGate = workflow.indexOf("Verify configured live relay");
     const deploy = workflow.indexOf("Deploy GitHub Pages");
 
@@ -235,14 +235,17 @@ describe("Table-side release configuration", () => {
       "if: vars.TABLE_SIDE_CLOUD_RELAY_URL != '' || vars.TABLE_SIDE_MAC_RELAY_URL != '' || vars.TABLE_SIDE_CONNECTION_SERVICE_URL != ''",
     );
     expect(workflow).not.toContain("trycloudflare.com");
-    expect(workflow).toContain(
-      "cp apps/landing/root-redirect.html _site/index.html",
+    const assemble = workflow.indexOf(
+      "Assemble independently selected phase artifacts",
     );
-    expect(workflow).toContain(
-      "cp dist/airplane/poker-airplane.html _site/poker-airplane.html",
+    const packagedGate = workflow.indexOf(
+      "Verify both packaged phase paths before deployment",
     );
-    expect(workflow).not.toContain(
-      "cp dist/airplane/poker-airplane.html _site/index.html",
-    );
+    expect(assemble).toBeGreaterThan(liveGate);
+    expect(packagedGate).toBeGreaterThan(assemble);
+    expect(deploy).toBeGreaterThan(packagedGate);
+    expect(workflow).toContain("deploy/phase-channels.json");
+    expect(workflow).toContain("pnpm release:configure-multiplayer");
+    expect(workflow).not.toContain("cp dist/table-side/. _site/table-side/");
   });
 });

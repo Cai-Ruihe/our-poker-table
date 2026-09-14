@@ -45,3 +45,33 @@ The implementation begins with a heads-up tracer hand through the existing Trust
 6. A returning player waits for the big blind.
 
 The first four rules are represented in the current accounting seam. Rules 5–6 remain required follow-up behavior, not completed functionality.
+
+
+## Betting refinement — 2026-09-14
+
+Fact: [Poker TDA Rule 47 and its addendum](https://www.pokertda.com/view-poker-tda-rules/)
+describe reopening per player, using the cumulative increase faced since that
+player last acted. A short all-in does not replace the last full raise
+increment. [Robert's Rules, section 14](https://homepokertourney.org/docs/RobsPkrRules5.pdf)
+also excludes a prior actor facing less than a full wager from raising again.
+These are rule references, not a claim that tournament administration applies
+to the home-session product.
+
+Research default for `p2-house-1`: keep that player-specific reopening rule;
+an unacted player raising over a short opening all-in must add the full minimum
+increment (with big blind 2 and a short opening of 1, the minimum raise-to is 3).
+The [TDA's short-opening discussion](https://www.pokertda.com/forum/index.php?topic=1456.0)
+corroborates that interpretation, but is discussion rather than normative TDA
+rule text. Tests cover a prior checker separately from an unacted player.
+
+Implementation inference: retain the nominal big-blind bring-in while two or
+more players still have chips to bet. When only one remains, require only an
+outstanding actual contribution; a nominal payment cannot create a contested
+side pot against an all-in opponent. With no pending response, emit the same
+street-runout events used after a called all-in. These defaults remain subject
+to independent differential qualification before release.
+
+Known ledger limitation: unmatched excess is still represented as a
+single-eligible-player settlement layer and returned through confirmation.
+Final chip conservation is covered, but distinguishing returns from contested
+pot awards remains required for the history/export slice.

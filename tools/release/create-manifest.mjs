@@ -98,7 +98,12 @@ function releaseVersions(runtimeSource) {
 export async function collectReleaseManifest(root = process.cwd()) {
   const [packageJson, runtimeSource, lockfile, revision] = await Promise.all([
     readFile(path.join(root, "package.json"), "utf8"),
-    readFile(path.join(root, "apps/web/src/runtime.ts"), "utf8"),
+    readFile(path.join(root, "apps/web/src/release-channel.ts"), "utf8").catch(
+      (error) => {
+        if (error.code !== "ENOENT") throw error;
+        return readFile(path.join(root, "apps/web/src/runtime.ts"), "utf8");
+      },
+    ),
     readFile(path.join(root, "pnpm-lock.yaml")),
     sourceRevision(root),
   ]);

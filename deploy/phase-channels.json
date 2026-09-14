@@ -1,0 +1,13 @@
+{
+  "schemaVersion": 1,
+  "phase1": {
+    "releaseTag": "phase1-retained-39d860d",
+    "asset": "phase1-site.tar.gz",
+    "archiveSha256": "bf745d5d243d8a6f4d748aee941ad5b2ffe55890aaf4cfd62577194530583d1f",
+    "sourceRevision": "39d860db04d481fd16584672746cbf70fce47fc7"
+  },
+  "phase2": {
+    "path": "multiplayer",
+    "buildVersion": "0.2.0-preview.1"
+  }
+}

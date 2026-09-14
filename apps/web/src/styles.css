@@ -92,7 +92,7 @@ button:disabled {
   gap: 1rem;
   min-height: 4.4rem;
   border-bottom: 1px solid var(--rule);
-  padding: 0.4rem clamp(1rem, 3vw, 3rem);
+  padding: 0.5rem clamp(1rem, 3vw, 3rem);
 }
 
 .brand-lockup {
