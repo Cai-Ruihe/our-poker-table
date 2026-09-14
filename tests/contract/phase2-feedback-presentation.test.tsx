@@ -130,6 +130,38 @@ describe("Phase 2 presentation feedback", () => {
     expect(markup).not.toContain('data-seat-acting="true"');
   });
 
+  it("enables the host next hand only with confirmed settlement and two eligible stacks", () => {
+    const complete = projection("complete", "complete");
+    if (!complete.accounting) throw new Error("Accounting fixture required");
+    const renderNext = (value: PublicProjection) =>
+      renderSurface({
+        mode: "host",
+        projection: value,
+        onStartNextHand: () => true,
+      }).match(/<button[^>]*data-qa-control="dealer-next-hand"[^>]*>/u)?.[0];
+    expect(renderNext(complete)).toContain('disabled=""');
+    const funded = {
+      ...complete,
+      accounting: {
+        ...complete.accounting,
+        seats: complete.accounting.seats.map((seat) => ({
+          ...seat,
+          stack: 100,
+        })),
+      },
+    };
+    expect(renderNext(funded)).toBeDefined();
+    expect(renderNext(funded)).not.toContain('disabled=""');
+    expect(
+      renderNext({
+        ...funded,
+        seats: funded.seats.map((seat) =>
+          seat.seatId === "bob" ? { ...seat, status: "sitting-out" } : seat,
+        ),
+      }),
+    ).toContain('disabled=""');
+  });
+
   it("uses classified recovery and translates known digital rejections", () => {
     const seatProjection: SeatProjection = {
       ...projection(),

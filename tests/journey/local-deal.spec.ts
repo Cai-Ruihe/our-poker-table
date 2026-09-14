@@ -246,10 +246,12 @@ test("two players complete a digital-chip hand only after host settlement confir
   const bob = await joinPlayer(host, context, "Bob");
   await host.getByRole("button", { name: "Deal first hand" }).click();
 
-  await expect(host.getByText("Pot 3", { exact: true })).toBeVisible();
+  await expect(host.locator("[data-table-pot]")).toHaveText(/Pot\s*3/u);
   await host.getByRole("button", { name: /^Players/ }).click();
   await expect(host.getByText("New players locked")).toBeVisible();
-  await expect(host.getByText(/does not admit late seats/u)).toBeVisible();
+  await expect(
+    host.getByText(/keeps the same seats after dealing/u),
+  ).toBeVisible();
   await expect(
     host.getByRole("button", { name: "Open join window" }),
   ).toHaveCount(0);
@@ -259,11 +261,11 @@ test("two players complete a digital-chip hand only after host settlement confir
   await alice.getByRole("button", { name: "Call 1" }).click();
   await bob.getByRole("button", { name: "Check" }).click();
   await expect(host.locator("[data-board-card]")).toHaveCount(3);
-  await expect(host.getByText("Pot 4", { exact: true })).toBeVisible();
+  await expect(host.locator("[data-table-pot]")).toHaveText(/Pot\s*4/u);
 
   await host.reload();
   await expect(host.locator("[data-board-card]")).toHaveCount(3);
-  await expect(host.getByText("Pot 4", { exact: true })).toBeVisible();
+  await expect(host.locator("[data-table-pot]")).toHaveText(/Pot\s*4/u);
 
   for (const player of [bob, alice, bob, alice, bob, alice]) {
     await player.getByRole("button", { name: "Check" }).click();
@@ -296,7 +298,7 @@ test("two players complete a digital-chip hand only after host settlement confir
   await expect(host.getByText("This hand is complete.")).toBeVisible();
   await expect(
     host.getByRole("button", { name: "Deal next hand" }),
-  ).toHaveCount(0);
+  ).toBeEnabled();
   const stacksAfter = await host
     .locator("[data-stack]")
     .evaluateAll((nodes) =>

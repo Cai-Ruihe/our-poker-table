@@ -956,19 +956,28 @@ function DealerControls(props: TableSurfaceProps) {
   const [confirmEnd, setConfirmEnd] = useState(false);
   const progression = nextStreetByPhase[props.projection.phase];
   if (props.projection.phase === "complete") {
-    if (props.projection.accounting) {
-      return <p className="dealer-guidance">{t("This hand is complete.")}</p>;
-    }
+    const accounting = props.projection.accounting;
+    const digitalNextHandUnavailable =
+      Boolean(accounting) &&
+      (accounting?.phase !== "complete" ||
+        eligiblePositiveStackCount(props.projection) < 2);
     return (
-      <div className="dealer-actions">
-        <ActionButton
-          disabled={props.busy || !props.onStartNextHand}
-          onClick={() => props.onStartNextHand?.()}
-          qaControl="dealer-next-hand"
-        >
-          {t("Deal next hand")}
-        </ActionButton>
-      </div>
+      <>
+        {accounting ? (
+          <p className="dealer-guidance">{t("This hand is complete.")}</p>
+        ) : null}
+        <div className="dealer-actions">
+          <ActionButton
+            disabled={
+              props.busy || !props.onStartNextHand || digitalNextHandUnavailable
+            }
+            onClick={() => props.onStartNextHand?.()}
+            qaControl="dealer-next-hand"
+          >
+            {t("Deal next hand")}
+          </ActionButton>
+        </div>
+      </>
     );
   }
   if (props.projection.accounting) {

@@ -610,7 +610,7 @@
 .public-table--quiet .showdown-note {
   position: absolute;
   z-index: 3;
-  top: calc(50% + min(14vw, 15rem) + 2.1rem);
+  top: calc(50% + min(14vw, 15rem) - 0.5rem);
   left: 50%;
   width: max-content;
   max-width: calc(100% - 3rem);
@@ -930,9 +930,7 @@
   display: grid;
   grid-template-areas:
     "state roles"
-    "name name"
-    "stack stack"
-    "turn turn";
+    "name name";
   grid-template-columns: auto auto;
   justify-items: center;
   column-gap: 0.65rem;
@@ -982,10 +980,7 @@
   display: grid;
   grid-template-areas:
     "hand hand"
-    "state roles"
-    "name name"
-    "stack stack"
-    "turn turn";
+    "state roles";
   grid-template-columns: auto auto;
   justify-items: center;
   column-gap: 0.65rem;
@@ -3141,4 +3136,25 @@ button.secondary-control-card:disabled {
 .table-surface--tablet .seat-edge-status[data-seat-stack].seat-edge-status--6,
 .table-surface--tablet .seat-edge-status[data-seat-stack].seat-edge-status--7 {
   bottom: max(0.6rem, env(safe-area-inset-bottom));
+}
+
+/* Digital chip metadata adds rows only to digital seats; physical geometry stays
+   unchanged, including the compact shown-hand and result-note positions. */
+.public-table--quiet:has(.board-pot) .showdown-note {
+  top: calc(50% + min(14vw, 15rem) + 2.1rem);
+}
+.seat-edge-status--show-name[data-seat-stack] {
+  grid-template-areas: "state roles" "name name" "stack stack" "turn turn";
+}
+.seat-edge-status[data-seat-has-shown-hand="true"][data-seat-stack] {
+  grid-template-areas: "hand hand" "state roles" "stack stack" "turn turn";
+}
+.seat-edge-status[data-seat-has-shown-hand="true"].seat-edge-status--show-name[data-seat-stack] {
+  grid-template-areas: "hand hand" "state roles" "name name" "stack stack" "turn turn";
+}
+.seat-edge-status__stack {
+  grid-area: stack;
+}
+.seat-edge-status__turn {
+  grid-area: turn;
 }

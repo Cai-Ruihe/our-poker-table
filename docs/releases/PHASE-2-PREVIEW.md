@@ -98,7 +98,7 @@ Codex media-management files are excluded from this publication.
 
 Local candidate checks on 2026-09-14:
 
-- `pnpm check`: passed, 135 contract tests and 19 relay tests.
+- `pnpm check`: passed, 136 contract tests and 19 relay tests.
 - Coverage thresholds passed: 88.03% statements, 84.64% branches.
 - Production dependency audit: no known vulnerabilities.
 - Six packaged journeys passed across desktop Chromium, mobile Chromium, and
@@ -113,9 +113,15 @@ Local candidate checks on 2026-09-14:
   both received fixes and the targeted regression checks above. Inbound requests
   now wait until recovery reconciliation finishes, and failed initialization
   closes the endpoint without processing queued requests.
-- The master visually inspected desktop and mobile table/player views.
-- CSS grew from 99,978 to 102,696 raw bytes for the requested feedback UI. The
-  enforced budget is now 103,500 bytes (804 bytes of headroom); JavaScript and
+- The master visually inspected desktop and mobile table/player views. Full-suite
+  regression exposed physical-mode grid/result-note offsets; digital selectors
+  now isolate those styles, and the original screenshot/geometry checks pass
+  without changing any visual baselines. The digital journey now verifies the
+  relocated pot and enabled next-hand control instead of preview-1 limitations.
+  Host Controls now exposes the same funded-seat/confirmed-settlement next-hand
+  gate as Tablet controls.
+- CSS grew from 99,978 to 103,233 raw bytes for the requested feedback UI. The
+  enforced budget is now 103,500 bytes (267 bytes of headroom); JavaScript and
   standalone-artifact budgets remain unchanged. The hosted Phase 1 artifact is
   still the pinned retained archive, not this rebuilt development output.
 - Exact-origin relay checks, private token acceptance and an actual WebSocket
