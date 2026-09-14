@@ -2,7 +2,7 @@
 id: PRD-M04
 kind: module
 status: current
-last_reconciled: 2026-08-14
+last_reconciled: 2026-08-29
 decision_ids:
   - PHASE1-ONE-TABLE-PER-HOST
   - SERVER-CONNECTION-ONLY
@@ -17,6 +17,7 @@ decision_ids:
   - TEST-CHINA-NETWORKS
   - TEST-WEBRTC-STAGING
   - TEST-REMOTE-COMPROMISE
+  - RECOVERY-RECONNECT-STORM-CONTROL
 router: ../manifest.yaml
 ---
 
@@ -85,10 +86,10 @@ The transport interface connects/reconnects an authenticated peer, sends/receive
   miss count and guidance immediately.
 - Liveness probes are small, authenticated, and read-only. They never create a
   poker event, change authority, or persist recovery state. Do not introduce a
-  player-count-aware or globally coordinated polling algorithm. Retry
-  randomization remains deferred until physical-device evidence demonstrates a
-  burst-induced queue; if then needed, use established independent randomized
-  backoff/jitter rather than a custom scheduling system.
+  player-count-aware or globally coordinated polling algorithm. The current
+  release has no retry randomization. The next-version requirement
+  `RECOVERY-RECONNECT-STORM-CONTROL` adds independent reconnect
+  backoff/jitter without changing this three-miss liveness policy.
 - A table invitation carries independent Cloudflare and Mac ticket material;
   it never carries the operator token. Each ticket is bound to the table,
   host, peer ID, endpoint, protocol, expiry, and nonce. A display-pairing
@@ -113,6 +114,41 @@ third without a valid Host frame is actionable, and any subsequent valid Host
 event or projection clears the state immediately. Exercise two and ten players,
 including a new mid-hand join, across direct and both relay routes; physical
 devices must cover foreground/background Host scheduling.
+
+## Next Table-side release backlog — not implemented in the current release
+
+`RECOVERY-RECONNECT-STORM-CONTROL` records the owner-approved next-version
+recovery work. The reported risk is a reconnect storm after weak-network loss,
+foreground/background transitions, Wi-Fi/cellular changes, or repeat taps:
+each unnecessary reconnect can recreate relay registration/signaling and can
+amplify relay-envelope and Durable Object database work. This backlog changes
+neither the current release nor Airplane Mode.
+
+- One client owns at most one reconnect flow. Manual, foreground, and `online`
+  triggers coalesce; the control cannot start a concurrent duplicate flow.
+- Offline state performs no connection attempt. An `online` transition schedules
+  one coalesced recovery. Automatic retries use capped independent exponential
+  backoff with jitter: nominally 1, 2, 5, 10, then 30 seconds maximum. A bounded
+  retry count enters a cooldown/circuit state with an explicit manual retry path;
+  it must never tightly loop.
+- Reuse an open healthy WebRTC DataChannel. While a table-bound relay ticket is
+  valid, reuse it rather than issuing or rotating a ticket; only a genuine
+  route/credential failure may perform the existing serial route recovery.
+- Coalesce and rate-limit Host reconnect consequences: `table-changed`,
+  projection refresh, and table-wide fan-out must not create an unbounded burst
+  when several clients recover together.
+- Add redacted deployer diagnostics for attempts, success rate, final route,
+  backoff/cooldown count, relay-envelope count, and aggregated Cloudflare
+  Durable Object row reads/writes. Client diagnostics must not claim to observe
+  provider billing directly or contain cards, credentials, or personal data.
+- Add deterministic weak-network, offline/online, lock-screen/foreground,
+  repeat-tap, and simultaneous multi-client recovery tests. Include a stress
+  seam that measures relay envelopes and Durable Object row operations.
+
+Acceptance before implementation is complete: the per-client reconnect request
+rate has an explicit tested upper bound; a client never has two recovery flows;
+network restoration catches the table up; a valid ticket is not unnecessarily
+rotated; and concurrent recovery has a measured bounded relay/database peak.
 
 ## Out of Scope
 

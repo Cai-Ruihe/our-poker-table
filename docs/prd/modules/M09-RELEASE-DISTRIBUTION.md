@@ -2,7 +2,7 @@
 id: PRD-M09
 kind: module
 status: current
-last_reconciled: 2026-08-17
+last_reconciled: 2026-09-14
 decision_ids:
   - GOV-LICENCE
   - GOV-OFFICIAL-CORE
@@ -10,6 +10,7 @@ decision_ids:
   - NET-OWNER-ISOLATION
   - NET-VERSION
   - DIST-STATIC-HTTPS
+  - DIST-PHASE-CHANNELS
   - SUPPLYCHAIN-IMMUTABLE-RELEASE
   - HOST-CAPABILITY-PREFLIGHT
   - PRIVACY-ZERO-TELEMETRY
@@ -62,6 +63,8 @@ Produce two self-contained release targets from one source revision: an HTTPS Ta
 
 - Use Apache-2.0 for project-owned code and preserve licence/notice obligations. Skin asset licences are separate Phase 3 metadata.
 - The canonical public identity is **Our Poker Table** in [`Cai-Ruihe/our-poker-table`](https://github.com/Cai-Ruihe/our-poker-table). The canonical production root is `https://ourpokertable.com/`; Table-side Mode is `https://ourpokertable.com/table-side/`.
+- Publish phases through separate stable paths: Phase 1 retains `/table-side/`, Phase 2 has the working path `/multiplayer/`, and Phase 3 gets a distinct path whose name is deferred. Later-phase promotion must preserve the exact selected earlier-phase artifacts, manifests, existing links, and active-table recovery. Each phase can advance or roll back independently; a shared repository does not require a shared released source revision. Preserve the existing root/intro/Airplane routes unless their own change is selected.
+- Use phase-specific recovery storage, locks, messaging/cache namespaces, and invitation entrypoints for new phases; do not migrate, clear, or overwrite Phase 1 data as a side effect. Existing Phase 1 namespaces remain compatible. A path prefix is not a security boundary: same-origin scripts still share browser authority. See [ADR-0012](../../adr/0012-independent-phase-release-paths.md) for artifact assembly and validation requirements.
 - Keep the durable local workspace at `/Users/ruihecai/Developer/html-poker-app`, the root npm workspace identifier as `html-poker-app`, the `@html-poker/*` namespace, and existing protocol identifiers unchanged unless a future owner decision separately authorizes an implementation-level migration. Distribution naming is owned here; M06 and the brand package continue to own product-facing visual identity.
 - GitHub redirects the old repository and Git transport URLs, but GitHub Pages does not redirect the former project-site path. Documentation, invitations, release notes, and handoffs must use the canonical `our-poker-table` Pages routes and treat the old Pages routes as invalid.
 - The owner-authorized repository/Pages rename landed in [PR #7](https://github.com/Cai-Ruihe/our-poker-table/pull/7) at merge commit `28e7943b6472226f84ee24b693ed192338969989`. A name or route migration is provenance evidence, not an Official Release. At the migration read-back, the renamed Pages route still served `0.1.3-phase1` from source revision `07cf6ede1fa1ddd4eda09059cfd3d64018cde297`.

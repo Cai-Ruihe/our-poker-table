@@ -83,13 +83,13 @@ jobs:
       - name: Install locked dependencies
         run: pnpm install --frozen-lockfile
       - name: Build release artifacts
-        run: pnpm build:landing && pnpm build:table-side && pnpm build:cloudflare-relay && pnpm build:airplane
-      - name: Configure hosted Table-side Mode
+        run: pnpm build:multiplayer
+      - name: Configure hosted Phase 2 preview
         env:
           TABLE_SIDE_CLOUD_RELAY_URL: ${{ vars.TABLE_SIDE_CLOUD_RELAY_URL }}
           TABLE_SIDE_MAC_RELAY_URL: ${{ vars.TABLE_SIDE_MAC_RELAY_URL }}
           TABLE_SIDE_CONNECTION_SERVICE_URL: ${{ vars.TABLE_SIDE_CONNECTION_SERVICE_URL }}
-        run: pnpm release:configure-table-side
+        run: pnpm release:configure-multiplayer
       - name: Verify configured live relay
         if: vars.TABLE_SIDE_CLOUD_RELAY_URL != '' || vars.TABLE_SIDE_MAC_RELAY_URL != '' || vars.TABLE_SIDE_CONNECTION_SERVICE_URL != ''
         env:
@@ -98,16 +98,18 @@ jobs:
           TABLE_SIDE_MAC_RELAY_URL: ${{ vars.TABLE_SIDE_MAC_RELAY_URL }}
           TABLE_SIDE_CONNECTION_SERVICE_URL: ${{ vars.TABLE_SIDE_CONNECTION_SERVICE_URL }}
         run: pnpm qa:live-relay
-      - name: Create release receipt
-        run: pnpm release:manifest
-      - name: Package canonical party site
+      - name: Fetch pinned Phase 1 deployment
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
-          mkdir -p _site/intro _site/table-side
-          cp apps/landing/root-redirect.html _site/index.html
-          cp dist/airplane/poker-airplane.html _site/poker-airplane.html
-          cp -R dist/intro/. _site/intro/
-          cp -R dist/table-side/. _site/table-side/
-          cp dist/release/phase-1-manifest.json _site/phase-1-manifest.json
+          tag=$(node -p "require('./deploy/phase-channels.json').phase1.releaseTag")
+          gh release download "$tag" --repo "$GITHUB_REPOSITORY" --pattern phase1-site.tar.gz --dir "$RUNNER_TEMP/retained-phase1"
+      - name: Assemble independently selected phase artifacts
+        run: node tools/release/assemble-phase-site.mjs "$RUNNER_TEMP/retained-phase1/phase1-site.tar.gz"
+      - name: Install preview test browsers
+        run: pnpm exec playwright install --with-deps chromium webkit
+      - name: Verify both packaged phase paths before deployment
+        run: pnpm exec playwright test --config playwright.phase-release.config.ts
       - name: Configure GitHub Pages
         uses: actions/configure-pages@45bfe0192ca1faeb007ade9deae92b16b8254a0d # v6.0.0
       - name: Upload GitHub Pages artifact

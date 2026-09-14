@@ -48,6 +48,25 @@ import {
   type TableSideDisplayPairingRequest,
   type PlayerAction,
 } from "./runtime";
+import {
+  invitationReleaseIssue,
+  IS_PHASE2_BUILD,
+  type InvitationReleaseIssue,
+} from "./release-channel";
+
+function invitationReleaseMessage(
+  language: string,
+  issue: InvitationReleaseIssue,
+): string {
+  if (language === "zh") {
+    return issue === "path"
+      ? "请在与邀请链接对应的牌桌页面打开此邀请。"
+      : "此邀请链接属于另一个版本的 Our Poker Table。请向房主索取当前链接。";
+  }
+  return issue === "path"
+    ? "Open this invitation from the matching table page."
+    : "This invitation belongs to another version of Our Poker Table. Ask the host for a current link.";
+}
 
 interface CapabilityCheck {
   readonly available: boolean;
@@ -183,11 +202,13 @@ function BrandBar({ aside }: { readonly aside?: ReactNode }) {
 }
 
 function Home({
+  initialJoinIssue,
   onCreate,
   onJoinAirplane,
   onJoinSession,
   onPairDisplay,
 }: {
+  readonly initialJoinIssue?: InvitationReleaseIssue;
   readonly onCreate: (options: HostRuntimeCreateOptions) => Promise<void>;
   readonly onJoinAirplane?: () => void;
   readonly onJoinSession: (url: string) => void;
@@ -195,8 +216,9 @@ function Home({
 }) {
   const { language, t } = useLanguage();
   const digitalChipsEnabled =
+    IS_PHASE2_BUILD ||
     new URLSearchParams(globalThis.location.search).get("experimental") ===
-    "digital-chips";
+      "digital-chips";
   const checks = useMemo(capabilityChecks, []);
   const ready = checks.every((check) => check.available);
   const [busy, setBusy] = useState(false);
@@ -205,7 +227,9 @@ function Home({
   const [joinError, setJoinError] = useState<string>();
   const [joinScannerOpen, setJoinScannerOpen] = useState(false);
   const [joinUrl, setJoinUrl] = useState("");
-  const [chipMode, setChipMode] = useState<"digital" | "physical">("physical");
+  const [chipMode, setChipMode] = useState<"digital" | "physical">(
+    IS_PHASE2_BUILD ? "digital" : "physical",
+  );
   const [startingStack, setStartingStack] = useState(100);
   const [smallBlind, setSmallBlind] = useState(1);
   const [bigBlind, setBigBlind] = useState(2);
@@ -252,13 +276,22 @@ function Home({
     setJoinError(undefined);
     try {
       const url = new URL(rawValue.trim(), globalThis.location.href);
-      if (!parseInvitation(url.hash)) {
+      const invitation = parseInvitation(url.hash);
+      if (!invitation) {
         throw new Error(
           "This is not a complete Our Poker Table invitation URL. Ask the host for the current player link.",
         );
       }
       if (!["http:", "https:"].includes(url.protocol)) {
         throw new Error("Invitation links must use HTTP or HTTPS.");
+      }
+      const issue = invitationReleaseIssue(invitation.binding, [
+        url.pathname,
+        globalThis.location.pathname,
+      ]);
+      if (issue) {
+        setJoinError(invitationReleaseMessage(language, issue));
+        return;
       }
       onJoinSession(url.toString());
     } catch (caught) {
@@ -276,7 +309,13 @@ function Home({
         aside={
           <div className="brand-bar__actions">
             <LanguageSwitch compact />
-            <span className="build-label">Build {BUILD_VERSION}</span>
+            <span className="build-label">
+              {IS_PHASE2_BUILD
+                ? language === "zh"
+                  ? "第二阶段预览"
+                  : "Phase 2 preview"
+                : `Build ${BUILD_VERSION}`}
+            </span>
           </div>
         }
       />
@@ -291,10 +330,21 @@ function Home({
               : t("Deal cards. Keep poker yours.")}
           </h1>
           <p className="home-intro__copy">
-            {t(
-              "Phones hold private cards. A tablet or TV shows the board. Chips and conversation stay on the physical table.",
-            )}
+            {IS_PHASE2_BUILD
+              ? language === "zh"
+                ? "手机保管个人底牌，平板或电视展示公共牌。本预览会记录数字筹码。"
+                : "Phones hold private cards. A tablet or TV shows the board. This preview records digital play chips."
+              : t(
+                  "Phones hold private cards. A tablet or TV shows the board. Chips and conversation stay on the physical table.",
+                )}
           </p>
+          {IS_PHASE2_BUILD ? (
+            <p className="inline-warning" role="note">
+              {language === "zh"
+                ? "第二阶段测试预览：每张牌桌只支持一手牌。要进行下一手，请重新创建牌桌。"
+                : "Phase 2 test preview: one hand per table. Create a new table for the next hand."}
+            </p>
+          ) : null}
           <div className="deck-statement" aria-hidden="true">
             <span>52</span>
             <div>
@@ -334,7 +384,13 @@ function Home({
           ) : null}
           {digitalChipsEnabled ? (
             <fieldset className="chip-mode-picker">
-              <legend>{t("Experimental chip mode")}</legend>
+              <legend>
+                {IS_PHASE2_BUILD
+                  ? language === "zh"
+                    ? "筹码模式"
+                    : "Chip mode"
+                  : t("Experimental chip mode")}
+              </legend>
               <label>
                 <input
                   checked={chipMode === "physical"}
@@ -359,9 +415,19 @@ function Home({
                   type="radio"
                 />
                 <span>
-                  <strong>{t("Digital chips · development tracer")}</strong>
+                  <strong>
+                    {IS_PHASE2_BUILD
+                      ? language === "zh"
+                        ? "数字筹码 · 测试预览"
+                        : "Digital chips · preview"
+                      : t("Digital chips · development tracer")}
+                  </strong>
                   <small>
-                    {t("Two players and one hand only; not party-ready.")}
+                    {IS_PHASE2_BUILD
+                      ? language === "zh"
+                        ? "每张牌桌支持一手牌。要进行下一手，请重新创建牌桌。"
+                        : "One hand per table. Create a new table for the next hand."
+                      : t("Two players and one hand only; not party-ready.")}
                   </small>
                 </span>
               </label>
@@ -505,6 +571,10 @@ function Home({
             {joinError ? (
               <p className="inline-warning" role="alert">
                 {localizeRuntimeError(language, joinError)}
+              </p>
+            ) : initialJoinIssue ? (
+              <p className="inline-warning" role="alert">
+                {invitationReleaseMessage(language, initialJoinIssue)}
               </p>
             ) : null}
             <div className="button-row">
@@ -3516,16 +3586,22 @@ function TableSideDisplayJoin({
 }
 
 function AppContent() {
-  const { setLanguage, t } = useLanguage();
-  const initialRoute = useMemo(
-    () => ({
+  const { language, setLanguage, t } = useLanguage();
+  const initialRoute = useMemo(() => {
+    const parsedInvitation = parseInvitation(globalThis.location.hash);
+    const invitationIssue = parsedInvitation
+      ? invitationReleaseIssue(parsedInvitation.binding, [
+          globalThis.location.pathname,
+        ])
+      : undefined;
+    return {
       clientRecovery: parseClientRecovery(globalThis.location.hash),
       hash: globalThis.location.hash,
       hostRecovery: parseHostRecovery(globalThis.location.hash),
-      invitation: parseInvitation(globalThis.location.hash),
-    }),
-    [],
-  );
+      invitation: invitationIssue ? undefined : parsedInvitation,
+      invitationIssue,
+    };
+  }, [language]);
   const [hostRuntime, setHostRuntime] = useState<HostTableRuntime>();
   const [hostPlayerRuntime, setHostPlayerRuntime] =
     useState<TableClientRuntime>();
@@ -3820,6 +3896,9 @@ function AppContent() {
   }
   return (
     <Home
+      {...(initialRoute.invitationIssue
+        ? { initialJoinIssue: initialRoute.invitationIssue }
+        : {})}
       onCreate={async (options) => {
         const runtime = await HostTableRuntime.createNew(options);
         replaceWithHostRecoveryUrl(globalThis.location, runtime.tableId);
@@ -3837,6 +3916,13 @@ function AppContent() {
           throw new Error("The invitation URL is incomplete.");
         }
         const current = new URL(globalThis.location.href);
+        const issue = invitationReleaseIssue(invitation.binding, [
+          url.pathname,
+          current.pathname,
+        ]);
+        if (issue) {
+          throw new Error(invitationReleaseMessage(language, issue));
+        }
         current.search = "";
         current.hash = url.hash;
         globalThis.history.replaceState(null, "", current);

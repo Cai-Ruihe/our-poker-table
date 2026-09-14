@@ -35,8 +35,9 @@ export async function configureTableSideBuild(
   root = process.cwd(),
   singleRelayCandidate = process.env.TABLE_SIDE_CONNECTION_SERVICE_URL,
   fallbackCandidate = process.env.TABLE_SIDE_MAC_RELAY_URL,
+  outputDirectory = path.join(root, "dist", "table-side"),
 ) {
-  const tableSideDirectory = path.join(root, "dist", "table-side");
+  const tableSideDirectory = outputDirectory;
   const htmlPath = path.join(tableSideDirectory, "index.html");
   const configPath = path.join(tableSideDirectory, "poker-config.js");
   const html = await readFile(htmlPath, "utf8");
@@ -100,7 +101,18 @@ export async function configureTableSideBuild(
 }
 
 async function main() {
-  const result = await configureTableSideBuild();
+  const result = await configureTableSideBuild(
+    process.cwd(),
+    process.env.TABLE_SIDE_CONNECTION_SERVICE_URL,
+    process.env.TABLE_SIDE_MAC_RELAY_URL,
+    path.join(
+      process.cwd(),
+      "dist",
+      process.env.HTML_POKER_PHASE2_BUILD === "1"
+        ? "multiplayer"
+        : "table-side",
+    ),
+  );
   process.stdout.write(
     result.configured
       ? `Configured Table-side build for ${result.origins.join(", ")}\n`

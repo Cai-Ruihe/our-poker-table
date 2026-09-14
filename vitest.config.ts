@@ -4,6 +4,7 @@ export default defineConfig({
   test: {
     coverage: {
       include: [
+        "packages/accounting/src/**/*.ts",
         "packages/card-custody/src/**/*.ts",
         "packages/diagnostics/src/**/*.ts",
         "packages/game-core/src/**/*.ts",

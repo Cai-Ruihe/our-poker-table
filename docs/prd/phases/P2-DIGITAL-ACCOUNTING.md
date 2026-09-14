@@ -2,11 +2,12 @@
 id: PRD-P2
 kind: phase
 status: current
-last_reconciled: 2026-08-15
+last_reconciled: 2026-09-14
 decision_ids:
   - SCOPE-PLAY-MONEY
   - ARCH-SHARED-CORE
   - ACCOUNTING-PHASE-2
+  - DIST-PHASE-CHANNELS
   - PHASE2-NLHE-HOME-SESSION
   - PHASE2-HOUSE-POLICY-V1
   - REMOTE-PUBLIC-TABLE-P2
@@ -50,6 +51,7 @@ At table creation, the host selects either the Phase 1 Deal-Only Profile or the 
 
 ## Implementation Decisions
 
+- Phase 2 will publish at its own entrypoint, provisionally `/multiplayer/`, while the released Phase 1 `/table-side/` continues independently. M09 owns artifact/version selection, rollback, and cross-phase state-isolation requirements. This is a distribution decision, not a change to the remote-human-play scope below; the existing experimental query remains a development gate until the separate entrypoint is implemented and qualified.
 - `PHASE2-NLHE-HOME-SESSION` is the initial profile; other betting structures and tournaments remain deferred behind Rules Profile seams.
 - Accounting is event-derived. Corrections append adjustments/approvals; they never overwrite earlier actions.
 - Street advance in digital mode requires `BettingRoundClosed`; Phase 1 continues to use an explicit dealer command.
