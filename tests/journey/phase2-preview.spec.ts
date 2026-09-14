@@ -1,5 +1,20 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
 import { exerciseControl } from "./control-qa";
+
+async function dragPlayerShow(page: Page) {
+  const slider = page.locator('[data-qa-control="player-show-cards"]');
+  await slider.scrollIntoViewIfNeeded();
+  const bounds = await slider.boundingBox();
+  if (!bounds) throw new Error("The Player Show slider is not measurable.");
+  await page.mouse.move(bounds.x + 28, bounds.y + bounds.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(
+    bounds.x + bounds.width - 18,
+    bounds.y + bounds.height / 2,
+    { steps: 8 },
+  );
+  await page.mouse.up();
+}
 
 test.beforeEach(async ({ context }, testInfo) => {
   if (!testInfo.project.name.startsWith("phase-release")) return;
@@ -72,7 +87,7 @@ test("Phase 2 preview defaults to digital and keeps both phase tables recoverabl
   ).toBeVisible();
 });
 
-test("Phase 2 feedback: visible stacks, acting seat, settlement, top-up and next hand", async ({
+test("Phase 2 feedback: auto settlement persists until one confirmed award, then top-up and next hand", async ({
   context,
   page: host,
 }, testInfo) => {
@@ -264,25 +279,58 @@ test("Phase 2 feedback: visible stacks, acting seat, settlement, top-up and next
   await control(alice, "player-bet-commit").click();
   await control(bob, "player-bet-all-in").click();
   await control(alice, "player-bet-fold").click();
-  await control(host, "tablet-corner-open").last().click();
-  await exerciseControl(
-    "tablet-review-settlement",
-    control(host, "tablet-review-settlement"),
-    (target) => target.click(),
-    () =>
-      expect(
-        host.getByText("Settlement proposal", { exact: true }).first(),
-      ).toBeVisible(),
-  );
+  await expect(host.locator(".settlement-panel")).toBeVisible();
   await expect(
     host.getByText("Settlement proposal", { exact: true }).first(),
   ).toBeVisible();
-  // Accepted actions close the panel after the committed projection arrives.
-  await expect(host.locator(".tablet-quick-panel")).toBeHidden();
+  const aliceStack = alice
+    .locator("[data-player-stack-list] [data-seat-id]")
+    .filter({ hasText: "Alice" });
+  const bobStack = alice
+    .locator("[data-player-stack-list] [data-seat-id]")
+    .filter({ hasText: "Bob" });
+  await expect(aliceStack).toHaveAttribute("data-seat-self", "true");
+  await expect(aliceStack).toHaveAttribute(
+    "data-seat-accounting-status",
+    "folded",
+  );
+  await expect(bobStack).toHaveAttribute(
+    "data-seat-accounting-status",
+    "all-in",
+  );
+  await expect(bobStack).toHaveAttribute("data-seat-all-in", "true");
   await control(host, "tablet-corner-open").last().click();
+  await control(host, "tablet-quick-more").click();
+  await control(host, "tablet-view-host").click();
+  await expect(host.locator(".table-surface--host")).toBeVisible();
+  await dragPlayerShow(bob);
+  await expect(host.locator(".seat-grid [data-shown-card]")).toHaveCount(2);
+  const stacksBeforeConfirm = await host
+    .locator("[data-seat-stack]")
+    .evaluateAll((seats) =>
+      seats.map((seat) => seat.getAttribute("data-seat-stack")),
+    );
+  await host.reload();
+  await expect(host.locator(".settlement-panel")).toBeVisible();
+  await expect(
+    host.getByText("Settlement proposal", { exact: true }).first(),
+  ).toBeVisible();
+  await expect
+    .poll(() =>
+      host
+        .locator("[data-seat-stack]")
+        .evaluateAll((seats) =>
+          seats.map((seat) => seat.getAttribute("data-seat-stack")),
+        ),
+    )
+    .toEqual(stacksBeforeConfirm);
+  await control(host, "device-view-tablet").click();
+  await expect(host.locator(".table-surface--tablet")).toBeVisible();
   await exerciseControl(
-    "tablet-confirm-settlement",
-    control(host, "tablet-confirm-settlement"),
+    "dealer-confirm-settlement",
+    host.locator(
+      '.settlement-panel [data-qa-control="dealer-confirm-settlement"]',
+    ),
     (target) => target.click(),
     () =>
       expect(
@@ -292,7 +340,40 @@ test("Phase 2 feedback: visible stacks, acting seat, settlement, top-up and next
   await expect(
     host.getByText("Settlement result", { exact: true }).first(),
   ).toBeVisible();
-  await expect(host.locator(".tablet-quick-panel")).toBeHidden();
+  await expect(
+    host.locator(
+      '.settlement-panel [data-qa-control="dealer-confirm-settlement"]',
+    ),
+  ).toHaveCount(0);
+  const stacksAfterSettlement = await host
+    .locator("[data-seat-stack]")
+    .evaluateAll((seats) =>
+      seats.map((seat) => Number(seat.getAttribute("data-seat-stack"))),
+    );
+  expect(stacksAfterSettlement.reduce((total, stack) => total + stack, 0)).toBe(
+    200,
+  );
+  expect(stacksAfterSettlement.map(String)).not.toEqual(stacksBeforeConfirm);
+  await host.reload();
+  await expect(
+    host.getByText("Settlement result", { exact: true }).first(),
+  ).toBeVisible();
+  await expect
+    .poll(() =>
+      host
+        .locator("[data-seat-stack]")
+        .evaluateAll((seats) =>
+          seats.map((seat) => Number(seat.getAttribute("data-seat-stack"))),
+        ),
+    )
+    .toEqual(stacksAfterSettlement);
+  await control(host, "device-view-tablet").click();
+  await expect(host.locator(".table-surface--tablet")).toBeVisible();
+  await expect(
+    host.locator(
+      '.settlement-panel [data-qa-control="dealer-confirm-settlement"]',
+    ),
+  ).toHaveCount(0);
   await control(host, "tablet-corner-open").last().click();
   await control(host, "tablet-quick-more").click();
   await control(host, "tablet-manage-players").click();

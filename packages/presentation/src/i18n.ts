@@ -79,6 +79,12 @@ const chinese: Readonly<Record<string, string>> = {
   "sitting out": "暂不参加",
   waiting: "等待中",
   "shown cards": "已亮出的手牌",
+  "Winning hands already shown to the table are highlighted.":
+    "已向牌桌亮出的获胜手牌已标出。",
+  "Winning hands already shown": "已亮出的获胜手牌",
+  "All-in": "全下",
+  You: "你",
+  "Available after betting closes.": "下注结束后可亮牌。",
   Seats: "座位",
   Seat: "座位",
   Dealer: "庄家",

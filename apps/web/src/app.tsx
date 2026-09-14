@@ -11,7 +11,32 @@ import QRCode from "qrcode";
 import jsQR from "jsqr";
 
 import type { CapabilityRole } from "@html-poker/identity-capabilities";
-import type { CardStyle, TableTheme } from "@html-poker/game-core";
+import {
+  publicHistoryFilename,
+  type PublicTableHistory,
+  type CardStyle,
+  type TableTheme,
+} from "@html-poker/game-core";
+import { HistoryReplay } from "./history-view";
+import "./history.css";
+
+function saveHistoryFile(
+  history: PublicTableHistory,
+  seatId: string,
+  name: string,
+): void {
+  const blob = new Blob([JSON.stringify(history, null, 2)], {
+    type: "application/json",
+  });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = publicHistoryFilename(history, seatId, name);
+  document.body.append(link);
+  link.click();
+  link.remove();
+  globalThis.setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
 import {
   LanguageProvider,
   LanguageSwitch,
@@ -2917,17 +2942,23 @@ function useClientSnapshot(runtime: TableClientRuntime): ClientRuntimeSnapshot {
 }
 
 function LeaveTableDialog({
+  onDownloadAndLeave,
+  errorMessage,
+  preserveSeat = false,
   busy,
   onCancel,
   onConfirm,
   tableTheme,
 }: {
   readonly busy: boolean;
+  readonly onDownloadAndLeave?: () => void;
+  readonly errorMessage?: string;
+  readonly preserveSeat?: boolean;
   readonly onCancel: () => void;
   readonly onConfirm: () => void;
   readonly tableTheme: TableTheme;
 }) {
-  const { t } = useLanguage();
+  const { language, t } = useLanguage();
   return (
     <div
       className="confirm-backdrop"
@@ -2940,13 +2971,24 @@ function LeaveTableDialog({
         className="confirm-dialog"
         role="dialog"
       >
-        <p className="section-label">{t("Permanent on this seat")}</p>
+        <p className="section-label">
+          {preserveSeat
+            ? language === "zh"
+              ? "离开当前页面"
+              : "Leave this page"
+            : t("Permanent on this seat")}
+        </p>
         <h2 id="leave-table-title">{t("Leave this table?")}</h2>
         <p>
-          {t(
-            "This seat credential will be revoked and cannot reconnect. The host can keep the empty seat for history or replace its device.",
-          )}
+          {preserveSeat
+            ? language === "zh"
+              ? "座位和筹码保留，可用原链接回来。退出前要下载公开牌局记录吗？"
+              : "Your seat and chips stay at the table; use this link to return. Download the public hand history before leaving?"
+            : t(
+                "This seat credential will be revoked and cannot reconnect. The host can keep the empty seat for history or replace its device.",
+              )}
         </p>
+        {errorMessage ? <p role="alert">{errorMessage}</p> : null}
         <div className="button-row">
           <button
             autoFocus
@@ -2958,6 +3000,17 @@ function LeaveTableDialog({
           >
             {t("Stay at table")}
           </button>
+          {onDownloadAndLeave ? (
+            <button
+              className="button button--primary"
+              data-qa-control="leave-dialog-download"
+              disabled={busy}
+              onClick={onDownloadAndLeave}
+              type="button"
+            >
+              {language === "zh" ? "下载记录后退出" : "Download and leave"}
+            </button>
+          ) : null}
           <button
             className="button button--danger"
             data-qa-control="leave-dialog-confirm"
@@ -2965,7 +3018,13 @@ function LeaveTableDialog({
             onClick={onConfirm}
             type="button"
           >
-            {busy ? t("Leaving…") : t("Leave permanently")}
+            {busy
+              ? t("Leaving…")
+              : onDownloadAndLeave
+                ? language === "zh"
+                  ? "直接退出"
+                  : "Leave without downloading"
+                : t("Leave permanently")}
           </button>
         </div>
       </section>
@@ -2999,6 +3058,8 @@ function PlayerExperience({
   const [error, setError] = useState<string>();
   const [leaveConfirmOpen, setLeaveConfirmOpen] = useState(false);
   const [reconnecting, setReconnecting] = useState(false);
+  const [historyOpen, setHistoryOpen] = useState(false);
+  const [historyBusy, setHistoryBusy] = useState(false);
   useScreenWakeLock(snapshot.status === "playing");
 
   useEffect(() => {
@@ -3120,7 +3181,8 @@ function PlayerExperience({
     setBusy(true);
     setError(undefined);
     try {
-      await runtime.performPlayer({ type: "leave" });
+      if (fixedDigitalSeats) await runtime.setPresence(false);
+      else await runtime.performPlayer({ type: "leave" });
       runtime.close();
       const home = new URL(globalThis.location.href);
       home.hash = "";
@@ -3136,6 +3198,94 @@ function PlayerExperience({
       setBusy(false);
     }
   }
+
+  async function downloadHistory(thenLeave = false): Promise<void> {
+    if (historyBusy) return;
+    setHistoryBusy(true);
+    setError(undefined);
+    try {
+      const history = await runtime.downloadPublicHistory();
+      saveHistoryFile(
+        history,
+        snapshot.seat?.seatId ?? playerProjection?.self.seatId ?? "",
+        snapshot.seat?.displayName ?? "Player",
+      );
+      if (thenLeave) {
+        // WebKit defers Blob download startup. Immediate navigation cancels it.
+        await new Promise<void>((resolve) =>
+          globalThis.setTimeout(resolve, 300),
+        );
+        await leaveTable();
+      }
+    } catch (caught) {
+      setError(
+        caught instanceof Error
+          ? caught.message
+          : "The public history could not be downloaded.",
+      );
+    } finally {
+      setHistoryBusy(false);
+    }
+  }
+  const historyTools = IS_PHASE2_BUILD ? (
+    <div
+      className="history-access"
+      aria-label={language === "zh" ? "牌局记录" : "Hand history"}
+    >
+      <button
+        className="button button--quiet"
+        data-qa-control="player-history-download"
+        disabled={historyBusy}
+        onClick={() => void downloadHistory()}
+        type="button"
+      >
+        {historyBusy
+          ? language === "zh"
+            ? "正在下载…"
+            : "Downloading…"
+          : language === "zh"
+            ? "下载牌局记录"
+            : "Download hand history"}
+      </button>
+      <button
+        className="button button--quiet"
+        data-qa-control="player-history-replay"
+        onClick={() => setHistoryOpen(true)}
+        type="button"
+      >
+        {language === "zh" ? "导入与复盘" : "Import and replay"}
+      </button>
+      {manageLifecycle && !snapshot.tableDissolved ? (
+        <button
+          className="button button--quiet"
+          data-qa-control="player-exit-page"
+          onClick={() => setLeaveConfirmOpen(true)}
+          type="button"
+        >
+          {language === "zh" ? "退出牌桌页面" : "Leave table page"}
+        </button>
+      ) : null}
+    </div>
+  ) : null;
+  if (historyOpen)
+    return <HistoryReplay onClose={() => setHistoryOpen(false)} />;
+  if (snapshot.tableDissolved)
+    return (
+      <main className="message-shell" data-theme={snapshot.tableTheme}>
+        <section>
+          <h1>{language === "zh" ? "牌桌已解散" : "Table dissolved"}</h1>
+          <p>
+            {language === "zh"
+              ? "最终公开记录已保存在这个设备，可随时下载。"
+              : "The final public record is saved on this device and ready to download."}
+          </p>
+          {historyTools}
+          {(error ?? snapshot.error) ? (
+            <p role="alert">{error ?? snapshot.error}</p>
+          ) : null}
+        </section>
+      </main>
+    );
 
   if (!snapshot.seat && snapshot.status !== "rejected") {
     return (
@@ -3281,10 +3431,18 @@ function PlayerExperience({
               </button>
             ) : null}
           </div>
+          {historyTools}
         </section>
         {leaveConfirmOpen ? (
           <LeaveTableDialog
-            busy={busy}
+            busy={busy || historyBusy}
+            {...(error ? { errorMessage: error } : {})}
+            {...(IS_PHASE2_BUILD
+              ? {
+                  onDownloadAndLeave: () => void downloadHistory(true),
+                  preserveSeat: fixedDigitalSeats,
+                }
+              : {})}
             onCancel={() => setLeaveConfirmOpen(false)}
             onConfirm={() => void leaveTable()}
             tableTheme={snapshot.tableTheme}
@@ -3325,9 +3483,17 @@ function PlayerExperience({
         projection={playerProjection}
         productName={PRODUCT_NAME}
       />
+      {historyTools}
       {leaveConfirmOpen ? (
         <LeaveTableDialog
-          busy={busy}
+          busy={busy || historyBusy}
+          {...(error ? { errorMessage: error } : {})}
+          {...(IS_PHASE2_BUILD
+            ? {
+                onDownloadAndLeave: () => void downloadHistory(true),
+                preserveSeat: fixedDigitalSeats,
+              }
+            : {})}
           onCancel={() => setLeaveConfirmOpen(false)}
           onConfirm={() => void leaveTable()}
           tableTheme={snapshot.tableTheme}
@@ -3777,6 +3943,10 @@ function TableSideDisplayJoin({
 
 function AppContent() {
   const { language, setLanguage, t } = useLanguage();
+  const [historyOpen, setHistoryOpen] = useState(
+    IS_PHASE2_BUILD &&
+      new URLSearchParams(globalThis.location.search).has("replay"),
+  );
   const initialRoute = useMemo(() => {
     const parsedInvitation = parseInvitation(globalThis.location.hash);
     const invitationIssue = parsedInvitation
@@ -3991,10 +4161,21 @@ function AppContent() {
   async function dissolveHostedTable(): Promise<void> {
     if (!hostRuntime) return;
     const confirmed = globalThis.confirm(
-      "Dissolve this table for every connected player and display? This cannot be undone.",
+      language === "zh"
+        ? "解散这张牌桌？会先将最终公开记录保存到已连接玩家的设备。离线玩家需向房主或其他玩家索取记录。此操作无法撤销。"
+        : "Dissolve this table? Connected players will receive a saved final public record first. Offline players must obtain a copy from the host or another player. This cannot be undone.",
     );
     if (!confirmed) return;
-    await hostRuntime.dissolve();
+    try {
+      await hostRuntime.dissolve();
+    } catch (caught) {
+      globalThis.alert(
+        caught instanceof Error
+          ? caught.message
+          : "The table could not be closed safely.",
+      );
+      return;
+    }
     hostPlayerRuntime?.close();
     hostRuntime.close();
     setHostPlayerRuntime(undefined);
@@ -4005,6 +4186,17 @@ function AppContent() {
     globalThis.history.replaceState(null, "", home);
   }
 
+  if (historyOpen)
+    return (
+      <HistoryReplay
+        onClose={() => {
+          setHistoryOpen(false);
+          const url = new URL(globalThis.location.href);
+          url.searchParams.delete("replay");
+          globalThis.history.replaceState(null, "", url);
+        }}
+      />
+    );
   if (clientRuntime) {
     return clientRuntime.role === "player" ? (
       <PlayerExperience runtime={clientRuntime} />
@@ -4014,17 +4206,46 @@ function AppContent() {
   }
   if (hostRuntime)
     return (
-      <HostLobby
-        activeView={hostDeviceView}
-        onDissolve={dissolveHostedTable}
-        onJoinOwnDevice={joinOwnDevice}
-        onViewChange={showHostDeviceView}
-        {...(hostPlayerRuntime ? { playerRuntime: hostPlayerRuntime } : {})}
-        {...(hostPlayerRecoveryError
-          ? { recoveryError: hostPlayerRecoveryError }
-          : {})}
-        runtime={hostRuntime}
-      />
+      <>
+        <HostLobby
+          activeView={hostDeviceView}
+          onDissolve={dissolveHostedTable}
+          onJoinOwnDevice={joinOwnDevice}
+          onViewChange={showHostDeviceView}
+          {...(hostPlayerRuntime ? { playerRuntime: hostPlayerRuntime } : {})}
+          {...(hostPlayerRecoveryError
+            ? { recoveryError: hostPlayerRecoveryError }
+            : {})}
+          runtime={hostRuntime}
+        />
+        {IS_PHASE2_BUILD && hostDeviceView === "host" ? (
+          <div className="history-access">
+            <button
+              className="button button--quiet"
+              data-qa-control="host-history-download"
+              onClick={() => {
+                const history = hostRuntime.exportPublicHistory();
+                saveHistoryFile(
+                  history,
+                  history.frames[0]?.seats[0]?.seatId ?? "",
+                  "Host",
+                );
+              }}
+              type="button"
+            >
+              {language === "zh" ? "下载公开记录" : "Download public history"}
+            </button>
+            <button
+              className="button button--quiet"
+              data-qa-control="host-history-replay"
+              onClick={() => setHistoryOpen(true)}
+              type="button"
+            >
+              {language === "zh" ? "导入与复盘" : "Import and replay"}
+            </button>
+          </div>
+        ) : null}
+      </>
     );
   if (airplaneJoinOpen) {
     return (
@@ -4085,46 +4306,62 @@ function AppContent() {
     );
   }
   return (
-    <Home
-      {...(initialRoute.invitationIssue
-        ? { initialJoinIssue: initialRoute.invitationIssue }
-        : {})}
-      onCreate={async (options) => {
-        const runtime = await HostTableRuntime.createNew(options);
-        replaceWithHostRecoveryUrl(globalThis.location, runtime.tableId);
-        showHostDeviceView("host");
-        setHostRuntime(runtime);
-      }}
-      onJoinSession={(rawUrl) => {
-        const url = new URL(rawUrl);
-        if (!readStoredLanguage()) {
-          const invitedLanguage = languageFromUrl(url.toString());
-          if (invitedLanguage) setLanguage(invitedLanguage);
-        }
-        const invitation = parseInvitation(url.hash);
-        if (!invitation) {
-          throw new Error("The invitation URL is incomplete.");
-        }
-        const current = new URL(globalThis.location.href);
-        const issue = invitationReleaseIssue(invitation.binding, [
-          url.pathname,
-          current.pathname,
-        ]);
-        if (issue) {
-          throw new Error(invitationReleaseMessage(language, issue));
-        }
-        current.search = "";
-        current.hash = url.hash;
-        globalThis.history.replaceState(null, "", current);
-        setClientRuntime(TableClientRuntime.fromInvitation(invitation));
-      }}
-      {...(isAirplaneMode()
-        ? { onJoinAirplane: () => setAirplaneJoinOpen(true) }
-        : {})}
-      {...(!isAirplaneMode() && tableSideDisplayPairingIsConfigured()
-        ? { onPairDisplay: () => setTableSideDisplayJoinOpen(true) }
-        : {})}
-    />
+    <>
+      <Home
+        {...(initialRoute.invitationIssue
+          ? { initialJoinIssue: initialRoute.invitationIssue }
+          : {})}
+        onCreate={async (options) => {
+          const runtime = await HostTableRuntime.createNew(options);
+          replaceWithHostRecoveryUrl(globalThis.location, runtime.tableId);
+          showHostDeviceView("host");
+          setHostRuntime(runtime);
+        }}
+        onJoinSession={(rawUrl) => {
+          const url = new URL(rawUrl);
+          if (!readStoredLanguage()) {
+            const invitedLanguage = languageFromUrl(url.toString());
+            if (invitedLanguage) setLanguage(invitedLanguage);
+          }
+          const invitation = parseInvitation(url.hash);
+          if (!invitation) {
+            throw new Error("The invitation URL is incomplete.");
+          }
+          const current = new URL(globalThis.location.href);
+          const issue = invitationReleaseIssue(invitation.binding, [
+            url.pathname,
+            current.pathname,
+          ]);
+          if (issue) {
+            throw new Error(invitationReleaseMessage(language, issue));
+          }
+          current.search = "";
+          current.hash = url.hash;
+          globalThis.history.replaceState(null, "", current);
+          setClientRuntime(TableClientRuntime.fromInvitation(invitation));
+        }}
+        {...(isAirplaneMode()
+          ? { onJoinAirplane: () => setAirplaneJoinOpen(true) }
+          : {})}
+        {...(!isAirplaneMode() && tableSideDisplayPairingIsConfigured()
+          ? { onPairDisplay: () => setTableSideDisplayJoinOpen(true) }
+          : {})}
+      />
+      {IS_PHASE2_BUILD ? (
+        <div className="history-access">
+          <button
+            className="button button--quiet"
+            data-qa-control="home-history-replay"
+            onClick={() => setHistoryOpen(true)}
+            type="button"
+          >
+            {language === "zh"
+              ? "导入牌局记录与复盘"
+              : "Import hand history and replay"}
+          </button>
+        </div>
+      ) : null}
+    </>
   );
 }
 

@@ -2734,6 +2734,92 @@ button.secondary-control-card:disabled {
   white-space: nowrap;
 }
 
+/* Digital stacks make the phone owner's balance the primary value while
+   keeping every opponent's accounting visible for comparison. */
+.table-surface[data-runtime="table-side"] .player-stack-list__seat--self {
+  order: -1;
+  grid-column: 1 / -1;
+  min-height: 3.4rem;
+  border-color: color-mix(in srgb, var(--table-accent) 72%, var(--table-rule));
+  padding: 0.62rem 0.8rem;
+  color: var(--table-ink);
+  background: color-mix(in srgb, var(--table-accent) 12%, var(--table-panel));
+  box-shadow: 0 0 1rem color-mix(in srgb, var(--table-accent) 15%, transparent);
+}
+
+.table-surface[data-runtime="table-side"] .player-stack-list__player {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 0.5rem;
+  font-weight: 760;
+}
+
+.table-surface[data-runtime="table-side"] .player-stack-list__self-label,
+.table-surface[data-runtime="table-side"] .player-stack-list__all-in,
+.table-surface[data-runtime="table-side"] .seat-edge-status__accounting-status,
+.table-surface[data-runtime="table-side"] .seat-tile__accounting-status {
+  border: 1px solid color-mix(in srgb, var(--table-accent) 58%, transparent);
+  border-radius: 999px;
+  padding: 0.12rem 0.42rem;
+  color: var(--table-accent);
+  font-size: 0.62rem;
+  font-weight: 800;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+.table-surface[data-runtime="table-side"] .player-stack-list__value {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  white-space: nowrap;
+}
+
+.table-surface[data-runtime="table-side"]
+  .player-stack-list__seat--self
+  strong {
+  font-size: 1rem;
+}
+
+.table-surface[data-runtime="table-side"]
+  .player-stack-list__seat[data-seat-accounting-status="folded"]
+  .player-stack-list__value {
+  opacity: 0.48;
+}
+
+.table-surface[data-runtime="table-side"]
+  .seat-edge-status[data-seat-accounting-status="folded"]
+  .seat-edge-status__stack,
+.table-surface[data-runtime="table-side"]
+  .seat-tile[data-seat-accounting-status="folded"]
+  .seat-tile__stack {
+  opacity: 0.48;
+}
+
+.table-surface[data-runtime="table-side"]
+  .seat-edge-status[data-seat-settlement-winner="true"]
+  .quiet-shown-hand,
+.table-surface[data-runtime="table-side"]
+  .seat-tile[data-seat-settlement-winner="true"]
+  .mini-hand {
+  filter: drop-shadow(0 0 0.45rem var(--table-accent));
+}
+
+.table-surface[data-runtime="table-side"] .player-digital-show {
+  display: grid;
+  width: min(13.2rem, 100%);
+  flex: 0 1 13.2rem;
+  justify-items: center;
+  gap: 0.32rem;
+}
+
+.table-surface[data-runtime="table-side"] .player-digital-show > small {
+  color: var(--table-ink-soft);
+  font-size: 0.68rem;
+  text-align: center;
+}
+
 .table-surface[data-runtime="table-side"] .player-board__connection-actions {
   display: flex;
   width: min(34rem, 100%);
@@ -2845,6 +2931,54 @@ button.secondary-control-card:disabled {
 .table-surface .settlement-panel > strong,
 .table-surface .settlement-panel small {
   color: var(--table-accent);
+}
+
+.table-surface[data-runtime="table-side"] .settlement-panel__winner-hands {
+  display: flex;
+  grid-column: 1 / -1;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.55rem;
+}
+
+.table-surface[data-runtime="table-side"] .settlement-panel__winner-hand {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  margin: 0;
+  border: 1px solid
+    color-mix(in srgb, var(--table-accent) 45%, var(--table-rule));
+  border-radius: 0.65rem;
+  padding: 0.38rem 0.5rem;
+  background: color-mix(in srgb, var(--table-accent) 8%, var(--table-panel));
+}
+
+.table-surface[data-runtime="table-side"]
+  .settlement-panel__winner-hand
+  figcaption {
+  color: var(--table-ink);
+  font-size: 0.75rem;
+  font-weight: 760;
+}
+
+.table-surface[data-runtime="table-side"] .settlement-panel__winner-cards {
+  display: flex;
+  gap: 0.25rem;
+}
+
+.table-surface[data-runtime="table-side"]
+  .settlement-panel__winner-cards
+  .card--compact {
+  width: 1.9rem;
+  border-color: var(--table-accent);
+  box-shadow: 0 0 0.45rem
+    color-mix(in srgb, var(--table-accent) 25%, transparent);
+}
+
+.table-surface[data-runtime="table-side"] .settlement-panel__actions {
+  display: flex;
+  grid-column: 1 / -1;
+  justify-content: flex-end;
 }
 
 .table-surface .surface-error {

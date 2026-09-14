@@ -16,6 +16,13 @@ import {
 } from "@html-poker/accounting";
 import type { AtomicTableStore, CommitResult } from "@html-poker/persistence";
 
+import {
+  parsePublicTableHistory,
+  type PublicHistoryFrame,
+  type PublicTableHistory,
+} from "./public-history";
+export * from "./public-history";
+
 export interface SeatDefinition {
   readonly displayName: string;
   readonly seatId: string;
@@ -154,6 +161,7 @@ export type RejectionCode =
   | "authority-mismatch"
   | "command-not-allowed"
   | "hand-mismatch"
+  | "history-capacity-reached"
   | "idempotency-conflict"
   | "persistence-failed"
   | "revision-conflict"
@@ -257,6 +265,8 @@ export interface PersistedAuthorityState {
   readonly dealerSeatId: string;
   readonly handId?: string;
   readonly history: readonly TableEvent[];
+  readonly publicHistory?: readonly PublicHistoryFrame[];
+  readonly publicHistoryCompleteFromFirstHand?: boolean;
   readonly phase: HandPhase;
   readonly revision: number;
   readonly rulesProfile?: RulesProfile;
@@ -333,6 +343,7 @@ export type ProjectionTarget =
 
 export interface TrustedHostAuthority {
   history(): readonly TableEvent[];
+  publicHistory(): PublicTableHistory;
   project(target: ProjectionTarget): PublicProjection | SeatProjection;
   recover(): Promise<RecoveryResult>;
   submit(command: CommandEnvelope): Promise<CommandReceipt>;
@@ -350,6 +361,7 @@ export interface TrustedHostAuthorityOptions {
   readonly authorityEpoch: string;
   readonly custody: CardCustody;
   readonly handIdFactory: () => string;
+  readonly now?: () => Date;
   readonly store: AtomicTableStore<PersistedAuthorityState>;
   readonly tableId: string;
 }
@@ -691,6 +703,111 @@ export function createTrustedHostAuthority(
 ): TrustedHostAuthority {
   let current: PersistedAuthorityState | undefined;
 
+  function publicHistory(): PublicTableHistory {
+    return {
+      format: "our-poker-table-public-history",
+      version: 1,
+      tableId: options.tableId,
+      exportedAt: (options.now?.() ?? new Date()).toISOString(),
+      completeFromFirstHand:
+        current?.publicHistoryCompleteFromFirstHand ?? false,
+      frames: structuredClone(current?.publicHistory ?? []),
+    };
+  }
+
+  function recordPublicFrame(
+    state: PersistedAuthorityState,
+    command: CommandEnvelope,
+    events: readonly EventSummary[],
+  ): PersistedAuthorityState {
+    if (
+      !state.handId ||
+      !state.custody ||
+      ["SetTableTheme", "SetCardStyle"].includes(command.payload.type)
+    )
+      return state;
+    const shown = options.custody.shownCards(state.custody);
+    const payload = command.payload;
+    const betting =
+      payload.type === "SubmitBettingAction" ? payload.action : undefined;
+    const actingSeatId =
+      command.actor.kind === "seat" ? command.actor.seatId : undefined;
+    const frame: PublicHistoryFrame = {
+      handId: state.handId,
+      revision: state.revision,
+      at: (options.now?.() ?? new Date()).toISOString(),
+      phase: state.phase,
+      action: {
+        type: betting?.type ?? payload.type,
+        ...(command.actor.kind === "seat"
+          ? { seatId: command.actor.seatId }
+          : payload.type === "TopUpChips"
+            ? { seatId: payload.seatId }
+            : {}),
+        ...(payload.type === "TopUpChips" ? { amount: payload.amount } : {}),
+        ...(betting && command.actor.kind === "seat"
+          ? {
+              amount: Math.max(
+                0,
+                (current?.accounting?.seats.find(
+                  (seat) => seat.seatId === actingSeatId,
+                )?.stack ?? 0) -
+                  (state.accounting?.seats.find(
+                    (seat) => seat.seatId === actingSeatId,
+                  )?.stack ?? 0),
+              ),
+            }
+          : {}),
+        ...(betting?.type === "bet-or-raise-to" ? { to: betting.to } : {}),
+        ...(payload.type === "VoidHand" || payload.type === "RecordCorrection"
+          ? { note: payload.reason }
+          : {}),
+      },
+      events: events.map((event) => ({
+        type: event.type,
+        ...(event.seatId ? { seatId: event.seatId } : {}),
+        ...(event.amount !== undefined ? { amount: event.amount } : {}),
+      })),
+      dealerSeatId: state.dealerSeatId,
+      board: [...options.custody.boardCards(state.custody)],
+      seats: state.seats.map((seat) => {
+        const accountingSeat = state.accounting?.seats.find(
+          (candidate) => candidate.seatId === seat.seatId,
+        );
+        return {
+          seatId: seat.seatId,
+          displayName: seat.displayName,
+          status: accountingSeat?.status ?? seat.status,
+          ...(accountingSeat
+            ? {
+                stack: accountingSeat.stack,
+                contribution: accountingSeat.totalContribution,
+              }
+            : {}),
+          ...(shown[seat.seatId]
+            ? { holeCards: [...shown[seat.seatId]!] }
+            : {}),
+        };
+      }),
+      ...(state.accounting
+        ? {
+            potTotal: state.accounting.seats.reduce(
+              (total, seat) => total + seat.totalContribution,
+              0,
+            ),
+          }
+        : {}),
+      ...(state.accounting?.settlement
+        ? {
+            awards: state.accounting.settlement.pots
+              .flatMap((pot) => pot.awards)
+              .map((award) => ({ seatId: award.seatId, amount: award.amount })),
+          }
+        : {}),
+    };
+    return { ...state, publicHistory: [...(state.publicHistory ?? []), frame] };
+  }
+
   function history(): readonly TableEvent[] {
     return current ? structuredClone(current.history) : [];
   }
@@ -731,6 +848,27 @@ export function createTrustedHostAuthority(
         (command) => command.receipt.revision <= state.revision,
       );
     if (!valid) return { code: "corrupt-state", status: "rejected" };
+    if (state.publicHistory) {
+      try {
+        parsePublicTableHistory(
+          JSON.stringify({
+            format: "our-poker-table-public-history",
+            version: 1,
+            tableId: state.tableId,
+            exportedAt: new Date().toISOString(),
+            completeFromFirstHand:
+              state.publicHistoryCompleteFromFirstHand ?? false,
+            frames: state.publicHistory,
+          }),
+        );
+        if (
+          state.publicHistory.some((frame) => frame.revision > state.revision)
+        )
+          return { code: "corrupt-state", status: "rejected" };
+      } catch {
+        return { code: "corrupt-state", status: "rejected" };
+      }
+    }
     current = structuredClone(state);
     return { revision: state.revision, status: "recovered" };
   }
@@ -786,10 +924,25 @@ export function createTrustedHostAuthority(
       const unresolvedContender = projectedSeats.some((seat) =>
         ["active", "folded-provisional"].includes(seat.status),
       );
+      if (accountingProjection?.settlement) {
+        // Side pots can have different winners. An optional exposed hand must
+        // never replace the authoritative award recipients as the winners.
+        leaders = [
+          ...new Set(
+            accountingProjection.settlement.pots.flatMap(
+              (pot) => pot.winnerSeatIds,
+            ),
+          ),
+        ];
+      }
       showdown = {
         evaluatedSeatIds: evaluatedSeats.map((seat) => seat.seatId),
         leaders,
-        status: unresolvedContender ? "partial" : "complete",
+        status: accountingProjection?.settlement
+          ? "complete"
+          : unresolvedContender
+            ? "partial"
+            : "complete",
       };
     }
     const publicProjection: PublicProjection = {
@@ -928,6 +1081,8 @@ export function createTrustedHostAuthority(
           cardStyle: defaultCardStyle,
           dealerSeatId: command.payload.dealerSeatId,
           history: [],
+          publicHistory: [],
+          publicHistoryCompleteFromFirstHand: true,
           phase: "lobby",
           revision: revision + 1,
           rulesProfile,
@@ -1023,7 +1178,11 @@ export function createTrustedHostAuthority(
         };
         events = [
           { type: "HandStarted" },
-          ...accountingEvents.map((event) => ({ type: event.type })),
+          ...accountingEvents.map((event) => ({
+            type: event.type,
+            ...("seatId" in event ? { seatId: event.seatId } : {}),
+            ...("amount" in event ? { amount: event.amount } : {}),
+          })),
         ];
         break;
       }
@@ -1247,7 +1406,9 @@ export function createTrustedHostAuthority(
             if (contestedWinnerIds.has(seat.seatId)) {
               return { ...seat, status: "shown" as const };
             }
-            return { ...seat, status: "mucked" as const };
+            // An unshown contender has not chosen to muck. Keep a deliberate
+            // self-Show possible while the host reviews the settlement.
+            return seat;
           }),
         };
         events = transition.events.map((event) => ({ type: event.type }));
@@ -1354,19 +1515,36 @@ export function createTrustedHostAuthority(
         break;
       }
       case "ShowCards": {
-        if (
-          !current?.custody ||
-          accountingFor(rulesProfileOf(current)) ||
-          command.actor.kind !== "seat"
-        ) {
+        if (!current?.custody || command.actor.kind !== "seat") {
           return rejected("command-not-allowed", revision);
         }
         const actingSeatId = command.actor.seatId;
         const seat = current.seats.find(
           (candidate) => candidate.seatId === actingSeatId,
         );
-        if (!seat || seat.status !== "active" || current.phase === "complete")
+        // Older digital proposals marked every unshown contender as mucked,
+        // although digital MuckCards was never allowed. Keep those recovered
+        // non-folded seats eligible for their own deliberate Show choice.
+        const legacyPendingMuck =
+          current.accounting &&
+          current.phase === "settlement-pending" &&
+          seat?.status === "mucked";
+        if (!seat || (seat.status !== "active" && !legacyPendingMuck))
           return rejected("command-not-allowed", revision);
+        if (current.accounting) {
+          const accountingSeat = current.accounting.seats.find(
+            (candidate) => candidate.seatId === actingSeatId,
+          );
+          if (
+            !["showdown", "settlement-pending"].includes(current.phase) ||
+            !accountingSeat ||
+            accountingSeat.status === "folded"
+          ) {
+            return rejected("command-not-allowed", revision);
+          }
+        } else if (current.phase === "complete") {
+          return rejected("command-not-allowed", revision);
+        }
         const finalized = finalizeProvisionalSeats(current.seats);
         next = {
           ...current,
@@ -1621,6 +1799,18 @@ export function createTrustedHostAuthority(
 
     if (!next) return rejected("command-not-allowed", revision);
     next = appendHistory(next, command, events);
+    next = recordPublicFrame(next, command, events);
+    // Preserve the last committed table when its complete portable record no
+    // longer fits the supported import/download bounds. Never silently prune.
+    if (
+      next.publicHistory &&
+      (next.publicHistory.length > 100000 ||
+        new TextEncoder().encode(JSON.stringify(next.publicHistory)).length >
+          20 * 1024 * 1024 - 1024 ||
+        new TextEncoder().encode(JSON.stringify(next.publicHistory.at(-1)))
+          .length > 24000)
+    )
+      return rejected("history-capacity-reached", revision);
     const receipt: AcceptedReceipt = {
       events,
       ...(next.handId ? { handId: next.handId } : {}),
@@ -1661,5 +1851,5 @@ export function createTrustedHostAuthority(
     return receipt;
   }
 
-  return { history, project, recover, submit };
+  return { history, publicHistory, project, recover, submit };
 }

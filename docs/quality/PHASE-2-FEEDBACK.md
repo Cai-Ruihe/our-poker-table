@@ -75,3 +75,48 @@ runtime record against a committed hand to exercise this exact crash boundary.
 
 The original Phase 1 archive remains pinned. GitHub and live consumer results
 will be recorded in the [preview release record](../releases/PHASE-2-PREVIEW.md).
+
+
+## Revision 3 — owner-authorized feedback 006–012
+
+Collection-only feedback below became repair-authorized when the owner requested
+another revision. These requests do not authorize inspecting or modifying the
+owner’s current live hand. Verification uses fresh synthetic test tables.
+
+- **006 Winner cards:** Settlement must visibly show the winning hand's public
+  hole cards. Owner screenshot `codex-clipboard-80e796f0-6d6a-4e26-ae9c-55c05d008021.png`
+  showed a two-pair award but no visible winner cards. No hidden opponent cards
+  may be introduced through UI data.
+- **007 Public Show:** A player needs an obvious deliberate option to show their
+  own cards to the public table, separate from private reveal/hide.
+- **008 Own stack:** The player's own remaining chips should be most prominent,
+  visually distinct from the other players' stacks.
+- **009 Folded stack:** Fade the stack belonging to a folded player while keeping
+  the amount readable; do not confuse folded with zero or All-in.
+- **010 Settlement flow:** When betting has finished and settlement is the next
+  step, show the proposal automatically and place Confirm settlement on that
+  panel. Explicit confirmation remains required to award chips.
+- **011 Corner signature:** Exactly preserve the retained Phase 1 L-and-dot
+  geometry/style, including stroke, proportions, endpoints, color and edge
+  alignment. Owner screenshot `codex-clipboard-870677eb-93e9-49ba-b444-cb63be13b961.png`.
+- **012 All-in:** Give an all-in player a distinct visible marker; a zero stack
+  alone is insufficient.
+
+Status: implemented with local contract and browser verification. Final
+publication evidence is recorded separately per release.
+
+
+### Additional revision-3 scope — public history
+
+- **013:** Every player can download all table hands and each public action,
+  public board/card exposure and timestamp, including the current partial hand.
+- **014:** Import records locally; search by public player hole cards or time;
+  replay any selected hand step by step for study.
+- **015:** Filename is player name plus the first hand start time for that player.
+- **016:** Before leaving, offer download-and-exit or direct exit.
+- **017:** Dissolution notifies players with a download prompt; final records must
+  survive host closure for recipients. Offline delivery is not assumed.
+
+Authorized as additions during implementation. Status: implemented and locally
+verified, including final-record recovery after host closure. Publication
+evidence is recorded in the preview release record.

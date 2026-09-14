@@ -18,6 +18,7 @@ requirement_imports:
       [
         tests/contract/digital-accounting-heads-up.test.ts,
         tests/contract/digital-accounting-authority.test.ts,
+        tests/journey/phase2-preview.spec.ts,
       ]
   P3:
     file: docs/prd/phases/P3-SKINS-AND-AI.md
@@ -106,6 +107,7 @@ requirement_imports:
       [
         tests/contract/digital-accounting-heads-up.test.ts,
         tests/contract/digital-accounting-authority.test.ts,
+        tests/journey/phase2-preview.spec.ts,
       ]
   M11:
     file: docs/prd/modules/M11-COMMUNITY-SKINS.md
@@ -371,9 +373,70 @@ deck_appearance:
 control_contract:
   sources:
     - apps/web/src/app.tsx
+    - apps/web/src/history-view.tsx
     - packages/presentation/src/index.tsx
   evidence_marker: exerciseControl
   controls:
+    leave-dialog-download:
+      surface: Phase 2 public history
+      expected_result: The public history flow performs its named action and preserves private-card isolation.
+      evidence: tests/journey/phase2-history.spec.ts
+    player-history-download:
+      surface: Phase 2 public history
+      expected_result: The public history flow performs its named action and preserves private-card isolation.
+      evidence: tests/journey/phase2-history.spec.ts
+    player-history-replay:
+      surface: Phase 2 public history
+      expected_result: The public history flow performs its named action and preserves private-card isolation.
+      evidence: tests/journey/phase2-history.spec.ts
+    player-exit-page:
+      surface: Phase 2 public history
+      expected_result: The public history flow performs its named action and preserves private-card isolation.
+      evidence: tests/journey/phase2-history.spec.ts
+    host-history-download:
+      surface: Phase 2 public history
+      expected_result: The public history flow performs its named action and preserves private-card isolation.
+      evidence: tests/journey/phase2-history.spec.ts
+    host-history-replay:
+      surface: Phase 2 public history
+      expected_result: The public history flow performs its named action and preserves private-card isolation.
+      evidence: tests/journey/phase2-history.spec.ts
+    home-history-replay:
+      surface: Phase 2 public history
+      expected_result: The public history flow performs its named action and preserves private-card isolation.
+      evidence: tests/journey/phase2-history.spec.ts
+    history-close:
+      surface: Phase 2 public history
+      expected_result: The public history flow performs its named action and preserves private-card isolation.
+      evidence: tests/journey/phase2-history.spec.ts
+    history-import:
+      surface: Phase 2 public history
+      expected_result: The public history flow performs its named action and preserves private-card isolation.
+      evidence: tests/journey/phase2-history.spec.ts
+    history-hand-select:
+      surface: Phase 2 public history
+      expected_result: The public history flow performs its named action and preserves private-card isolation.
+      evidence: tests/journey/phase2-history.spec.ts
+    history-step-range:
+      surface: Phase 2 public history
+      expected_result: The public history flow performs its named action and preserves private-card isolation.
+      evidence: tests/journey/phase2-history.spec.ts
+    history-step-prev:
+      surface: Phase 2 public history
+      expected_result: The public history flow performs its named action and preserves private-card isolation.
+      evidence: tests/journey/phase2-history.spec.ts
+    history-step-next:
+      surface: Phase 2 public history
+      expected_result: The public history flow performs its named action and preserves private-card isolation.
+      evidence: tests/journey/phase2-history.spec.ts
+    history-search-clear:
+      surface: Phase 2 public history
+      expected_result: The public history flow performs its named action and preserves private-card isolation.
+      evidence: tests/journey/phase2-history.spec.ts
+    history-show-more:
+      surface: Phase 2 public history
+      expected_result: The public history flow performs its named action and preserves private-card isolation.
+      evidence: tests/journey/phase2-history.spec.ts
     home-chip-mode-physical:
       surface: Home
       expected_result: Physical-chip rules are selected.
@@ -636,20 +699,22 @@ control_contract:
       evidence: tests/journey/phase2-preview.spec.ts
     tablet-review-settlement:
       surface: Digital Tablet quick controls
-      expected_result: Reviews settlement without ending the hand or changing balances.
-      evidence: tests/journey/phase2-preview.spec.ts
+      expected_result: In the regular dev experimental flow, explicitly prepares settlement without changing balances.
+      evidence: tests/journey/local-deal.spec.ts
     tablet-confirm-settlement:
       surface: Digital Tablet quick controls
-      expected_result: Confirms awards before the next hand becomes available.
-      evidence: tests/journey/phase2-preview.spec.ts
+      expected_result: In the regular dev experimental flow, confirms awards before the next hand becomes available.
+      evidence: tests/journey/local-deal.spec.ts
     dealer-review-settlement:
       surface: Digital-chip dealer controls
       expected_result: Settlement review is prepared without mutating stacks.
       evidence: tests/journey/control-conformance.spec.ts
     dealer-confirm-settlement:
       surface: Digital-chip dealer controls
-      expected_result: Reviewed settlement updates stacks and completes the hand.
-      evidence: tests/journey/control-conformance.spec.ts
+      expected_result: Confirms the automatically prepared release settlement once, updating stacks and completing the hand.
+      evidence:
+        - tests/journey/control-conformance.spec.ts
+        - tests/journey/phase2-preview.spec.ts
     dealer-cancel-end-hand:
       surface: Host dealer controls
       expected_result: The early-end confirmation closes without ending the hand.
@@ -882,7 +947,7 @@ performance_contract:
     table_side_javascript_gzip_bytes: 330000
     # Feedback UI adds ~2.8 KB raw CSS for seat cues, stacks, pot and top-up.
     # Preserve measured enforcement with <1% headroom; Phase 1 hosted bytes stay pinned.
-    table_side_css_raw_bytes: 103500
+    table_side_css_raw_bytes: 124000
     airplane_html_raw_bytes: 1350000
   browser_interaction_timeout_ms: 5000
 

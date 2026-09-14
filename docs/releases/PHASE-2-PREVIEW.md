@@ -132,3 +132,53 @@ before a publication claim. The final source and hosted outcome will be linked
 from the GitHub `v0.2.0-preview.2` release; local tests alone are not that claim.
 See [the feedback ledger](../quality/PHASE-2-FEEDBACK.md) and
 [research-backed PRD audit](../research/PHASE-2-PRD-CLARITY-AUDIT-2026-09-14.md).
+
+
+## Revision 3 candidate
+
+`0.2.0-preview.3` implements feedback 006–012: public winner cards in the
+settlement panel, deliberate player Show after betting, own-stack emphasis,
+folded-stack fading, automatic proposal preparation with direct host confirmation,
+Phase 1 corner-signature parity, and explicit all-in markers. Preparation persists
+before broadcasting and never applies awards. Contested-pot winners are revealed;
+a fold-win winner remains private unless they choose Show. Revealing another hand
+does not change pot eligibility or the settlement winners.
+
+The new build identity requires fresh preview tables. Phase 1 remains pinned.
+Local and hosted revision-3 verification is in progress; earlier evidence above
+is historical. Final publication evidence belongs to `v0.2.0-preview.3`.
+
+
+Revision 3 also adds public hand-history export, UTC filenames based on the
+player's first hand, local import/card-and-time search/step replay, export before
+page exit, and final-record delivery before dissolution. Public frames are part
+of the atomic authority commit and contain no private cards or recovery material.
+Dissolution waits for connected players to save locally; offline players obtain
+an export from another participant. The portable format is bounded at 20 MiB and
+100,000 frames; authoritative recording stops before crossing the supported limit
+instead of silently losing history. Imported files are not authenticated records.
+
+The new replay surface and feedback styling increased measured CSS from 103,233
+to 123,571 bytes; its budget is 124,000 bytes. Existing JavaScript and Airplane
+artifact budgets are unchanged. Retained Phase 1 remains byte-pinned.
+
+
+Revision-3 local acceptance (2026-09-14): repository check passed with 157
+contract tests and 19 relay tests; measured coverage is 88.98% statements and
+85.15% branches. Production dependency audit found no known vulnerabilities.
+The packaged desktop Chromium, mobile Chromium and mobile WebKit journeys cover
+public chronology across two hands, player-specific filenames, local card/time
+search and step navigation, malformed imports, 51-hand pagination, download and
+exit, and final downloads after host closure and player reload. The dissolution
+journey deliberately refreshes the host after one player saved and before another
+acknowledged, then verifies the recovered closing attempt completes.
+
+Independent privacy review led to persisted final-save acknowledgements,
+authentication before cached-response replay, bounded encrypted history pages,
+and explicit failed-ack handling. Browser verification found and fixed a
+collapsed Show slider, host-history controls hidden behind the dealer dock, and
+WebKit cancelling a download when page exit navigated immediately. Signature
+parity checks compare all four retained corner marks' markup, geometry and style,
+then decoded pixels over an identical background without altering glyph opacity.
+No physical-device, closed-browser notification, or representative-network claim
+is made. GitHub CI and live read-back remain publication gates.

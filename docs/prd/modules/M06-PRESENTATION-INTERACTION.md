@@ -2,8 +2,9 @@
 id: PRD-M06
 kind: module
 status: current
-last_reconciled: 2026-08-28
+last_reconciled: 2026-09-14
 decision_ids:
+  - PHASE2-FEEDBACK-ROUND3
   - BRAND-IDENTITY-V1
   - PHASE1-TABLE-SIZE
   - NET-DISPLAY-REVERSE-QR
@@ -40,15 +41,15 @@ router: ../manifest.yaml
 
 ## Context capsule
 
-This module renders role-filtered Player, Tablet, TV, Public Table, and Developer projections. It emits intent, never state mutation. Ordinary play stays classic, elegant, and low-attention; rare administration lives off-surface.
+Renders role-filtered Player, Tablet, TV, Public Table, and Developer projections and emits intent. Ordinary play stays elegant and low-attention; administration lives off-surface.
 
 ## Problem Statement
 
-Phones, tablets, and TVs need different density. One responsive screen risks tiny controls, clutter, accidental dealer actions, and leaked cards. Poker needs deliberate gestures.
+Device density differs. Tiny controls and clutter risk accidental actions and card leaks; poker needs deliberate gestures.
 
 ## Solution and Interface
 
-Each mode has a renderer over a shared semantic design system. Renderers consume only their allowed projection and emit typed intents through a Seat or Table-Control capability. Mode switching changes presentation, never authority.
+Mode renderers share a semantic design system, consume allowed projections, and emit typed Seat or Table-Control intents. Switching views never changes authority.
 
 ### Owns
 
@@ -80,7 +81,7 @@ Each mode has a renderer over a shared semantic design system. Renderers consume
 
 ## Implementation Decisions
 
-- A Public Table can visually switch to Tablet Mode only when the device already holds/redeems Table-Control.
+- Public Table requires Table-Control to switch to Tablet Mode.
 - A Trusted Host keeps one active document: Host Controls, My Hand only with an ordinary Player credential, and Table View only after start. Views render their own projection; background tabs are not primary interaction.
 - Host, Player, Tablet, TV, and Public Table recover authenticated projection/relay on `pageshow`, visible `visibilitychange`, or `online`. After iOS background suspension, screens catch up from the host projection; **Reconnect to table** remains when automatic recovery fails.
 - An unpaired Table-side Mode TV/Public display may render its ephemeral reverse-pairing QR and plain-language status; it receives no table projection until an authorized scanner completes pairing.
@@ -103,10 +104,12 @@ Each mode has a renderer over a shared semantic design system. Renderers consume
 - A folded seat keeps the two-card glyph with a high-contrast red diagonal, not grey alone.
 - A completed Table-side Player Show slide reveals; a short tap or duplicate confirmation does not. Its 13.2rem rail gives the one-line action label side clearance.
 - Table-side Player Leave is a top-right pop-out with the approved Sit out copy/switch, divider, and red endpoint slider before permanent-leave confirmation. It shares Show's custom handle, drag, and arrow; is 84% of drawer width; is centered; and carries its action only inside the rail. It has a smaller close circle/X. The state-card outline is vertically centered against its text and the Leave glyph horizontally centered. Airplane retains its separate implementation.
-- Visual seat movement never changes logical action/dealer/blind order.
-- The default style uses original assets and interaction principles inspired by Bold Poker, not copied layouts/artwork.
+- Visual movement preserves action/dealer/blind order.
+- Use original assets; Bold Poker inspires interaction principles only.
 - Host-selected appearance cannot disable device-local accessibility overrides.
 - Names, logs, skin labels, and messages render as text, never executable markup.
+
+- Digital play emphasizes the player’s own stack, fades folded stacks, and marks All-in explicitly. Public Show is deliberate, after betting and before confirmation. Ready settlement proposals appear automatically with winner cards already authorized in the public projection and direct host confirmation; balances never settle automatically. Phase 2 corner marks exactly match retained Phase 1.
 
 ## Testing Decisions
 
@@ -118,4 +121,4 @@ One universal layout, chat/social feed, casino animation overload, skin code exe
 
 ## Further Notes
 
-Minimalism is evaluated on the 99-percent in-hand surface, not by deleting necessary recovery, correction, security, or accessibility actions from their appropriate secondary surfaces.
+Keep ordinary play minimal; retain recovery, correction, security, and accessibility actions on secondary surfaces.

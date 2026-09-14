@@ -8,11 +8,14 @@ import {
   createTrustedHostAuthority,
   isBettingActionIntent,
   isRulesProfile,
+  parsePublicTableHistory,
   type BettingActionIntent,
   type CardStyle,
   type CommandEnvelope,
   type PersistedAuthorityState,
   type PublicProjection,
+  type PublicTableHistory,
+  type PublicHistoryFrame,
   type RulesProfile,
   type SeatProjection,
   type TableTheme,
@@ -49,6 +52,7 @@ import {
 import {
   BUILD_VERSION,
   invitationReleaseIssue,
+  IS_PHASE2_BUILD,
   phaseCryptoContext,
   phaseScopedName,
   PROTOCOL_VERSION,
@@ -340,6 +344,19 @@ type CapabilityRequestPayload =
   | {
       readonly clientInstanceId: string;
       readonly credentialToken: string;
+      readonly type: "history-page";
+      readonly afterRevision: number;
+      readonly throughRevision?: number;
+    }
+  | {
+      readonly clientInstanceId: string;
+      readonly credentialToken: string;
+      readonly type: "history-saved";
+      readonly throughRevision: number;
+    }
+  | {
+      readonly clientInstanceId: string;
+      readonly credentialToken: string;
       readonly type: "projection";
     }
   | {
@@ -373,15 +390,24 @@ type LivenessResponsePayload =
 
 type CapabilityResponsePayload =
   | {
+      readonly status: "history-page";
+      readonly history: PublicTableHistory;
+      readonly throughRevision: number;
+      readonly hasMore: boolean;
+    }
+  | { readonly status: "history-saved" }
+  | {
       readonly futureSittingOut: boolean;
       readonly projection: SeatProjection;
       readonly relayRoutes?: RelayRouteConfiguration;
+      readonly tableClosing?: boolean;
       readonly role: "player";
       readonly status: "projection";
     }
   | {
       readonly projection: PublicProjection;
       readonly relayRoutes?: RelayRouteConfiguration;
+      readonly tableClosing?: boolean;
       readonly role: "public-table" | "tv" | "table-control";
       readonly status: "projection";
     }
@@ -389,6 +415,7 @@ type CapabilityResponsePayload =
       readonly cardStyle: CardStyle;
       readonly futureSittingOut?: boolean;
       readonly rulesProfileId: RulesProfile["id"];
+      readonly tableClosing?: boolean;
       readonly role: CapabilityRole;
       readonly relayRoutes?: RelayRouteConfiguration;
       readonly seat?: RoomSeat;
@@ -403,6 +430,9 @@ interface SealedValue {
 }
 
 interface HostRecoveryState {
+  readonly historySavedAtRevision?: number;
+  readonly historySavedBy?: readonly string[];
+  readonly tableClosing?: boolean;
   readonly authorityEpoch: string;
   readonly binding: PeerBinding;
   readonly diagnosticSalt: string;
@@ -421,6 +451,7 @@ interface HostRecoveryState {
 }
 
 interface ClientRecoveryState {
+  readonly finalPublicHistory?: PublicTableHistory;
   readonly binding: PeerBinding;
   readonly clientInstanceId: string;
   readonly credential: Credential;
@@ -2065,6 +2096,21 @@ export interface HostRuntimeCreateOptions {
 }
 
 export class HostTableRuntime {
+  private tableClosing = false;
+  private readonly historySavedBy = new Set<string>();
+  private readonly cachedRequestFingerprints = new Map<string, string>();
+  public exportPublicHistory(): PublicTableHistory {
+    return (
+      this.authority?.publicHistory() ?? {
+        format: "our-poker-table-public-history",
+        version: 1,
+        tableId: this.tableId,
+        exportedAt: new Date().toISOString(),
+        completeFromFirstHand: true,
+        frames: [],
+      }
+    );
+  }
   readonly authorityEpoch: string;
   readonly binding: PeerBinding;
   readonly diagnostics: DiagnosticLog;
@@ -2312,6 +2358,19 @@ export class HostTableRuntime {
         runtime.close();
         throw new Error("The saved runtime and hand history disagree.");
       }
+      runtime.tableClosing = saved.state.tableClosing ?? false;
+      if (
+        runtime.tableClosing &&
+        saved.state.historySavedAtRevision ===
+          (runtime.exportPublicHistory().frames.at(-1)?.revision ?? 0)
+      ) {
+        for (const id of saved.state.historySavedBy ?? [])
+          if (typeof id === "string") runtime.historySavedBy.add(id);
+      }
+      await runtime
+        .prepareAvailableSettlement()
+        .catch((error) => runtime?.captureError(error));
+      runtime.refreshProjection();
       runtime.recordDiagnostic("recovery", "accepted");
       runtime.finishInitialization();
       return runtime;
@@ -2332,6 +2391,58 @@ export class HostTableRuntime {
   }
 
   async dissolve(): Promise<void> {
+    if (IS_PHASE2_BUILD) {
+      // Let clients fetch while the queue is free; waiting inside runExclusive
+      // would deadlock the history requests needed to acknowledge delivery.
+      const recipients = await this.runExclusive(async () => {
+        await this.assertExclusiveAuthority();
+        this.tableClosing = true;
+        this.identity.closeJoinWindow();
+        await this.persistRecovery();
+        const history = this.exportPublicHistory();
+        const archive = createIndexedDbTableStore<PublicTableHistory>({
+          databaseName: phaseScopedName("html-poker-public-archives"),
+          recordKey: this.tableId,
+        });
+        const previous = await archive.load();
+        const saved = await archive.commit(previous?.revision ?? 0, {
+          revision: (previous?.revision ?? 0) + 1,
+          state: history,
+        });
+        if (saved.status !== "committed")
+          throw new Error(
+            "Final public history could not be saved; keep this page open and retry.",
+          );
+        const connected = new Set(
+          this.identity
+            .roster()
+            .seats.filter((seat) => seat.connected)
+            .map((seat) => seat.seatId),
+        );
+        return this.identity
+          .exportRecoveryState()
+          .credentials.filter(
+            (credential) =>
+              !credential.revoked &&
+              credential.role === "player" &&
+              credential.seatId &&
+              connected.has(credential.seatId),
+          )
+          .map((credential) => credential.capabilityId);
+      });
+      this.broadcastChange();
+      const deadline = Date.now() + 15000;
+      while (
+        recipients.some((id) => !this.historySavedBy.has(id)) &&
+        Date.now() < deadline
+      ) {
+        await new Promise((resolve) => setTimeout(resolve, 100));
+      }
+      if (recipients.some((id) => !this.historySavedBy.has(id)))
+        throw new Error(
+          "Some connected players have not saved the final record yet. Keep this page open and retry dissolving the table.",
+        );
+    }
     await this.runExclusive(async () => {
       await this.assertExclusiveAuthority();
       this.identity.closeJoinWindow();
@@ -2903,6 +3014,7 @@ export class HostTableRuntime {
       await this.endpoint.sendOn(route, cachedResponse, senderPeerId);
       return;
     }
+    if (this.tableClosing) return;
     const invitation = this.invitationByDigest.get(message.invitationDigest);
     if (!invitation) return;
     const invitationRelayRoutes = this.relayRoutesByInvitationToken.get(
@@ -3011,11 +3123,6 @@ export class HostTableRuntime {
     route: RoomRoute,
   ): Promise<void> {
     const replayKey = `capability:${message.capabilityId}:${message.requestId}`;
-    const cachedResponse = this.cachedResponse(replayKey);
-    if (cachedResponse) {
-      await this.endpoint.sendOn(route, cachedResponse, senderPeerId);
-      return;
-    }
     const secret = this.capabilitySecrets.get(message.capabilityId);
     if (!secret) return;
     const aad = `cap:${this.tableId}:${message.capabilityId}:${message.requestId}`;
@@ -3030,9 +3137,84 @@ export class HostTableRuntime {
       clientInstanceId: request.clientInstanceId,
       credentialToken: request.credentialToken,
     });
+    const requestFingerprint = await digest(JSON.stringify(request));
+    const cachedResponse = this.cachedResponse(replayKey);
+    const fingerprintMatches =
+      this.cachedRequestFingerprints.get(replayKey) === requestFingerprint;
+    if (
+      authenticated.status === "accepted" &&
+      cachedResponse &&
+      fingerprintMatches
+    ) {
+      await this.endpoint.sendOn(route, cachedResponse, senderPeerId);
+      return;
+    }
     let response: CapabilityResponsePayload;
     if (authenticated.status === "rejected") {
       response = { code: authenticated.code, status: "rejected" };
+    } else if (cachedResponse && !fingerprintMatches) {
+      response = { code: "request-id-conflict", status: "rejected" };
+    } else if (request.type === "history-page") {
+      const history = this.exportPublicHistory();
+      const latestRevision = history.frames.at(-1)?.revision ?? 0;
+      const throughRevision = request.throughRevision ?? latestRevision;
+      if (
+        authenticated.role !== "player" ||
+        !Number.isSafeInteger(request.afterRevision) ||
+        request.afterRevision < 0 ||
+        !Number.isSafeInteger(throughRevision) ||
+        throughRevision < request.afterRevision ||
+        throughRevision > latestRevision
+      ) {
+        response = { code: "invalid-history-request", status: "rejected" };
+      } else {
+        const remaining = history.frames.filter(
+          (frame) =>
+            frame.revision > request.afterRevision &&
+            frame.revision <= throughRevision,
+        );
+        const frames: PublicHistoryFrame[] = [];
+        let bytes = 0;
+        let oversized = false;
+        for (const frame of remaining) {
+          const size = new TextEncoder().encode(JSON.stringify(frame)).length;
+          if (bytes + size > 24000) {
+            oversized = frames.length === 0;
+            break;
+          }
+          frames.push(frame);
+          bytes += size;
+          if (frames.length >= 10) break;
+        }
+        response = oversized
+          ? { status: "rejected", code: "history-frame-too-large" }
+          : {
+              status: "history-page",
+              history: { ...history, frames },
+              throughRevision,
+              hasMore: frames.length < remaining.length,
+            };
+      }
+    } else if (request.type === "history-saved") {
+      if (
+        authenticated.role !== "player" ||
+        !this.tableClosing ||
+        request.throughRevision !==
+          (this.exportPublicHistory().frames.at(-1)?.revision ?? 0)
+      ) {
+        response = { code: "invalid-history-ack", status: "rejected" };
+      } else {
+        this.historySavedBy.add(authenticated.capabilityId);
+        try {
+          await this.persistRecovery();
+        } catch (error) {
+          this.historySavedBy.delete(authenticated.capabilityId);
+          throw error;
+        }
+        response = { status: "history-saved" };
+      }
+    } else if (this.tableClosing && request.type !== "projection") {
+      response = { code: "table-closing", status: "rejected" };
     } else if (
       request.type === "player-action" &&
       (authenticated.role !== "player" || !authenticated.seatId)
@@ -3084,15 +3266,33 @@ export class HostTableRuntime {
         authenticated.seatId,
         senderPeerId,
       );
+      if (this.tableClosing && response.status !== "rejected")
+        response = {
+          ...response,
+          tableClosing: true,
+        } as CapabilityResponsePayload;
       await this.persistRecovery();
       this.emit();
     }
-    const sealed = {
+    let sealed = {
       ...(await seal(secret, response, aad)),
       capabilityId: message.capabilityId,
       kind: "capability-response",
       requestId: message.requestId,
     } satisfies CapabilityResponseMessage;
+    if (new TextEncoder().encode(JSON.stringify(sealed)).length > 60000) {
+      sealed = {
+        ...(await seal(
+          secret,
+          { status: "rejected", code: "response-too-large" },
+          aad,
+        )),
+        capabilityId: message.capabilityId,
+        kind: "capability-response",
+        requestId: message.requestId,
+      };
+    }
+    this.cachedRequestFingerprints.set(replayKey, requestFingerprint);
     this.rememberResponse(replayKey, sealed);
     await this.endpoint.sendOn(route, sealed, senderPeerId);
   }
@@ -3407,6 +3607,14 @@ export class HostTableRuntime {
         authorityEpoch: this.authorityEpoch,
         binding: { ...this.binding },
         diagnosticSalt: this.diagnosticSalt,
+        tableClosing: this.tableClosing,
+        ...(this.tableClosing
+          ? {
+              historySavedBy: [...this.historySavedBy],
+              historySavedAtRevision:
+                this.exportPublicHistory().frames.at(-1)?.revision ?? 0,
+            }
+          : {}),
         identity: this.identity.exportRecoveryState(),
         invitations: [...this.invitations.values()].map((invitation) => ({
           ...invitation,
@@ -3481,6 +3689,7 @@ export class HostTableRuntime {
       const oldestKey = this.cachedResponses.keys().next().value;
       if (typeof oldestKey !== "string") return;
       this.cachedResponses.delete(oldestKey);
+      this.cachedRequestFingerprints.delete(oldestKey);
     }
   }
 
@@ -3577,11 +3786,46 @@ export class HostTableRuntime {
     return result;
   }
 
+  private async prepareAvailableSettlement(): Promise<void> {
+    if (!IS_PHASE2_BUILD || this.tableClosing || !this.authority) return;
+    const projection = this.authority.project({ kind: "public" });
+    if (
+      projection.view !== "public" ||
+      projection.phase !== "showdown" ||
+      projection.accounting?.phase !== "showdown" ||
+      !projection.handId
+    )
+      return;
+    // Called inside initialization or the existing operation queue. Preparing
+    // awards is durable; applying them still requires an explicit host command.
+    const receipt = await this.authority.submit({
+      actor: { actorId: "host", kind: "trusted-host" },
+      authorityEpoch: this.authorityEpoch,
+      commandId: `auto-settlement-${projection.handId}`,
+      expectedRevision: projection.revision,
+      handId: projection.handId,
+      payload: { type: "PrepareSettlement" },
+      tableId: this.tableId,
+    });
+    this.recordDiagnostic(
+      "command",
+      receipt.status === "accepted" ? "accepted" : "rejected",
+      receipt.status === "rejected" ? receipt.code : undefined,
+      "PrepareSettlement",
+    );
+    if (receipt.status === "rejected")
+      throw new Error(`Settlement review rejected: ${receipt.code}`);
+  }
+
   private async submitHostInternal(
     payload: CommandEnvelope["payload"],
     handScoped = false,
   ) {
     await this.assertExclusiveAuthority();
+    if (this.tableClosing)
+      throw new Error(
+        "The table is closing; only history downloads are available.",
+      );
     if (!this.authority) throw new Error("The table has not started.");
     const projection = this.authority.project({ kind: "public" });
     const commandId = makeId("command");
@@ -3601,6 +3845,11 @@ export class HostTableRuntime {
       payload.type,
     );
     if (receipt.status === "accepted") {
+      // A proposal failure must not turn an already committed player/host action
+      // into a reported rejection. The manual review control remains available.
+      await this.prepareAvailableSettlement().catch((error) =>
+        this.captureError(error),
+      );
       this.refreshProjection();
       this.broadcastChange();
     }
@@ -3613,6 +3862,10 @@ export class HostTableRuntime {
     handScoped = false,
   ) {
     await this.assertExclusiveAuthority();
+    if (this.tableClosing)
+      throw new Error(
+        "The table is closing; only history downloads are available.",
+      );
     if (!this.authority) throw new Error("The table has not started.");
     const projection = this.authority.project({ kind: "public" });
     const receipt = await this.authority.submit({
@@ -3631,6 +3884,11 @@ export class HostTableRuntime {
       payload.type,
     );
     if (receipt.status === "accepted") {
+      // A proposal failure must not turn an already committed player/host action
+      // into a reported rejection. The manual review control remains available.
+      await this.prepareAvailableSettlement().catch((error) =>
+        this.captureError(error),
+      );
       this.refreshProjection();
       this.broadcastChange();
     }
@@ -3656,6 +3914,7 @@ export class HostTableRuntime {
 }
 
 export interface ClientRuntimeSnapshot {
+  readonly tableDissolved?: boolean;
   readonly rulesProfileId?: RulesProfile["id"];
   readonly cardStyle: CardStyle;
   readonly connectionLabel: string;
@@ -3701,6 +3960,9 @@ interface ClientRuntimeOptions {
 }
 
 export class TableClientRuntime {
+  private finalPublicHistory: PublicTableHistory | undefined;
+  private historyDownload: Promise<PublicTableHistory> | undefined;
+  private savingFinalHistory = false;
   readonly binding: PeerBinding;
   readonly role: CapabilityRole;
   private readonly airplanePairing: ClientAirplanePairing | undefined;
@@ -3788,7 +4050,9 @@ export class TableClientRuntime {
         this.credential &&
         !this.presencePaused
       ) {
-        void this.refresh().catch((error) => this.captureError(error));
+        if (this.finalPublicHistory)
+          void this.acknowledgeFinalHistory().catch(() => undefined);
+        else void this.refresh().catch((error) => this.captureError(error));
       }
     });
   }
@@ -3882,7 +4146,14 @@ export class TableClientRuntime {
         ...(saved.state.seat ? { seat: saved.state.seat } : {}),
         slotId: saved.state.slotId,
       });
-      await runtime.refresh();
+      if (saved.state.finalPublicHistory) {
+        runtime.finalPublicHistory = parsePublicTableHistory(
+          JSON.stringify(saved.state.finalPublicHistory),
+        );
+        runtime.status = "waiting";
+      } else {
+        await runtime.refresh();
+      }
       return runtime;
     } catch (error) {
       lease.release();
@@ -3981,6 +4252,93 @@ export class TableClientRuntime {
     await this.refresh();
   }
 
+  downloadPublicHistory(): Promise<PublicTableHistory> {
+    if (this.finalPublicHistory)
+      return Promise.resolve(structuredClone(this.finalPublicHistory));
+    if (this.role !== "player")
+      return Promise.reject(new Error("A Player credential is required."));
+    if (this.historyDownload) return this.historyDownload;
+    this.historyDownload = this.fetchPublicHistory().finally(() => {
+      this.historyDownload = undefined;
+    });
+    return this.historyDownload;
+  }
+
+  private async fetchPublicHistory(): Promise<PublicTableHistory> {
+    let afterRevision = 0;
+    let throughRevision: number | undefined;
+    const frames: PublicHistoryFrame[] = [];
+    let downloadedBytes = 1;
+    for (let page = 0; page < 100000; page++) {
+      const response = await this.exchangeCapabilityRequest({
+        type: "history-page",
+        clientInstanceId: this.clientInstanceId,
+        credentialToken: this.credential?.token ?? "",
+        afterRevision,
+        ...(throughRevision !== undefined ? { throughRevision } : {}),
+      });
+      if (response.status !== "history-page")
+        throw new Error(
+          "The host could not provide this table's public history.",
+        );
+      if (
+        response.history.tableId !== this.binding.tableId ||
+        (throughRevision !== undefined &&
+          response.throughRevision !== throughRevision)
+      )
+        throw new Error("The history snapshot changed during download.");
+      throughRevision = response.throughRevision;
+      // Joining pages removes one array delimiter per page. Count the final
+      // combined array, rather than rejecting a valid near-limit export.
+      downloadedBytes +=
+        new TextEncoder().encode(JSON.stringify(response.history.frames))
+          .length - 1;
+      if (
+        downloadedBytes > 20 * 1024 * 1024 ||
+        frames.length + response.history.frames.length > 100000
+      )
+        throw new Error("This history exceeds the supported download size.");
+      frames.push(...response.history.frames);
+      if (!response.hasMore)
+        return parsePublicTableHistory(
+          JSON.stringify({ ...response.history, frames }),
+        );
+      const next = frames.at(-1)?.revision ?? 0;
+      if (next <= afterRevision)
+        throw new Error("The history download did not progress.");
+      afterRevision = next;
+    }
+    throw new Error("The history download exceeded its supported size.");
+  }
+
+  private async saveFinalHistory(): Promise<void> {
+    if (this.historyDownload) await this.historyDownload.catch(() => undefined);
+    const history = await this.fetchPublicHistory();
+    this.finalPublicHistory = history;
+    try {
+      await this.persistRecovery();
+    } catch (error) {
+      this.finalPublicHistory = undefined;
+      throw error;
+    }
+    this.emit();
+    await this.acknowledgeFinalHistory();
+  }
+
+  private async acknowledgeFinalHistory(): Promise<void> {
+    if (!this.finalPublicHistory) return;
+    const response = await this.exchangeCapabilityRequest({
+      type: "history-saved",
+      clientInstanceId: this.clientInstanceId,
+      credentialToken: this.credential?.token ?? "",
+      throughRevision: this.finalPublicHistory.frames.at(-1)?.revision ?? 0,
+    });
+    if (response.status !== "history-saved")
+      throw new Error(
+        "The record is saved here, but the host has not acknowledged delivery. Keep this page open while the host retries closing.",
+      );
+  }
+
   async performPlayer(action: PlayerAction): Promise<void> {
     if (this.role !== "player")
       throw new Error("A Player credential is required.");
@@ -3998,6 +4356,7 @@ export class TableClientRuntime {
    * restores presence without giving the client a separate authority path.
    */
   async setPresence(connected: boolean): Promise<void> {
+    if (this.finalPublicHistory) return;
     if (this.role !== "player" || !this.credential) return;
     if (connected) {
       this.presencePaused = false;
@@ -4023,6 +4382,7 @@ export class TableClientRuntime {
 
   snapshot(): ClientRuntimeSnapshot {
     return {
+      ...(this.finalPublicHistory ? { tableDissolved: true } : {}),
       connectionLabel: this.endpoint.connectionLabel(),
       cardStyle: this.cardStyle,
       ...(this.error ? { error: this.error } : {}),
@@ -4043,9 +4403,9 @@ export class TableClientRuntime {
     return () => this.listeners.delete(listener);
   }
 
-  private async capabilityRequest(
+  private async exchangeCapabilityRequest(
     payload: CapabilityRequestPayload,
-  ): Promise<void> {
+  ): Promise<CapabilityResponsePayload> {
     if (!this.lease || !(await this.lease.isHeld())) {
       throw new Error("Exclusive control of this seat or display was lost.");
     }
@@ -4068,11 +4428,18 @@ export class TableClientRuntime {
         );
       },
     );
-    const response = await unseal<CapabilityResponsePayload>(
-      credential.token,
-      message,
-      aad,
-    );
+    return unseal<CapabilityResponsePayload>(credential.token, message, aad);
+  }
+
+  private async capabilityRequest(
+    payload: CapabilityRequestPayload,
+  ): Promise<void> {
+    const response = await this.exchangeCapabilityRequest(payload);
+    if (
+      response.status === "history-page" ||
+      response.status === "history-saved"
+    )
+      return;
     this.resetHostLiveness();
     if (response.status === "rejected") {
       this.error = response.code;
@@ -4121,6 +4488,20 @@ export class TableClientRuntime {
     }
     if (this.credential) await this.persistRecovery();
     this.emit();
+    if (
+      response.status !== "rejected" &&
+      response.tableClosing &&
+      this.role === "player" &&
+      !this.savingFinalHistory &&
+      !this.finalPublicHistory
+    ) {
+      this.savingFinalHistory = true;
+      void this.saveFinalHistory()
+        .catch((error) => this.captureError(error))
+        .finally(() => {
+          this.savingFinalHistory = false;
+        });
+    }
   }
 
   private async livenessRequest(): Promise<void> {
@@ -4225,6 +4606,9 @@ export class TableClientRuntime {
           clientInstanceId: this.clientInstanceId,
           credential: { ...this.credential },
           privacyClass: "client-recovery-secret",
+          ...(this.finalPublicHistory
+            ? { finalPublicHistory: this.finalPublicHistory }
+            : {}),
           ...(this.relayRoutes ? { relayRoutes: this.relayRoutes } : {}),
           role: this.role,
           schemaVersion: 1,
@@ -4242,7 +4626,7 @@ export class TableClientRuntime {
   }
 
   private async refresh(): Promise<void> {
-    if (!this.credential) return;
+    if (this.finalPublicHistory || !this.credential) return;
     if (!this.airplanePairing) {
       try {
         await this.livenessRequest();

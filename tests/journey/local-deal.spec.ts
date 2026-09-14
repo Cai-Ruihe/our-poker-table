@@ -6,6 +6,7 @@ import {
   type Locator,
   type Page,
 } from "@playwright/test";
+import { exerciseControl } from "./control-qa";
 
 const appOrigin = `http://127.0.0.1:${process.env.HTML_POKER_TEST_PORT ?? "4173"}`;
 
@@ -231,10 +232,12 @@ test("host and two player devices complete a private deal-only hand without exte
   expect(unexpectedRequests).toEqual([]);
 });
 
-test("two players complete a digital-chip hand only after host settlement confirmation", async ({
+test("two players complete a dev experimental digital-chip hand through the Tablet settlement fallback", async ({
   context,
   page: host,
 }) => {
+  const control = (page: Page, name: string) =>
+    page.locator(`[data-qa-control="${name}"]`);
   await host.goto("/?experimental=digital-chips", { waitUntil: "commit" });
   await host.getByLabel("Digital chips").check();
   await host.getByRole("button", { name: "Create table" }).click();
@@ -275,23 +278,48 @@ test("two players complete a digital-chip hand only after host settlement confir
     host.getByText("Showdown", { exact: true }).first(),
   ).toBeVisible();
 
-  await host.getByRole("button", { name: "Review settlement" }).click();
+  await control(host, "device-view-tablet").click();
+  await expect(host.locator(".table-surface--tablet")).toBeVisible();
+  await control(host, "tablet-corner-open").last().click();
+  await exerciseControl(
+    "tablet-review-settlement",
+    control(host, "tablet-review-settlement"),
+    (target) => target.click(),
+    () =>
+      expect(
+        host.getByText("Settlement proposal", { exact: true }).first(),
+      ).toBeVisible(),
+  );
   await expect(
-    host.getByText("Settlement review", { exact: true }).first(),
+    host.getByText("Settlement proposal", { exact: true }).first(),
   ).toBeVisible();
+  await expect(host.locator(".tablet-quick-panel")).toBeHidden();
+  await control(host, "tablet-corner-open").last().click();
   await expect(host.getByText("Total pot 4", { exact: true })).toBeVisible();
   await expect(
     host.getByText("Stacks update only after confirmation."),
   ).toBeVisible();
 
   const stacksBefore = await host
-    .locator("[data-stack]")
+    .locator("[data-seat-stack]")
     .evaluateAll((nodes) =>
-      nodes.map((node) => Number(node.getAttribute("data-stack"))),
+      nodes.map((node) => Number(node.getAttribute("data-seat-stack"))),
     );
   expect(stacksBefore).toEqual([98, 98]);
 
-  await host.getByRole("button", { name: "Confirm settlement" }).click();
+  await exerciseControl(
+    "tablet-confirm-settlement",
+    control(host, "tablet-confirm-settlement"),
+    (target) => target.click(),
+    () =>
+      expect(
+        host.getByText("Settlement result", { exact: true }).first(),
+      ).toBeVisible(),
+  );
+  await host.reload();
+  await expect(
+    host.getByText("Settlement result", { exact: true }).first(),
+  ).toBeVisible();
   await expect(
     host.getByText("Hand complete", { exact: true }).first(),
   ).toBeVisible();
@@ -300,9 +328,9 @@ test("two players complete a digital-chip hand only after host settlement confir
     host.getByRole("button", { name: "Deal next hand" }),
   ).toBeEnabled();
   const stacksAfter = await host
-    .locator("[data-stack]")
+    .locator("[data-seat-stack]")
     .evaluateAll((nodes) =>
-      nodes.map((node) => Number(node.getAttribute("data-stack"))),
+      nodes.map((node) => Number(node.getAttribute("data-seat-stack"))),
     );
   expect(stacksAfter.reduce((total, stack) => total + stack, 0)).toBe(200);
   expect(stacksAfter).not.toEqual(stacksBefore);

@@ -2,7 +2,7 @@
 id: PRD-M02
 kind: module
 status: current
-last_reconciled: 2026-08-14
+last_reconciled: 2026-09-14
 decision_ids:
   - GOV-PRIORITY
   - AUTH-TRUSTED-HOST
@@ -61,6 +61,7 @@ The interface provides custody initialization under a Rules Profile, determinist
 
 - Generate projections from authoritative state; never send whole state and hide fields in CSS.
 - Keep Hidden Card State out of DOM, generic application stores, URLs, analytics, crash text, and skin inputs. A dedicated worker/vault may reduce accidental exposure but cannot defeat host control.
+- Digital Chips permits deliberate own-seat Show after betting closes and before settlement confirmation. Folded seats remain private; proposals reveal contested-pot winners, while an uncontested winner chooses whether to show. Recovery preserves this choice for older synthetic muck labels.
 - Public Show is irreversible. A prematurely exposed community card remains recorded as exposed even when the rules repair/redeal the street.
 - Completed-hand remote checkpoints remove folded/unrevealed cards, legacy-mucked cards, and finished shuffle/key material before encryption.
 - The Connection Service receives no card keys. Recovery material is generated/exported separately from remote ciphertext.

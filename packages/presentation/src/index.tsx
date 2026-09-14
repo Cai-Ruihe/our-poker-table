@@ -98,12 +98,33 @@ export interface TableSurfaceProps {
   readonly airplaneMode?: boolean;
 }
 
-function accountingStackFor(
+type ProjectedAccountingSeat = NonNullable<
+  SurfaceProjection["accounting"]
+>["seats"][number];
+
+function accountingSeatFor(
   projection: SurfaceProjection,
   seatId: string,
-): number | undefined {
-  return projection.accounting?.seats.find((seat) => seat.seatId === seatId)
-    ?.stack;
+): ProjectedAccountingSeat | undefined {
+  return projection.accounting?.seats.find((seat) => seat.seatId === seatId);
+}
+
+function winnerSeatIdsFor(projection: SurfaceProjection): Set<string> {
+  const settlement = projection.accounting?.settlement;
+  if (settlement) {
+    return new Set(settlement.pots.flatMap((pot) => pot.winnerSeatIds));
+  }
+  return new Set(projection.showdown?.leaders ?? []);
+}
+
+function settlementWinnerSeatIdsFor(
+  projection: SurfaceProjection,
+): Set<string> {
+  return new Set(
+    projection.accounting?.settlement?.pots.flatMap(
+      (pot) => pot.winnerSeatIds,
+    ) ?? [],
+  );
 }
 
 function actingSeatIdFor(projection: SurfaceProjection): string | undefined {
@@ -301,7 +322,7 @@ export function PlayingCard({
   /** Table-side phone/host cards render only a rank and suit glyph. */
   readonly compactGlyphsOnly?: boolean;
   readonly emphasis?: "best" | "unused";
-  readonly marker: "board" | "private" | "shown";
+  readonly marker: "board" | "private" | "shown" | "settlement";
   readonly minimal?: boolean;
   readonly quietShown?: boolean;
   /** Render the approved full SVG face (Table-side Mode only). */
@@ -320,9 +341,11 @@ export function PlayingCard({
   const markerProps =
     marker === "private"
       ? { "data-private-card": "true" }
-      : marker === "board"
-        ? { "data-board-card": "true" }
-        : { "data-shown-card": "true" };
+      : marker === "settlement"
+        ? { "data-settlement-winner-card": "true" }
+        : marker === "board"
+          ? { "data-board-card": "true" }
+          : { "data-shown-card": "true" };
   return (
     <span
       aria-label={details.accessibleName}
@@ -449,7 +472,7 @@ function winningBestCards(
   projection: PublicProjection | SeatProjection,
 ): ReadonlySet<Card> | undefined {
   if (!projection.showdown) return undefined;
-  const leaders = new Set(projection.showdown.leaders);
+  const leaders = winnerSeatIdsFor(projection);
   const cards = projection.seats.flatMap((seat) =>
     leaders.has(seat.seatId) ? (seat.evaluation?.bestFive ?? []) : [],
   );
@@ -570,7 +593,13 @@ function QuietSeatGrid({
 }) {
   const { t } = useLanguage();
   const { bigBlindSeatId, smallBlindSeatId } = blindSeatIds(projection);
-  const winners = new Set(projection.showdown?.leaders ?? []);
+  const winners = winnerSeatIdsFor(projection);
+  const settlementWinners = settlementWinnerSeatIdsFor(projection);
+  const visibleSelfSeatId =
+    selfSeatId ??
+    (projection.accounting && projection.view === "seat"
+      ? projection.self.seatId
+      : undefined);
   const actingSeatId = actingSeatIdFor(projection);
   return (
     <section
@@ -588,30 +617,42 @@ function QuietSeatGrid({
           ? seat.evaluation
           : undefined;
         const position = tableSeatPosition(seat.displayPosition ?? index, 10);
-        const stack = accountingStackFor(projection, seat.seatId);
+        const accountingSeat = accountingSeatFor(projection, seat.seatId);
+        const stack = accountingSeat?.stack;
+        const isSettlementWinner = settlementWinners.has(seat.seatId);
+        const isAllIn = accountingSeat?.status === "all-in";
         const isActing = seat.seatId === actingSeatId;
         const accessibleSeatDetails = [
           seat.displayName,
           t(statusLabel),
           ...(projection.accounting ? [`${t("Stack")} ${stack ?? "—"}`] : []),
+          ...(isAllIn ? [t("All-in")] : []),
           ...(isActing ? [t("To act")] : []),
         ].join(", ");
         return (
           <div
             aria-label={accessibleSeatDetails}
-            className={`seat-edge-status seat-edge-status--${position}${showNames ? " seat-edge-status--show-name" : ""}${seat.seatId === selfSeatId ? " seat-edge-status--self" : ""}${isActing ? " seat-edge-status--acting" : ""}`}
+            className={`seat-edge-status seat-edge-status--${position}${showNames ? " seat-edge-status--show-name" : ""}${seat.seatId === visibleSelfSeatId ? " seat-edge-status--self" : ""}${isActing ? " seat-edge-status--acting" : ""}`}
             data-seat-edge-position={position}
             data-seat-edge-status={statusLabel}
             {...(seat.holeCards && showShownHands
               ? { "data-seat-has-shown-hand": "true" }
               : {})}
-            {...(seat.seatId === selfSeatId
+            {...(seat.seatId === visibleSelfSeatId
               ? { "data-seat-self": "true" }
               : {})}
             data-seat-id={seat.seatId}
             data-seat-acting={isActing ? "true" : "false"}
             {...(projection.accounting
-              ? { "data-seat-stack": stack ?? "unknown" }
+              ? {
+                  "data-seat-stack": stack ?? "unknown",
+                  "data-seat-accounting-status":
+                    accountingSeat?.status ?? "unknown",
+                  "data-seat-all-in": isAllIn ? "true" : "false",
+                  ...(isSettlementWinner
+                    ? { "data-seat-settlement-winner": "true" }
+                    : {}),
+                }
               : {})}
             key={seat.seatId}
             role="img"
@@ -623,7 +664,7 @@ function QuietSeatGrid({
             />
             {seat.holeCards && showShownHands ? (
               <span
-                className="quiet-shown-hand"
+                className={`quiet-shown-hand${isSettlementWinner ? " quiet-shown-hand--settlement-winner" : ""}`}
                 aria-label={`${seat.displayName} ${t("shown cards")}`}
               >
                 {seat.holeCards.map((card) => (
@@ -663,7 +704,14 @@ function QuietSeatGrid({
               </span>
             ) : null}
             {projection.accounting ? (
-              <span className="seat-edge-status__stack">{stack ?? "—"}</span>
+              <span className="seat-edge-status__stack">
+                {stack ?? "—"}
+                {isAllIn ? (
+                  <small className="seat-edge-status__accounting-status">
+                    {t("All-in")}
+                  </small>
+                ) : null}
+              </span>
             ) : null}
             {isActing ? (
               <span className="seat-edge-status__turn">{t("To act")}</span>
@@ -703,22 +751,34 @@ function SeatGrid({
   }
   const selfSeatId =
     projection.view === "seat" ? projection.self.seatId : undefined;
-  const winners = new Set(projection.showdown?.leaders ?? []);
+  const winners = winnerSeatIdsFor(projection);
+  const settlementWinners = settlementWinnerSeatIdsFor(projection);
   const actingSeatId = actingSeatIdFor(projection);
   return (
     <section className={`seat-grid seat-grid--${mode}`} aria-label={t("Seats")}>
       {projection.seats.map((seat, index) => {
-        const stack = accountingStackFor(projection, seat.seatId);
+        const accountingSeat = accountingSeatFor(projection, seat.seatId);
+        const stack = accountingSeat?.stack;
+        const isAllIn = accountingSeat?.status === "all-in";
+        const isSettlementWinner = settlementWinners.has(seat.seatId);
         const isActing = seat.seatId === actingSeatId;
         return (
           <article
-            aria-label={`${seat.displayName}${isActing ? `, ${t("To act")}` : ""}`}
+            aria-label={`${seat.displayName}${isAllIn ? `, ${t("All-in")}` : ""}${isActing ? `, ${t("To act")}` : ""}`}
             className={`seat-tile${seat.seatId === selfSeatId ? " seat-tile--self" : ""}${isActing ? " seat-tile--acting" : ""}`}
             data-seat-id={seat.seatId}
             data-seat-status={seat.status}
             data-seat-acting={isActing ? "true" : "false"}
             {...(projection.accounting
-              ? { "data-seat-stack": stack ?? "unknown" }
+              ? {
+                  "data-seat-stack": stack ?? "unknown",
+                  "data-seat-accounting-status":
+                    accountingSeat?.status ?? "unknown",
+                  "data-seat-all-in": isAllIn ? "true" : "false",
+                  ...(isSettlementWinner
+                    ? { "data-seat-settlement-winner": "true" }
+                    : {}),
+                }
               : {})}
             key={seat.seatId}
           >
@@ -743,6 +803,11 @@ function SeatGrid({
                 data-stack={stack ?? "unknown"}
               >
                 {t("Stack")} {stack ?? "—"}
+                {isAllIn ? (
+                  <small className="seat-tile__accounting-status">
+                    {t("All-in")}
+                  </small>
+                ) : null}
               </span>
             ) : null}
             {isActing ? (
@@ -750,7 +815,7 @@ function SeatGrid({
             ) : null}
             {seat.holeCards ? (
               <div
-                className="mini-hand"
+                className={`mini-hand${isSettlementWinner ? " mini-hand--settlement-winner" : ""}`}
                 aria-label={`${seat.displayName} ${t("shown cards")}`}
               >
                 {seat.holeCards.map((card) => (
@@ -847,18 +912,39 @@ function PlayerStackList({
       data-player-stack-list
     >
       {projection.seats.map((seat) => {
-        const stack = accountingStackFor(projection, seat.seatId);
+        const accountingSeat = accountingSeatFor(projection, seat.seatId);
+        const stack = accountingSeat?.stack;
+        const isSelf = seat.seatId === projection.self.seatId;
+        const isAllIn = accountingSeat?.status === "all-in";
         return (
           <div
-            className="player-stack-list__seat"
+            aria-label={`${seat.displayName}${isSelf ? `, ${t("You")}` : ""}, ${t("Stack")} ${stack ?? "—"}${isAllIn ? `, ${t("All-in")}` : ""}`}
+            className={`player-stack-list__seat${isSelf ? " player-stack-list__seat--self" : ""}`}
             data-seat-id={seat.seatId}
             data-seat-stack={stack ?? "unknown"}
+            data-seat-accounting-status={accountingSeat?.status ?? "unknown"}
+            data-seat-all-in={isAllIn ? "true" : "false"}
+            {...(isSelf ? { "data-seat-self": "true" } : {})}
             key={seat.seatId}
           >
-            <span>{seat.displayName}</span>
-            <strong>
-              {t("Stack")} {stack ?? "—"}
-            </strong>
+            <span className="player-stack-list__player">
+              {seat.displayName}
+              {isSelf ? (
+                <small className="player-stack-list__self-label">
+                  {t("You")}
+                </small>
+              ) : null}
+            </span>
+            <div className="player-stack-list__value">
+              {isAllIn ? (
+                <small className="player-stack-list__all-in">
+                  {t("All-in")}
+                </small>
+              ) : null}
+              <strong>
+                {t("Stack")} {stack ?? "—"}
+              </strong>
+            </div>
           </div>
         );
       })}
@@ -867,14 +953,25 @@ function PlayerStackList({
 }
 
 function SettlementPanel({
+  busy,
+  mode,
+  onConfirmSettlement,
   projection,
 }: {
+  readonly busy: boolean;
+  readonly mode: PresentationMode;
+  readonly onConfirmSettlement?: () => ActionResult;
   readonly projection: PublicProjection | SeatProjection;
 }) {
   const { t } = useLanguage();
   const settlement = projection.accounting?.settlement;
   if (!settlement) return null;
-  const confirmed = projection.accounting?.phase === "complete";
+  const accounting = projection.accounting;
+  const confirmed = accounting?.phase === "complete";
+  const settlementWinnerIds = settlementWinnerSeatIdsFor(projection);
+  const shownSettlementWinners = projection.seats.filter(
+    (seat) => settlementWinnerIds.has(seat.seatId) && seat.holeCards?.length,
+  );
   const displayName = (seatId: string) =>
     projection.seats.find((seat) => seat.seatId === seatId)?.displayName ??
     seatId;
@@ -908,6 +1005,46 @@ function SettlementPanel({
           </li>
         ))}
       </ol>
+      {shownSettlementWinners.length > 0 ? (
+        <div
+          aria-label={t("Winning hands already shown")}
+          className="settlement-panel__winner-hands"
+        >
+          {shownSettlementWinners.map((seat) => (
+            <figure
+              className="settlement-panel__winner-hand"
+              data-settlement-winner-seat={seat.seatId}
+              key={seat.seatId}
+            >
+              <figcaption>{displayName(seat.seatId)}</figcaption>
+              <div className="settlement-panel__winner-cards">
+                {seat.holeCards?.map((card) => (
+                  <PlayingCard
+                    card={card}
+                    compact
+                    compactGlyphsOnly
+                    key={card}
+                    marker="settlement"
+                  />
+                ))}
+              </div>
+            </figure>
+          ))}
+        </div>
+      ) : null}
+      {(mode === "host" || mode === "tablet") &&
+      accounting?.phase === "settlement-pending" &&
+      onConfirmSettlement ? (
+        <div className="settlement-panel__actions">
+          <ActionButton
+            disabled={busy}
+            onClick={() => onConfirmSettlement?.()}
+            qaControl="dealer-confirm-settlement"
+          >
+            {t("Confirm settlement")}
+          </ActionButton>
+        </div>
+      ) : null}
     </section>
   );
 }
@@ -995,17 +1132,7 @@ function DealerControls(props: TableSurfaceProps) {
       );
     }
     if (props.projection.phase === "settlement-pending") {
-      return (
-        <div className="dealer-actions">
-          <ActionButton
-            disabled={props.busy || !props.onConfirmSettlement}
-            onClick={() => props.onConfirmSettlement?.()}
-            qaControl="dealer-confirm-settlement"
-          >
-            {t("Confirm settlement")}
-          </ActionButton>
-        </div>
-      );
+      return null;
     }
     return (
       <p className="dealer-guidance">{t("Players act from their phones.")}</p>
@@ -2529,6 +2656,34 @@ function PublicShowControl({
   );
 }
 
+function digitalPublicShowAvailability(projection: SeatProjection): {
+  readonly enabled: boolean;
+  readonly visible: boolean;
+  readonly waitingForBetting: boolean;
+} {
+  const accounting = projection.accounting;
+  if (!accounting) {
+    return { enabled: false, visible: false, waitingForBetting: false };
+  }
+  const accountingSeat = accountingSeatFor(projection, projection.self.seatId);
+  const phase = accounting.phase;
+  const legacyPendingMucked =
+    phase === "settlement-pending" && projection.self.status === "mucked";
+  const coreSeatCanShow =
+    projection.self.status === "active" || legacyPendingMucked;
+  const eligible = Boolean(
+    accountingSeat && accountingSeat.status !== "folded" && coreSeatCanShow,
+  );
+  const waitingForBetting = eligible && phase === "betting";
+  const enabled =
+    eligible && (phase === "showdown" || phase === "settlement-pending");
+  return {
+    enabled,
+    visible: eligible && (waitingForBetting || enabled),
+    waitingForBetting,
+  };
+}
+
 function PlayerTableStatus({
   projection,
 }: {
@@ -2744,6 +2899,7 @@ function PrivateHand(
   const [leaveOptionsOpen, setLeaveOptionsOpen] = useState(false);
   const status = props.projection.self.status;
   const handId = props.projection.handId;
+  const digitalPublicShow = digitalPublicShowAvailability(props.projection);
   const privateCards = props.projection.self.holeCards.join(",");
   const selfEvaluation = props.projection.seats.find(
     (seat) => seat.seatId === props.projection.self.seatId,
@@ -2844,13 +3000,28 @@ function PrivateHand(
           </ActionButton>
         ) : null}
         {props.projection.accounting ? (
-          <BettingControls
-            busy={props.busy}
-            {...(props.onBettingAction
-              ? { onBettingAction: props.onBettingAction }
-              : {})}
-            projection={props.projection}
-          />
+          <>
+            <BettingControls
+              busy={props.busy}
+              {...(props.onBettingAction
+                ? { onBettingAction: props.onBettingAction }
+                : {})}
+              projection={props.projection}
+            />
+            {!props.airplaneMode && digitalPublicShow.visible ? (
+              <div className="player-digital-show">
+                <PublicShowControl
+                  disabled={props.busy || !digitalPublicShow.enabled}
+                  {...(props.onShowCards
+                    ? { onShowCards: props.onShowCards }
+                    : {})}
+                />
+                {digitalPublicShow.waitingForBetting ? (
+                  <small>{t("Available after betting closes.")}</small>
+                ) : null}
+              </div>
+            ) : null}
+          </>
         ) : status === "folded-provisional" ? (
           <>
             <div className="undo-window" aria-label={t("Fold undo window")}>
@@ -3119,12 +3290,21 @@ export function TableSurface(props: TableSurfaceProps) {
             projection={props.projection}
             showNames={showQuietPlayerNames}
           />
-          <SettlementPanel projection={props.projection} />
+          <SettlementPanel
+            busy={props.busy}
+            mode={props.mode}
+            {...(props.onConfirmSettlement
+              ? { onConfirmSettlement: props.onConfirmSettlement }
+              : {})}
+            projection={props.projection}
+          />
           {props.projection.showdown ? (
             <p className="showdown-note" aria-live="polite">
-              {props.projection.showdown.leaders.length > 1
-                ? t("Shown hands are tied.")
-                : t("Best available shown hand is marked.")}
+              {props.projection.accounting?.settlement
+                ? t("Winning hands already shown to the table are highlighted.")
+                : props.projection.showdown.leaders.length > 1
+                  ? t("Shown hands are tied.")
+                  : t("Best available shown hand is marked.")}
             </p>
           ) : null}
         </section>

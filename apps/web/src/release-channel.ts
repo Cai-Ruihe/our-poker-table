@@ -16,7 +16,7 @@ export type InvitationReleaseIssue = "build" | "path";
 
 export const PROTOCOL_VERSION = 2;
 export const PHASE1_BUILD_VERSION = "0.1.6";
-export const PHASE2_BUILD_VERSION = "0.2.0-preview.2";
+export const PHASE2_BUILD_VERSION = "0.2.0-preview.3";
 
 export function createReleaseChannel(phase: ReleasePhase): ReleaseChannel {
   return {

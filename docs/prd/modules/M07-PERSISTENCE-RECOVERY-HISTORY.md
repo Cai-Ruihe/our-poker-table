@@ -2,8 +2,9 @@
 id: PRD-M07
 kind: module
 status: current
-last_reconciled: 2026-08-14
+last_reconciled: 2026-09-14
 decision_ids:
+  - PHASE2-PUBLIC-HISTORY-V1
   - AUTH-HOST-DEATH
   - AUTHORITY-PERSIST-BEFORE-ACK
   - RECOVERY-PLAYER
@@ -70,6 +71,28 @@ Expose an atomic `commit accepted transition`, `load latest valid state`, `repla
   authoritative event history. A genuine reconnect, disconnect, or accepted
   command retains its existing durable semantics.
 - Diagnostic storage has a separate quota and may evict before authoritative recovery data.
+
+### Public history and replay
+
+Phase 2 records timestamped public frames atomically with accepted hand actions.
+Every authenticated player may download all recorded hands, including the current
+hand only through the download snapshot. Frames contain public actions, chip
+amounts, board cards, and hole cards only after public exposure. Export excludes
+private cards, custody, credentials, and recovery material. Filename is the
+sanitized player name plus their first participating hand's start time in UTC.
+
+Import/search/replay runs locally without contacting the host. Search supports
+time ranges, player names, and combinations of publicly shown hole cards. Step
+navigation renders only that step's public facts. Imports are bounded, validated,
+versioned, and identified as user-provided records rather than authenticated proof.
+Older tables without recorded public frames disclose incomplete coverage.
+
+Leaving offers download-and-exit or direct exit. Digital page exit retains the
+seat and chips. Dissolution freezes actions, saves a final host archive, notifies
+players, and waits for connected players to persist the public record before
+revoking credentials. The saved client record remains downloadable after reload.
+Closed/offline pages cannot be guaranteed a push; host retention is distinct from
+delivery to those devices. Hidden cards are never reconstructed for history.
 
 ## Testing Decisions
 

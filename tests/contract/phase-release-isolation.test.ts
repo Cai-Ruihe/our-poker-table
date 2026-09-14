@@ -26,7 +26,7 @@ describe("independent phase release channels", () => {
   });
 
   test("Phase 2 has its preview version and separate storage and crypto names", () => {
-    expect(phase2.buildVersion).toBe("0.2.0-preview.2");
+    expect(phase2.buildVersion).toBe("0.2.0-preview.3");
     expect(phaseScopedName("html-poker-host:table-1", phase2)).toBe(
       "phase2:html-poker-host:table-1",
     );

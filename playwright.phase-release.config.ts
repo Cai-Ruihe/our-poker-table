@@ -2,7 +2,11 @@ import { defineConfig, devices } from "@playwright/test";
 
 export default defineConfig({
   testDir: "tests/journey",
-  testMatch: "phase2-preview.spec.ts",
+  testMatch: [
+    "phase2-preview.spec.ts",
+    "phase2-history.spec.ts",
+    "phase2-corner-parity.spec.ts",
+  ],
   outputDir: "test-results/phase-release",
   workers: 1,
   timeout: 45_000,
