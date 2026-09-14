@@ -15,7 +15,7 @@ outbound `html-poker-table-side-tunnel` container supplies trusted HTTPS/WSS wit
 opening a router or laptop port. Keep the laptop and OrbStack awake while the
 Mac fallback is needed; Cloudflare remains available when the laptop sleeps.
 
-The operator token is stored outside the repository at `$HOME/Library/Application Support/HTML Poker/table-side-service/operator-token` with owner-only permissions. Paste it into the host's **Connection Service host token** field; never send it to player devices or add it to GitHub.
+The operator token is stored outside the repository at `$HOME/Library/Application Support/HTML Poker/normal-service/operator-token` with owner-only permissions. The existing private directory retains its pre-Table-side name; the product rename did not move this file. Its token acceptance and WebSocket round trip were verified on 2026-09-14. Paste it into the host's **Connection Service host token** field; never send it to player devices or add it to GitHub.
 
 The Mac fallback may use a Cloudflare Quick Tunnel for temporary testing only.
 Cloudflare documents Quick Tunnels as testing/development infrastructure with
