@@ -65,7 +65,9 @@ export async function assemblePhaseSite(root, archive) {
     throw new Error("Retained archive digest mismatch");
   const temp = await mkdtemp(path.join(tmpdir(), "poker-phase-site-"));
   try {
-    execFileSync("tar", ["-xzf", archive, "-C", temp]);
+    // BSD tar consumes AppleDouble metadata on macOS; GNU tar otherwise emits
+    // it as extra ._ files. These are archive metadata, never website content.
+    execFileSync("tar", ["--exclude=._*", "-xzf", archive, "-C", temp]);
     assertSameFiles(await inventory(temp), retained.files, "Retained Phase 1");
     if (retained.files.some((file) => file.path.startsWith("multiplayer/")))
       throw new Error("Retained site occupies Phase 2 path");

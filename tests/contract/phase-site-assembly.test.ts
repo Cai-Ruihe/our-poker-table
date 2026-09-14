@@ -163,6 +163,33 @@ afterEach(async () => {
 });
 
 describe("Phase site assembly", () => {
+  it("omits AppleDouble archive metadata while preserving all retained content", async () => {
+    const sample = await fixture({ phase2Identity: true });
+    await writeFile(
+      path.join(sample.retainedRoot, "table-side", "._index.html"),
+      "metadata",
+    );
+    await execute("tar", [
+      "-czf",
+      sample.archive,
+      "-C",
+      sample.retainedRoot,
+      ".",
+    ]);
+    const pinPath = path.join(sample.root, "deploy", "phase-channels.json");
+    const pin = JSON.parse(await readFile(pinPath, "utf8"));
+    pin.phase1.archiveSha256 = createHash("sha256")
+      .update(await readFile(sample.archive))
+      .digest("hex");
+    await writeFile(pinPath, JSON.stringify(pin));
+    await execute(process.execPath, [assemblerScript, sample.archive], {
+      cwd: sample.root,
+    });
+    const retainedOutput = (
+      await inventory(path.join(sample.root, "_site"))
+    ).filter((file) => !file.path.startsWith("multiplayer/"));
+    expect(retainedOutput).toEqual(sample.retainedFiles);
+  });
   it("rejects duplicate inventory paths that conceal an omitted retained file", async () => {
     const sample = await fixture({ phase2Identity: true });
     const files = [...sample.retainedFiles];
