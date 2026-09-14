@@ -67,7 +67,7 @@ homepage was also visually inspected.
 The public live-relay probe passed health, origin, and invalid-token checks.
 The private positive-token gate also passed token acceptance and an actual
 WebSocket round trip on 2026-09-14. The existing token was found under the
-legacy `normal-service` directory; the operations guide incorrectly named a
+legacy private service directory; the operations guide incorrectly named a
 `table-side-service` directory and has been corrected. No token rotation or
 relay change was performed. GitHub CI and live Phase 2 consumer verification remain pending;
 this record does not claim Phase 2 is deployed.

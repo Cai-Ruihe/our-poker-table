@@ -64,7 +64,15 @@ describe("Table-side naming contract", () => {
 
     for (const file of files) {
       if (file === new URL(import.meta.url).pathname) continue;
-      const source = await readFile(file, "utf8");
+      let source = await readFile(file, "utf8");
+      // Product naming must not rewrite the location of an existing private
+      // credential. Permit only this verified path in the owner runbook.
+      if (path.relative(root, file) === "docs/operations/TABLE-SIDE-MODE.md") {
+        source = source.replaceAll(
+          "$HOME/Library/Application Support/HTML Poker/normal-service/operator-token",
+          "<existing private operator-token path>",
+        );
+      }
       for (const pattern of forbiddenLegacyNames) {
         if (pattern.test(source)) {
           violations.push(`${path.relative(root, file)} matches ${pattern}`);
