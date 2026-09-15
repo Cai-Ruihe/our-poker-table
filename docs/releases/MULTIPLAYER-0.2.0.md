@@ -18,6 +18,8 @@ Physical-device qualification and complete roadmap delivery remain separate.
 - Healthy connection checks reuse the socket. Recovery is single-flight, with
   bounded retries and backoff; transient automatic failures stay quiet before
   persistent failure feedback. Manual failure remains visible and actionable.
+- Host display-pairing write credentials are excluded from client invitations,
+  projections, and saved recovery; peer transport tickets remain available.
 - Public history download and local replay remain available in secondary menus.
   Never-revealed cards are excluded.
 

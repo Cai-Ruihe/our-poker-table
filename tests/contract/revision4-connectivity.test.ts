@@ -8,6 +8,77 @@ import {
 } from "../../apps/web/src/connection-recovery";
 
 describe("revision 4 connectivity recovery", () => {
+  it("keeps host pairing authority out of invitations, role projections, and client recovery", async () => {
+    const { HostTableRuntime, TableClientRuntime } =
+      await import("../../apps/web/src/runtime");
+    const route = {
+      url: "wss://relay.example",
+      accessToken: "peer-ticket",
+      expiresAt: 123456,
+      peerId: "peer",
+      pairingWriteCapability: "host-only-canary",
+    };
+    const routes = { cloudRelay: route, privateRelay: route };
+    const host = {
+      relayRoutesByInvitationToken: new Map([["invite", routes]]),
+      relayRoutesByPeerId: new Map([["peer", routes]]),
+      rulesProfile: { id: "digital-nlhe-home-v1" },
+      identity: {
+        roster: () => ({ seats: [{ seatId: "seat", displayName: "Alice" }] }),
+      },
+    };
+    const invited = Reflect.apply(
+      HostTableRuntime.prototype.relayRoutesForInvitation,
+      host,
+      [{ token: "invite" }],
+    );
+    expect(JSON.stringify(invited)).not.toContain("host-only-canary");
+    expect(invited.cloudRelay.accessToken).toBe("peer-ticket");
+    for (const role of ["player", "public-table", "tv"]) {
+      const projected = Reflect.apply(
+        Reflect.get(HostTableRuntime.prototype, "capabilityProjection"),
+        host,
+        [role, "seat", "peer"],
+      );
+      expect(projected).toEqual(expect.objectContaining({ status: "waiting" }));
+      expect(JSON.stringify(projected)).not.toContain("pairingWriteCapability");
+      expect(projected).toEqual(
+        expect.objectContaining({
+          relayRoutes: expect.objectContaining({
+            cloudRelay: expect.objectContaining({ peerId: "peer" }),
+          }),
+        }),
+      );
+    }
+    const commit = vi.fn(async () => ({ status: "committed" }));
+    const client = {
+      endpoint: { updateRelayRoutes: vi.fn() },
+      credential: { capabilityId: "seat" },
+      binding: {},
+      recoveryCommitTail: Promise.resolve(),
+      recoveryRevision: 0,
+      recoveryStore: { commit },
+      role: "player",
+      slotId: "slot",
+    };
+    Reflect.apply(
+      Reflect.get(TableClientRuntime.prototype, "updateRelayRoutes"),
+      client,
+      [routes],
+    );
+    await Reflect.apply(
+      Reflect.get(TableClientRuntime.prototype, "persistRecovery"),
+      client,
+      [],
+    );
+    expect(commit).toHaveBeenCalledOnce();
+    expect(JSON.stringify(commit.mock.calls)).not.toContain("host-only-canary");
+    expect(
+      JSON.stringify(client.endpoint.updateRelayRoutes.mock.calls),
+    ).not.toContain("pairingWriteCapability");
+    expect(route.pairingWriteCapability).toBe("host-only-canary");
+  });
+
   it("reports a manual reconnect sharing automatic backoff without counting a new probe", async () => {
     const { TableClientRuntime } = await import("../../apps/web/src/runtime");
     const backoff = new ConnectivityRecoveryBackoffError(

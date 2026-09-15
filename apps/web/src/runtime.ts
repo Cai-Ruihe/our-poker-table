@@ -628,10 +628,32 @@ function cloneRelayRoutes(
   };
 }
 
+// A host pairing credential must never cross an invitation, projection, or
+// client recovery boundary. Allowlist the transport fields needed by clients.
+function clientRelayRoutes(
+  routes?: RelayRouteConfiguration,
+): RelayRouteConfiguration | undefined {
+  if (!routes) return undefined;
+  const project = (route: RelayRuntimeConfig): RelayRuntimeConfig => ({
+    url: route.url,
+    ...(route.accessToken !== undefined
+      ? { accessToken: route.accessToken }
+      : {}),
+    ...(route.expiresAt !== undefined ? { expiresAt: route.expiresAt } : {}),
+    ...(route.peerId !== undefined ? { peerId: route.peerId } : {}),
+  });
+  return {
+    ...(routes.privateRelay
+      ? { privateRelay: project(routes.privateRelay) }
+      : {}),
+    ...(routes.cloudRelay ? { cloudRelay: project(routes.cloudRelay) } : {}),
+  };
+}
+
 function optionalRelayRoutes(relayRoutes?: RelayRouteConfiguration): {
   readonly relayRoutes?: RelayRouteConfiguration;
 } {
-  const cloned = cloneRelayRoutes(relayRoutes);
+  const cloned = clientRelayRoutes(relayRoutes);
   return cloned ? { relayRoutes: cloned } : {};
 }
 
@@ -2377,7 +2399,7 @@ export class HostTableRuntime {
   relayRoutesForInvitation(
     invitation: Invitation,
   ): RelayRouteConfiguration | undefined {
-    return cloneRelayRoutes(
+    return clientRelayRoutes(
       this.relayRoutesByInvitationToken.get(invitation.token),
     );
   }
@@ -2693,7 +2715,7 @@ export class HostTableRuntime {
           binding: { ...this.binding },
           invitationToken: invitation.token,
           ...(invitationRelayRoutes
-            ? { relayRoutes: cloneRelayRoutes(invitationRelayRoutes) }
+            ? { relayRoutes: clientRelayRoutes(invitationRelayRoutes) }
             : {}),
           role: request.requestedRole,
         },
@@ -4194,7 +4216,7 @@ export class TableClientRuntime {
     this.credential = options.credential;
     this.invitationToken = options.invitationToken;
     this.lease = options.lease;
-    this.relayRoutes = cloneRelayRoutes(options.relayRoutes);
+    this.relayRoutes = clientRelayRoutes(options.relayRoutes);
     this.recoveryNavigation = options.recoveryNavigation ?? "client";
     this.recoveryRevision = options.recoveryRevision;
     this.slotId = options.slotId;
@@ -4842,7 +4864,7 @@ export class TableClientRuntime {
   }
 
   private updateRelayRoutes(relayRoutes: RelayRouteConfiguration): void {
-    this.relayRoutes = cloneRelayRoutes(relayRoutes);
+    this.relayRoutes = clientRelayRoutes(relayRoutes);
     this.endpoint.updateRelayRoutes(this.relayRoutes);
   }
 

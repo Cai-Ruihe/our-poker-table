@@ -235,3 +235,20 @@ this is **partial inherited qualification**, not wholesale Pass. Physical
 matrix I-014, live relay/consumer receipts, Linux screenshot equivalence and
 release reproducibility/rollback qualification are not completed by this local
 repair task. Skipped tests retain their configured reasons in the raw log.
+
+
+## Publication review additions (2026-09-15)
+
+- Fresh deployment runners must build the Connection Service before the packaged
+  connectivity journey. The verification job's generated files do not carry
+  across jobs. Deployment CI now builds the fixture explicitly.
+- Host display-pairing write authority must never appear in player/public/TV
+  invitations, sealed projections, or client recovery. An allowlisted route
+  projection preserves only URL, peer ticket, expiry, and peer identity. Host
+  route storage retains pairing authority. The client also strips unexpected
+  fields on construction and refresh.
+- The negative regression invokes the real invitation and role-projection
+  methods and captures client recovery commits with a host-only canary. It
+  checks all three client roles, retained transport fields, sanitized endpoint
+  updates, and unchanged host input. Focused eight tests pass locally. Cloud
+  and rebuilt relay/privacy journeys must pass on this additional delta.
