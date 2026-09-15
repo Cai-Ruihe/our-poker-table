@@ -252,3 +252,27 @@ repair task. Skipped tests retain their configured reasons in the raw log.
   checks all three client roles, retained transport fields, sanitized endpoint
   updates, and unchanged host input. Focused eight tests pass locally. Cloud
   and rebuilt relay/privacy journeys must pass on this additional delta.
+
+
+## Cloud publication gate: all-seat reveal synchronization
+
+Run `34931198181` passed the full verification job but deployment stopped at
+two ten-seat packaged cases: mobile Chromium observed 18 shown cards and
+mobile WebKit 16 instead of 20. No Pages deployment occurred. The previous
+fixture skipped a player whenever its Show control was absent or disabled,
+even though that client could still be receiving settlement. It now skips
+only when the host already visibly shows that seat's two cards; otherwise it
+waits for the player's usable Show control, acts, and witnesses those two cards
+on the host before moving on. The final 20-card and all overlap checks remain.
+This removes a fixture race without weakening product acceptance. If client
+synchronization fails, the test now fails at the specific player action.
+
+The deployment job now uploads its own failure screenshots and traces; the
+verification job's artifact uploader cannot observe another job's files. The
+published-copy assertion also waits for the real home UI instead of inspecting
+the initial blank browser document. Cloud rerun evidence remains required.
+
+Local synchronization recheck: 12/12 passed with two repetitions per engine
+for the ten-seat Table/TV geometry and actual loaded-home copy/defaults.
+Typecheck, focused lint, documentation validation, and diff checks passed.
+The independent scoped recheck found no weakened acceptance or new deadlock.

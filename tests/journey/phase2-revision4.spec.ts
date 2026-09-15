@@ -204,11 +204,18 @@ async function reachShowdown(
   }
   await expect(host.locator(".settlement-panel")).toBeVisible();
   if (!showEveryone) return;
-  for (const player of players) {
+  for (const [seatId, player] of bySeat) {
+    const shown = host.locator(
+      `.seat-grid [data-seat-id="${seatId}"] [data-shown-card]`,
+    );
+    // Winners may already be public. Other clients can still be receiving the
+    // settlement projection: absence/disabled state is not permission to skip.
+    if ((await shown.count()) === 2) continue;
     const show = control(player, "player-show-cards");
-    if ((await show.count()) === 0) continue;
-    if ((await show.getAttribute("aria-disabled")) === "true") continue;
+    await expect(show).toBeVisible();
+    await expect(show).not.toHaveAttribute("aria-disabled", "true");
     await show.press("End");
+    await expect(shown).toHaveCount(2);
   }
   await expect(host.locator(".seat-grid [data-shown-card]")).toHaveCount(
     players.length * 2,
@@ -233,6 +240,8 @@ test("revision 4 uses the approved digital defaults and published product copy",
     !testInfo.project.name.startsWith("phase-release"),
     "Requires the assembled Phase 2 release path.",
   );
+  await host.goto("/multiplayer/");
+  await expect(control(host, "home-chip-mode-digital")).toBeChecked();
   const bodyBefore = await host.locator("body").innerText();
   expect(bodyBefore).not.toMatch(/\b(?:Phase [123]|preview|development)\b/iu);
   const [alice, bob] = await createDigitalTable(host, context, [
