@@ -1,5 +1,8 @@
 schema_version: 1
-active_release: phase-1
+# Phase 2 revision 4 is the active QA candidate. The retained Phase 1 artifact
+# remains independently pinned; this field does not mean that Phase 2 has
+# passed browser, physical-device, deployment, or consumer-read-back gates.
+active_release: phase-2-revision-4
 governing_adr: docs/adr/0008-traceable-release-blocking-qa.md
 
 requirement_imports:
@@ -13,12 +16,13 @@ requirement_imports:
     evidence: [tests/contract, tests/journey, tests/security]
   P2:
     file: docs/prd/phases/P2-DIGITAL-ACCOUNTING.md
-    lifecycle: tracer
+    lifecycle: active
     evidence:
       [
         tests/contract/digital-accounting-heads-up.test.ts,
         tests/contract/digital-accounting-authority.test.ts,
         tests/journey/phase2-preview.spec.ts,
+        tests/journey/phase2-revision4.spec.ts,
       ]
   P3:
     file: docs/prd/phases/P3-SKINS-AND-AI.md
@@ -56,8 +60,10 @@ requirement_imports:
         tests/contract/connection-service.test.ts,
         tests/contract/live-relay-release-gate.test.ts,
         tests/contract/table-side-self-hosting.test.ts,
+        tests/contract/revision4-connectivity.test.ts,
         tests/journey/table-side-relay.spec.ts,
         tests/journey/relay-restart.spec.ts,
+        tests/journey/phase2-revision4.spec.ts,
       ]
   M05:
     file: docs/prd/modules/M05-AIRPLANE-MODE.md
@@ -71,6 +77,7 @@ requirement_imports:
       [
         tests/journey/approved-interface.spec.ts,
         tests/journey/visual-conformance.spec.ts,
+        tests/journey/phase2-revision4.spec.ts,
       ]
   M07:
     file: docs/prd/modules/M07-PERSISTENCE-RECOVERY-HISTORY.md
@@ -80,6 +87,7 @@ requirement_imports:
         tests/contract/persistence.test.ts,
         tests/contract/authority-recovery.test.ts,
         tests/journey/relay-restart.spec.ts,
+        tests/journey/phase2-revision4.spec.ts,
       ]
   M08:
     file: docs/prd/modules/M08-DIAGNOSTICS-RED-TEAM.md
@@ -102,12 +110,13 @@ requirement_imports:
       ]
   M10:
     file: docs/prd/modules/M10-DIGITAL-ACCOUNTING.md
-    lifecycle: tracer
+    lifecycle: active
     evidence:
       [
         tests/contract/digital-accounting-heads-up.test.ts,
         tests/contract/digital-accounting-authority.test.ts,
         tests/journey/phase2-preview.spec.ts,
+        tests/journey/phase2-revision4.spec.ts,
       ]
   M11:
     file: docs/prd/modules/M11-COMMUNITY-SKINS.md
@@ -437,6 +446,30 @@ control_contract:
       surface: Phase 2 public history
       expected_result: The public history flow performs its named action and preserves private-card isolation.
       evidence: tests/journey/phase2-history.spec.ts
+    tablet-history-download:
+      surface: Table secondary menu
+      expected_result: Downloads the public hand history from the existing Table secondary menu without leaving Table View.
+      evidence: tests/journey/phase2-revision4.spec.ts
+    tablet-history-replay:
+      surface: Table secondary menu
+      expected_result: Opens the local hand-history replay from the existing Table secondary menu.
+      evidence: tests/journey/phase2-revision4.spec.ts
+    tablet-exit-page:
+      surface: Table secondary menu
+      expected_result: Opens the existing leave confirmation without changing table state before confirmation.
+      evidence: tests/journey/phase2-revision4.spec.ts
+    player-menu-history-download:
+      surface: Player leave-options menu
+      expected_result: Downloads public hand history from the established Player menu.
+      evidence: tests/journey/phase2-revision4.spec.ts
+    player-menu-history-replay:
+      surface: Player leave-options menu
+      expected_result: Opens local hand-history replay from the established Player menu.
+      evidence: tests/journey/phase2-revision4.spec.ts
+    player-menu-exit-page:
+      surface: Player leave-options menu
+      expected_result: Opens the existing leave confirmation from the established Player menu.
+      evidence: tests/journey/phase2-revision4.spec.ts
     home-chip-mode-physical:
       surface: Home
       expected_result: Physical-chip rules are selected.
@@ -612,6 +645,10 @@ control_contract:
       surface: Host device switcher
       expected_result: The card-first Tablet View becomes active.
       evidence: tests/journey/control-conformance.spec.ts
+    device-view-tv:
+      surface: Host device switcher
+      expected_result: The viewer-upright TV View becomes active without changing authority or exposing private cards.
+      evidence: tests/journey/phase2-revision4.spec.ts
     host-join-own-device:
       surface: Host lobby
       expected_result: The Trusted Host device receives its own player seat.
@@ -945,9 +982,10 @@ performance_contract:
   artifacts:
     table_side_javascript_raw_bytes: 1100000
     table_side_javascript_gzip_bytes: 330000
-    # Feedback UI adds ~2.8 KB raw CSS for seat cues, stacks, pot and top-up.
-    # Preserve measured enforcement with <1% headroom; Phase 1 hosted bytes stay pinned.
-    table_side_css_raw_bytes: 124000
+    # Revision 4 measured 131017 raw / 23676 gzip CSS bytes: menus, replay,
+    # readable settlement lanes and canonical compact-card styles retained.
+    # Keep <1% raw headroom; the independently pinned Phase 1 artifact is unchanged.
+    table_side_css_raw_bytes: 132000
     airplane_html_raw_bytes: 1350000
   browser_interaction_timeout_ms: 5000
 

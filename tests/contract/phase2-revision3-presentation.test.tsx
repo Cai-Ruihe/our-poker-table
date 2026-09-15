@@ -166,9 +166,7 @@ describe("Phase 2 revision 3 presentation feedback", () => {
     expect(markup).toContain('data-seat-settlement-winner="true"');
     expect(markup).toContain('data-card="Ah"');
     expect(markup).toContain('data-card="Ad"');
-    expect(markup.match(/data-settlement-winner-card="true"/gu)).toHaveLength(
-      2,
-    );
+    expect(markup.match(/data-settlement-winner-card="true"/gu)).toBeNull();
     const bobSeat = markup.match(/<div[^>]*data-seat-id="bob"[^>]*>/u)?.[0];
     expect(bobSeat).not.toContain('data-seat-settlement-winner="true"');
 
@@ -288,13 +286,17 @@ describe("Phase 2 revision 3 presentation feedback", () => {
     );
   });
 
-  it("retains the Phase 1 four-rotation corner-and-dot signature", () => {
+  it("uses the approved Phase 2 canonical corner module four times", () => {
     const markup = renderSurface({ mode: "tablet", projection: projection() });
     expect(markup.match(/data-table-corner-glyph="true"/gu)).toHaveLength(4);
+    expect(markup.match(/class="table-corner__canonical"/gu)).toHaveLength(4);
     expect(
       markup.match(
-        /<path d="M4 20V4H20"><\/path><circle cx="20" cy="4" r="1\.7"><\/circle>/gu,
+        /<path d="M145 44H186\.586A25\.414 25\.414 0 0 1 212 69\.414V110\.422"><\/path>/gu,
       ),
+    ).toHaveLength(4);
+    expect(
+      markup.match(/<circle cx="212" cy="122" r="6"><\/circle>/gu),
     ).toHaveLength(4);
   });
 });

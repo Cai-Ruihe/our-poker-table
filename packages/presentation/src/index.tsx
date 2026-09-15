@@ -65,6 +65,9 @@ export interface TableSurfaceProps {
   readonly futureSittingOut?: boolean;
   readonly hostPlayerAdministrationOpen?: boolean;
   readonly hostPlayerCount?: number;
+  /** Phase 2 public-history actions are supplied by the owning runtime. */
+  readonly historyBusy?: boolean;
+  readonly historyControlPrefix?: "host" | "player";
   readonly mode: PresentationMode;
   readonly onBettingAction?: (action: BettingActionIntent) => void;
   readonly onConfirmSettlement?: () => ActionResult;
@@ -75,7 +78,10 @@ export interface TableSurfaceProps {
   readonly onFinalizeFold?: () => void;
   readonly onFold?: () => void;
   readonly onHostControls?: () => void;
+  readonly onDownloadHistory?: () => void;
+  readonly onImportHistory?: () => void;
   readonly onLeaveTable?: () => ActionResult;
+  readonly onLeaveTablePage?: () => void;
   readonly onManageDisplays?: () => void;
   readonly onManagePlayers?: () => void;
   readonly onMyHand?: () => void;
@@ -330,6 +336,7 @@ export function PlayingCard({
 }) {
   const details = cardDetails(card);
   const renderFullFace = !airplaneBuild && fullFace;
+  const renderCompactFace = renderFullFace && quietShown;
   const displayRank =
     cardStyle === "classic" && details.rank === "T" ? "10" : details.rank;
   const hasCourtFace =
@@ -356,12 +363,22 @@ export function PlayingCard({
       {...markerProps}
     >
       {renderFullFace ? (
-        <img
-          alt=""
-          aria-hidden="true"
-          className="card__face-svg"
-          src={cardFaceSrc(cardStyle, card)}
-        />
+        <>
+          <img
+            alt=""
+            aria-hidden="true"
+            className="card__face-svg"
+            src={cardFaceSrc(cardStyle, card)}
+          />
+          {renderCompactFace ? (
+            <span className="card__compact-face" aria-hidden="true">
+              <span className="card__rank">{displayRank}</span>
+              <span className="card__corner-suit">
+                <SuitGlyph suit={details.suitCode} />
+              </span>
+            </span>
+          ) : null}
+        </>
       ) : (
         <>
           <span className="card__corner card__corner--top" aria-hidden="true">
@@ -968,10 +985,6 @@ function SettlementPanel({
   if (!settlement) return null;
   const accounting = projection.accounting;
   const confirmed = accounting?.phase === "complete";
-  const settlementWinnerIds = settlementWinnerSeatIdsFor(projection);
-  const shownSettlementWinners = projection.seats.filter(
-    (seat) => settlementWinnerIds.has(seat.seatId) && seat.holeCards?.length,
-  );
   const displayName = (seatId: string) =>
     projection.seats.find((seat) => seat.seatId === seatId)?.displayName ??
     seatId;
@@ -1005,33 +1018,6 @@ function SettlementPanel({
           </li>
         ))}
       </ol>
-      {shownSettlementWinners.length > 0 ? (
-        <div
-          aria-label={t("Winning hands already shown")}
-          className="settlement-panel__winner-hands"
-        >
-          {shownSettlementWinners.map((seat) => (
-            <figure
-              className="settlement-panel__winner-hand"
-              data-settlement-winner-seat={seat.seatId}
-              key={seat.seatId}
-            >
-              <figcaption>{displayName(seat.seatId)}</figcaption>
-              <div className="settlement-panel__winner-cards">
-                {seat.holeCards?.map((card) => (
-                  <PlayingCard
-                    card={card}
-                    compact
-                    compactGlyphsOnly
-                    key={card}
-                    marker="settlement"
-                  />
-                ))}
-              </div>
-            </figure>
-          ))}
-        </div>
-      ) : null}
       {(mode === "host" || mode === "tablet") &&
       accounting?.phase === "settlement-pending" &&
       onConfirmSettlement ? (
@@ -1464,6 +1450,8 @@ function TabletControls(
   const progression = nextStreetByPhase[props.projection.phase];
   const digitalPhase = props.projection.accounting?.phase;
   const hasDigitalAccounting = digitalPhase !== undefined;
+  const canonicalCornerSignature =
+    !props.airplaneMode && props.projection.accounting !== undefined;
   const eligibleStackCount = eligiblePositiveStackCount(props.projection);
   const digitalNextHandReady =
     digitalPhase === "complete" && eligibleStackCount >= 2;
@@ -1640,8 +1628,20 @@ function TabletControls(
             data-table-corner-glyph="true"
             viewBox="0 0 24 24"
           >
-            <path d="M4 20V4H20" />
-            <circle cx="20" cy="4" r="1.7" />
+            {canonicalCornerSignature ? (
+              <g
+                className="table-corner__canonical"
+                transform="matrix(0 -0.2388059701 0.2388059701 0 -6.5074626866 54.6268656716)"
+              >
+                <path d="M145 44H186.586A25.414 25.414 0 0 1 212 69.414V110.422" />
+                <circle cx="212" cy="122" r="6" />
+              </g>
+            ) : (
+              <>
+                <path d="M4 20V4H20" />
+                <circle cx="20" cy="4" r="1.7" />
+              </>
+            )}
           </svg>
         </button>
       ))}
@@ -1970,16 +1970,57 @@ function TabletControls(
                 <HostControlIcon kind="diagnostics" />
                 <strong>{t("Diagnostics & history")}</strong>
                 <small>{t("Privacy-filtered support evidence")}</small>
-                {props.onDownloadLog ? (
-                  <button
-                    className="secondary-inline-action"
-                    data-qa-action="save-log"
-                    data-qa-control="tablet-save-log"
-                    onClick={() => props.onDownloadLog?.()}
-                    type="button"
-                  >
-                    {t("Save log")}
-                  </button>
+                {props.onDownloadHistory ||
+                props.onImportHistory ||
+                props.onLeaveTablePage ||
+                props.onDownloadLog ? (
+                  <div className="secondary-device-actions secondary-device-actions--history">
+                    {props.onDownloadHistory ? (
+                      <button
+                        data-qa-action="download-history"
+                        data-qa-control="tablet-history-download"
+                        disabled={props.historyBusy}
+                        onClick={() => props.onDownloadHistory?.()}
+                        type="button"
+                      >
+                        {props.historyBusy
+                          ? t("Downloading…")
+                          : t("Download hand history")}
+                      </button>
+                    ) : null}
+                    {props.onImportHistory ? (
+                      <button
+                        data-qa-action="import-history"
+                        data-qa-control="tablet-history-replay"
+                        disabled={props.historyBusy}
+                        onClick={() => props.onImportHistory?.()}
+                        type="button"
+                      >
+                        {t("Import and replay")}
+                      </button>
+                    ) : null}
+                    {props.onLeaveTablePage ? (
+                      <button
+                        data-qa-action="leave-table-page"
+                        data-qa-control="tablet-exit-page"
+                        disabled={props.historyBusy}
+                        onClick={() => props.onLeaveTablePage?.()}
+                        type="button"
+                      >
+                        {t("Leave table page")}
+                      </button>
+                    ) : null}
+                    {props.onDownloadLog ? (
+                      <button
+                        data-qa-action="save-log"
+                        data-qa-control="tablet-save-log"
+                        onClick={() => props.onDownloadLog?.()}
+                        type="button"
+                      >
+                        {t("Save log")}
+                      </button>
+                    ) : null}
+                  </div>
                 ) : (
                   <em>{t("Trusted Host only")}</em>
                 )}
@@ -3075,7 +3116,11 @@ function PrivateHand(
             ? { onToggleSittingOut: props.onToggleSittingOut }
             : {})}
         />
-      ) : props.onLeaveTable || props.onToggleSittingOut ? (
+      ) : props.onLeaveTable ||
+        props.onToggleSittingOut ||
+        props.onDownloadHistory ||
+        props.onImportHistory ||
+        props.onLeaveTablePage ? (
         <button
           aria-expanded={leaveOptionsOpen}
           aria-label={t("Open leave options")}
@@ -3128,6 +3173,50 @@ function PrivateHand(
                 ? { onToggleSittingOut: props.onToggleSittingOut }
                 : {})}
             />
+            {props.onDownloadHistory ||
+            props.onImportHistory ||
+            props.onLeaveTablePage ? (
+              <div
+                className="player-history-actions"
+                aria-label={t("Hand history")}
+              >
+                {props.onDownloadHistory ? (
+                  <button
+                    data-qa-control="player-menu-history-download"
+                    disabled={props.historyBusy}
+                    onClick={() => props.onDownloadHistory?.()}
+                    type="button"
+                  >
+                    {props.historyBusy
+                      ? t("Downloading…")
+                      : t("Download hand history")}
+                  </button>
+                ) : null}
+                {props.onImportHistory ? (
+                  <button
+                    data-qa-control="player-menu-history-replay"
+                    disabled={props.historyBusy}
+                    onClick={() => props.onImportHistory?.()}
+                    type="button"
+                  >
+                    {t("Import and replay")}
+                  </button>
+                ) : null}
+                {props.onLeaveTablePage ? (
+                  <button
+                    data-qa-control="player-menu-exit-page"
+                    disabled={props.historyBusy}
+                    onClick={() => {
+                      setLeaveOptionsOpen(false);
+                      props.onLeaveTablePage?.();
+                    }}
+                    type="button"
+                  >
+                    {t("Leave table page")}
+                  </button>
+                ) : null}
+              </div>
+            ) : null}
           </section>
         </div>
       ) : null}
@@ -3221,7 +3310,9 @@ export function TableSurface(props: TableSurfaceProps) {
         </header>
       ) : null}
 
-      {props.mode === "tv" && props.onHostControls ? (
+      {props.mode === "tv" &&
+      props.onHostControls &&
+      !props.projection.accounting ? (
         <button
           aria-label={t("Return to Host Controls")}
           className="host-tv-return"
@@ -3234,7 +3325,8 @@ export function TableSurface(props: TableSurfaceProps) {
       ) : null}
 
       {!props.airplaneMode &&
-      (props.mode === "public" || props.mode === "tv") ? (
+      (props.mode === "public" ||
+        (props.mode === "tv" && !props.projection.accounting)) ? (
         <SurfaceLanguageMenu className="surface-language-menu--quiet" />
       ) : null}
 
@@ -3373,7 +3465,10 @@ export function TableSurface(props: TableSurfaceProps) {
         </footer>
       ) : null}
 
-      {props.mode === "tablet" ? (
+      {props.mode === "tablet" ||
+      (props.mode === "tv" &&
+        props.onHostControls &&
+        props.projection.accounting) ? (
         <TabletControls
           {...props}
           onTogglePlayerNames={() =>

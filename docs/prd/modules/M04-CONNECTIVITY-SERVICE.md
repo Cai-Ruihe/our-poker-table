@@ -2,7 +2,7 @@
 id: PRD-M04
 kind: module
 status: current
-last_reconciled: 2026-08-29
+last_reconciled: 2026-09-15
 decision_ids:
   - PHASE1-ONE-TABLE-PER-HOST
   - SERVER-CONNECTION-ONLY
@@ -18,6 +18,7 @@ decision_ids:
   - TEST-WEBRTC-STAGING
   - TEST-REMOTE-COMPROMISE
   - RECOVERY-RECONNECT-STORM-CONTROL
+  - PHASE2-RECOVERY-CANDIDATE-V1
 router: ../manifest.yaml
 ---
 
@@ -28,8 +29,7 @@ router: ../manifest.yaml
 This module keeps peers connected without becoming poker authority. The
 client-side interface maintains one logical authenticated channel while Table-side
 Mode attempts direct P2P, the deployer's Cloudflare Workers/Durable Objects
-relay, then the deployer's Mac Connection Service fallback. The optional
-Connection Services supply signaling, short-lived relay credentials, opaque
+relay, then the deployer's Mac Connection Service fallback. Connection Services supply signaling, short-lived relay credentials, opaque
 checkpoints, and redacted diagnostics only.
 
 ## Problem Statement
@@ -83,13 +83,17 @@ The transport interface connects/reconnects an authenticated peer, sends/receive
   silently retries its first two consecutive missed authenticated liveness
   attempts. Only a third consecutive miss without any valid authenticated Host
   frame may present Host-unavailable guidance; any valid Host frame clears the
-  miss count and guidance immediately.
+  miss count and guidance immediately. Explicit manual retries report their
+  own failure; automatic alerts remain subject to this threshold.
 - Liveness probes are small, authenticated, and read-only. They never create a
   poker event, change authority, or persist recovery state. Do not introduce a
   player-count-aware or globally coordinated polling algorithm. The current
   release has no retry randomization. The next-version requirement
   `RECOVERY-RECONNECT-STORM-CONTROL` adds independent reconnect
   backoff/jitter without changing this three-miss liveness policy.
+- Revision 4 adopts the recovery backlog below for shared Table/TV/Host
+  runtime. Healthy channels and valid tickets are reused; the existing
+  three-miss authenticated liveness policy remains mandatory.
 - A table invitation carries independent Cloudflare and Mac ticket material;
   it never carries the operator token. Each ticket is bound to the table,
   host, peer ID, endpoint, protocol, expiry, and nonce. A display-pairing
@@ -115,22 +119,21 @@ event or projection clears the state immediately. Exercise two and ten players,
 including a new mid-hand join, across direct and both relay routes; physical
 devices must cover foreground/background Host scheduling.
 
-## Next Table-side release backlog — not implemented in the current release
+## Next Table-side release backlog and Phase 2 revision-4 candidate
 
-`RECOVERY-RECONNECT-STORM-CONTROL` records the owner-approved next-version
-recovery work. The reported risk is a reconnect storm after weak-network loss,
-foreground/background transitions, Wi-Fi/cellular changes, or repeat taps:
-each unnecessary reconnect can recreate relay registration/signaling and can
-amplify relay-envelope and Durable Object database work. This backlog changes
-neither the current release nor Airplane Mode.
+`RECOVERY-RECONNECT-STORM-CONTROL` addresses unnecessary registration,
+signaling, relay envelopes, and database work after network loss, foreground
+transitions, or repeated taps. Revision 4 inherits these requirements;
+qualification still requires current evidence. The pinned Phase 1 artifact
+and Airplane Mode retain their separate release boundaries.
 
 - One client owns at most one reconnect flow. Manual, foreground, and `online`
   triggers coalesce; the control cannot start a concurrent duplicate flow.
 - Offline state performs no connection attempt. An `online` transition schedules
   one coalesced recovery. Automatic retries use capped independent exponential
   backoff with jitter: nominally 1, 2, 5, 10, then 30 seconds maximum. A bounded
-  retry count enters a cooldown/circuit state with an explicit manual retry path;
-  it must never tightly loop.
+  retry count enters a 30-second cooldown before another bounded batch;
+  manual retry is available. It must never tightly loop.
 - Reuse an open healthy WebRTC DataChannel. While a table-bound relay ticket is
   valid, reuse it rather than issuing or rotating a ticket; only a genuine
   route/credential failure may perform the existing serial route recovery.
@@ -156,4 +159,4 @@ Central poker engine, built-in public relay subsidy, universal China guarantee, 
 
 ## Further Notes
 
-Airplane Mode is the no-internet fallback and has its own PRD. Table-side Mode must remain optional enough that failure of all services never invalidates the standalone product direction.
+Airplane Mode remains the standalone no-internet fallback.

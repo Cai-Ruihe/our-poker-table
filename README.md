@@ -124,15 +124,14 @@ pnpm build
 
 ## Project status, without the smoke.
 
-**Phase 1 is the current product:** a Trusted-Host digital dealer for 2–10
-players with private phone hands, public screens, guarded hand controls,
-reconnect/replacement flows, and Table-side plus Airplane routes.
+**Table-side Mode** is a Trusted-Host digital dealer for 2–10 players using physical play chips, private phone hands, and public screens.
 
-**Digital Chips test preview:** use [Multiplayer](https://ourpokertable.com/multiplayer/).
-It supports betting, explicit settlement, consecutive hands with the same seats,
-and host-controlled top-ups between hands. Late joins and manual sit-out/return
-remain unavailable. History exports, corrections, and broader device qualification
-are unfinished; see [the preview record](docs/releases/PHASE-2-PREVIEW.md).
+**Digital Chips:** use [Multiplayer](https://ourpokertable.com/multiplayer/).
+It supports digital play-chip betting, explicit settlement, consecutive hands,
+host-controlled top-ups between hands, public hand-history downloads, and local
+search and replay. The roster stays fixed after dealing; late joins and manual
+sit-out/return remain unavailable. See the [release record](docs/releases/MULTIPLAYER-0.2.0.md)
+for the history and scope of the published build.
 
 **The honest release boundary:** automated browser and contract evidence exists,
 but physical iOS/iPadOS, Android, TV, WAN-removal, hostile-network, and

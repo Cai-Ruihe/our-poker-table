@@ -247,6 +247,10 @@
   object-fit: fill;
 }
 
+.table-surface .card__compact-face {
+  display: none;
+}
+
 .table-surface .card::after {
   position: absolute;
   inset: 0.5rem;
@@ -421,6 +425,14 @@
   overflow: hidden;
 }
 
+/* Digital Table/TV need a distinct edge lane for every revealed pair. The
+   smaller Phase 2 hand keeps ten seats legible without feeding cards into the
+   community rail or settlement band; retained physical surfaces keep the
+   approved Phase 1 scale above. */
+.table-surface:has(.chip-rail) .quiet-shown-hand .card--quiet-shown {
+  width: clamp(3.85rem, 5.8vw, 5.25rem);
+}
+
 .table-surface .quiet-shown-hand .card--quiet-shown::after {
   inset: clamp(0.24rem, 0.35vw, 0.34rem);
   border-radius: clamp(0.26rem, 0.42vw, 0.38rem);
@@ -537,6 +549,18 @@
   padding: clamp(2.6rem, 6vw, 5.5rem) clamp(4.5rem, 8vw, 8.5rem) !important;
 }
 
+/* Digital accounting gets a real vertical rail: street status, board, pot.
+   The selector keeps the retained physical public-table geometry untouched. */
+.public-table--quiet:has(.chip-rail) {
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: auto auto;
+  align-content: center;
+  justify-items: center;
+  row-gap: clamp(0.55rem, 1.5vh, 1.1rem);
+  padding-top: clamp(3.8rem, 8vh, 4.2rem) !important;
+  padding-bottom: clamp(2.3rem, 5vh, 2.8rem) !important;
+}
+
 .public-table--quiet .dealer-rail {
   width: min(96rem, 100%);
 }
@@ -548,18 +572,27 @@
 }
 
 .public-table--quiet .chip-rail {
-  position: absolute;
-  top: max(5.5rem, env(safe-area-inset-top));
-  left: 50%;
-  width: auto;
-  min-width: 20rem;
-  margin: 0;
+  position: static;
+  grid-row: 1;
+  width: min(32rem, 100%);
+  min-width: min(20rem, 100%);
+  margin: 0 auto;
   border: 0;
   border-radius: 1rem;
-  padding: 0.65rem 1rem;
+  padding: 0.42rem 0.8rem;
   color: var(--table-ink);
   background: color-mix(in srgb, var(--table-panel) 78%, transparent);
-  transform: translateX(-50%);
+  transform: none;
+}
+
+.public-table--quiet:has(.chip-rail) .dealer-rail {
+  width: min(44rem, 100%);
+  grid-row: 2;
+}
+
+.public-table--quiet:has(.chip-rail) .dealer-rail__cards {
+  width: min(28rem, 100%);
+  margin-inline: auto;
 }
 
 .board-pot {
@@ -585,12 +618,11 @@
   font-variant-numeric: tabular-nums;
 }
 
-.public-table--quiet .board-pot {
-  position: absolute;
+.public-table--quiet:has(.chip-rail) .board-pot {
+  position: static;
   z-index: 4;
-  top: calc(100% + 0.75rem);
-  left: 50%;
-  transform: translateX(-50%);
+  margin: 0.75rem auto 0;
+  transform: none;
 }
 
 .public-table--quiet .settlement-panel {
@@ -617,6 +649,34 @@
   margin: 0;
   transform: translateX(-50%);
   pointer-events: none;
+}
+
+/* Settlement belongs to the same centered vertical rail as the board. Keeping
+   it in flow reserves space before the bottom seat row can reach the result
+   panel, including TV's five-seat lower edge. */
+.public-table--quiet:has(.settlement-panel) {
+  grid-template-rows: auto auto auto;
+}
+
+.public-table--quiet:has(.settlement-panel) .settlement-panel {
+  position: static;
+  grid-row: 3;
+  width: min(36rem, 100%);
+  margin: 0 auto;
+  transform: none;
+}
+
+/* TV seats face one direction, so reserve equal upper and lower lanes. */
+.table-surface--tv .public-table--quiet:has(.chip-rail) {
+  padding-top: 2.5rem !important;
+  padding-bottom: 2.5rem !important;
+}
+.table-surface--tv .public-table--quiet:has(.chip-rail) .dealer-rail__cards {
+  width: min(26rem, 100%);
+}
+
+.public-table--quiet:has(.settlement-panel) .showdown-note {
+  display: none;
 }
 
 .quiet-seat-grid {
@@ -1065,6 +1125,28 @@
 
 .table-corner > svg circle {
   fill: currentColor;
+}
+
+/* Digital Phase 2 uses the approved brand module verbatim. The matrix keeps
+   the source path/circle numbers intact while fitting one rotated module into
+   the 24px launcher; Airplane and retained Phase 1 controls keep their prior
+   simple glyph. */
+.table-corner__canonical {
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: butt;
+  stroke-linejoin: round;
+  stroke-width: 8.664;
+}
+
+.table-corner > svg .table-corner__canonical path {
+  stroke-linecap: butt;
+  stroke-width: 8.664;
+}
+
+.table-corner > svg .table-corner__canonical circle {
+  fill: currentColor;
+  stroke: none;
 }
 
 .table-corner--upper-left {
@@ -1655,6 +1737,23 @@ button.secondary-control-card:disabled {
   padding-left: 80px;
 }
 
+.table-surface:has(.chip-rail)
+  .secondary-controls
+  .secondary-control-card__icon {
+  padding: 0.45rem;
+}
+.table-surface:has(.chip-rail) .secondary-controls .secondary-control-card {
+  padding-left: 88px;
+}
+.table-surface:has(.chip-rail)
+  .host-control-center
+  .secondary-control-card__icon {
+  padding: 0.62rem;
+}
+.table-surface:has(.chip-rail) .host-control-center .secondary-control-card {
+  padding-left: 104px;
+}
+
 .secondary-control-card__icon svg {
   display: block;
   width: 100%;
@@ -1755,6 +1854,21 @@ button.secondary-control-card:disabled {
   flex-wrap: wrap;
   gap: 8px;
   margin-top: 12px;
+}
+
+.secondary-device-actions--history:has(
+  > [data-qa-control="tablet-save-log"]:only-child
+) {
+  margin-top: 0;
+}
+
+.secondary-device-actions--history {
+  align-items: stretch;
+}
+
+.secondary-device-actions--history button {
+  flex: 1 1 10rem;
+  min-width: 0;
 }
 
 .secondary-device-actions button,
@@ -2386,6 +2500,36 @@ button.secondary-control-card:disabled {
   padding: 0.55rem 0.7rem;
 }
 
+.player-history-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.45rem;
+  border-top: 1px solid var(--table-rule);
+  padding-top: 0.8rem;
+}
+
+.player-history-actions button {
+  min-height: 2.7rem;
+  border: 1px solid var(--table-rule);
+  border-radius: 0.72rem;
+  padding: 0.55rem 0.7rem;
+  color: var(--table-ink);
+  background: var(--table-panel-raised);
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.7rem;
+  font-weight: 720;
+}
+
+.player-history-actions button:last-child:nth-child(odd) {
+  grid-column: 1 / -1;
+}
+
+.player-history-actions button:disabled {
+  cursor: not-allowed;
+  opacity: 0.52;
+}
+
 .table-surface[data-runtime="table-side"] .sit-out-control--switch {
   position: relative;
   justify-content: space-between;
@@ -2755,10 +2899,7 @@ button.secondary-control-card:disabled {
   font-weight: 760;
 }
 
-.table-surface[data-runtime="table-side"] .player-stack-list__self-label,
-.table-surface[data-runtime="table-side"] .player-stack-list__all-in,
-.table-surface[data-runtime="table-side"] .seat-edge-status__accounting-status,
-.table-surface[data-runtime="table-side"] .seat-tile__accounting-status {
+.table-surface[data-runtime="table-side"] .player-stack-list__self-label {
   border: 1px solid color-mix(in srgb, var(--table-accent) 58%, transparent);
   border-radius: 999px;
   padding: 0.12rem 0.42rem;
@@ -2769,10 +2910,75 @@ button.secondary-control-card:disabled {
   white-space: nowrap;
 }
 
-.table-surface[data-runtime="table-side"] .player-stack-list__value {
-  display: flex;
+/* All-in is an accounting state, so it gets a stronger visual channel than
+   the gold stack metadata. The triangle remains legible when the seat module
+   rotates around the physical table and the label stays in its own row. */
+.table-surface[data-runtime="table-side"] .player-stack-list__all-in,
+.table-surface[data-runtime="table-side"] .seat-edge-status__accounting-status,
+.table-surface[data-runtime="table-side"] .seat-tile__accounting-status {
+  display: inline-flex;
+  min-height: 1.28rem;
   align-items: center;
-  gap: 0.5rem;
+  gap: 0.3rem;
+  border: 1px solid color-mix(in srgb, #ef6251 74%, var(--table-rule));
+  border-radius: 0.38rem;
+  padding: 0.16rem 0.44rem 0.16rem 0.26rem;
+  color: #ffd2ca;
+  background: color-mix(in srgb, #8f261d 76%, var(--table-panel));
+  font-size: 0.68rem;
+  font-weight: 900;
+  letter-spacing: 0.02em;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.table-surface[data-runtime="table-side"] .player-stack-list__all-in::before,
+.table-surface[data-runtime="table-side"]
+  .seat-edge-status__accounting-status::before,
+.table-surface[data-runtime="table-side"]
+  .seat-tile__accounting-status::before {
+  width: 0.76rem;
+  height: 0.76rem;
+  flex: 0 0 0.76rem;
+  background: #ef6251;
+  clip-path: polygon(50% 0, 100% 100%, 0 100%);
+  content: "";
+  filter: drop-shadow(0 0 0.18rem rgba(239, 98, 81, 0.62));
+}
+
+.table-surface[data-runtime="table-side"] .seat-edge-status__stack {
+  display: flex;
+  min-width: 3.4rem;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.3rem;
+  border-radius: 0.68rem;
+  padding: 0.25rem 0.44rem;
+}
+
+/* A seat badge shares the stack row instead of increasing the revealed-hand
+   lane height when every player goes all in. */
+.table-surface[data-runtime="table-side"]:is(
+    .table-surface--tablet,
+    .table-surface--tv
+  )
+  .seat-edge-status__stack {
+  flex-direction: row;
+  justify-content: center;
+}
+
+.table-surface[data-runtime="table-side"] .seat-tile__stack {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.3rem;
+}
+
+.table-surface[data-runtime="table-side"] .player-stack-list__value {
+  display: grid;
+  justify-items: end;
+  align-items: center;
+  gap: 0.3rem;
   white-space: nowrap;
 }
 
@@ -2912,6 +3118,7 @@ button.secondary-control-card:disabled {
   width: 190px;
   height: 102px;
   flex: 0 0 190px;
+  align-self: stretch;
   align-items: center;
   border: 1px solid var(--table-rule);
   border-radius: 27px;
@@ -2921,64 +3128,134 @@ button.secondary-control-card:disabled {
   font-size: 0.82rem;
   font-weight: 720;
   line-height: 1.35;
+  margin: 0;
+}
+
+.table-surface[data-runtime="table-side"] .next-hand-control {
+  align-self: stretch;
+  box-sizing: border-box;
 }
 
 .table-surface .settlement-panel {
+  gap: 0.55rem 0.75rem;
+  padding: 0.55rem 0.65rem;
   border-color: var(--table-rule);
+  border-radius: 0.75rem;
   color: var(--table-ink);
   background: var(--table-panel);
 }
+
+.table-surface .settlement-panel h2 {
+  font-size: 0.92rem;
+}
+
+.table-surface .settlement-panel p {
+  margin-top: 0.14rem;
+  font-size: 0.58rem;
+}
+
+.table-surface .settlement-panel ol {
+  gap: 0.22rem;
+}
+
+.table-surface .settlement-panel li {
+  gap: 0.1rem;
+  padding-top: 0.26rem;
+  font-size: 0.62rem;
+}
+
+.table-surface .settlement-panel small {
+  font-size: 0.56rem;
+}
+
+.table-surface:has(.chip-rail) .settlement-panel {
+  width: min(31rem, 100%);
+  gap: 0.18rem 0.45rem;
+  padding: 0.36rem 0.5rem;
+  line-height: 1.08;
+}
+
+.table-surface:has(.chip-rail) .settlement-panel .section-label,
+.table-surface:has(.chip-rail) .settlement-panel p {
+  display: none;
+}
+
+.table-surface:has(.chip-rail) .settlement-panel h2 {
+  margin-top: 0.04rem;
+  font-size: 0.95rem;
+  line-height: 1.1;
+}
+
+.table-surface:has(.chip-rail) .settlement-panel > strong {
+  font-size: 0.75rem;
+}
+
+.table-surface:has(.chip-rail) .settlement-panel ol {
+  grid-column: 1;
+  gap: 0.1rem;
+}
+
+.table-surface:has(.chip-rail) .settlement-panel li {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.35rem;
+  padding-top: 0.14rem;
+  font-size: 0.75rem;
+  line-height: 1.12;
+}
+
+.table-surface:has(.chip-rail) .settlement-panel li small {
+  flex: 0 1 auto;
+  font-size: 0.68rem;
+  line-height: 1.1;
+  text-align: right;
+}
+
+.table-surface:has(.chip-rail) .settlement-panel__actions {
+  grid-column: 2;
+  grid-row: 2;
+  align-self: end;
+  justify-self: end;
+}
+
+.table-surface:has(.chip-rail) .settlement-panel__actions .action {
+  min-height: 2.75rem;
+  padding: 0.38rem 0.58rem;
+  font-size: 0.68rem;
+}
+
 .table-surface .settlement-panel > strong,
 .table-surface .settlement-panel small {
   color: var(--table-accent);
-}
-
-.table-surface[data-runtime="table-side"] .settlement-panel__winner-hands {
-  display: flex;
-  grid-column: 1 / -1;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.55rem;
-}
-
-.table-surface[data-runtime="table-side"] .settlement-panel__winner-hand {
-  display: flex;
-  align-items: center;
-  gap: 0.45rem;
-  margin: 0;
-  border: 1px solid
-    color-mix(in srgb, var(--table-accent) 45%, var(--table-rule));
-  border-radius: 0.65rem;
-  padding: 0.38rem 0.5rem;
-  background: color-mix(in srgb, var(--table-accent) 8%, var(--table-panel));
-}
-
-.table-surface[data-runtime="table-side"]
-  .settlement-panel__winner-hand
-  figcaption {
-  color: var(--table-ink);
-  font-size: 0.75rem;
-  font-weight: 760;
-}
-
-.table-surface[data-runtime="table-side"] .settlement-panel__winner-cards {
-  display: flex;
-  gap: 0.25rem;
-}
-
-.table-surface[data-runtime="table-side"]
-  .settlement-panel__winner-cards
-  .card--compact {
-  width: 1.9rem;
-  border-color: var(--table-accent);
-  box-shadow: 0 0 0.45rem
-    color-mix(in srgb, var(--table-accent) 25%, transparent);
 }
 
 .table-surface[data-runtime="table-side"] .settlement-panel__actions {
   display: flex;
   grid-column: 1 / -1;
   justify-content: flex-end;
+}
+
+.table-surface[data-runtime="table-side"]:has(.chip-rail)
+  .settlement-panel__actions {
+  grid-column: 2;
+  grid-row: 2;
+  align-self: end;
+}
+
+@media (min-width: 761px) {
+  /* Split pots can produce several award rows. Keep the center rail bounded
+     while allowing the award list to be inspected without shrinking the
+     readable settlement heading or confirmation control. */
+  .table-surface:has(.chip-rail) .settlement-panel {
+    box-sizing: border-box;
+    max-height: 9rem;
+  }
+
+  .table-surface:has(.chip-rail) .settlement-panel ol {
+    min-height: 0;
+    overflow-y: auto;
+  }
 }
 
 .table-surface .surface-error {
@@ -3181,6 +3458,127 @@ button.secondary-control-card:disabled {
   .table-surface .public-table {
     width: calc(100% - 1rem);
   }
+
+  .table-surface[data-runtime="table-side"]:is(
+      .table-surface--tablet,
+      .table-surface--tv
+    )
+    .seat-edge-status__stack {
+    flex-direction: column;
+  }
+
+  .table-surface--tv:has(.chip-rail) .seat-edge-status {
+    column-gap: 0.2rem;
+  }
+  .table-surface--tv:has(.chip-rail) .seat-edge-status > .seat-state-glyph {
+    width: 2rem;
+  }
+  .table-surface--tv[data-runtime="table-side"]:has(.chip-rail)
+    .seat-edge-status__stack {
+    padding-inline: 0.2rem;
+  }
+
+  /* Portrait displays need room for the physical side seats above and below
+     the center rail. Scroll the table rather than overlap revealed hands. */
+  .public-table--quiet:has(.chip-rail) {
+    min-height: max(100svh, 60rem);
+  }
+  .table-surface--tablet:has(.chip-rail)
+    :is(
+      .seat-edge-status--3,
+      .seat-edge-status--9
+    )[data-seat-has-shown-hand="true"] {
+    top: 23%;
+  }
+  .table-surface--tablet:has(.chip-rail)
+    :is(
+      .seat-edge-status--4,
+      .seat-edge-status--8
+    )[data-seat-has-shown-hand="true"] {
+    top: 77%;
+  }
+  .table-surface:has(.chip-rail) .settlement-panel {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .table-surface:has(.chip-rail) .settlement-panel > strong,
+  .table-surface:has(.chip-rail) .settlement-panel ol,
+  .table-surface[data-runtime="table-side"]:has(.chip-rail)
+    .settlement-panel__actions {
+    grid-column: 1;
+    grid-row: auto;
+  }
+
+  .table-surface--tv:has(.chip-rail)
+    .seat-edge-status:is(
+      .seat-edge-status--0,
+      .seat-edge-status--1,
+      .seat-edge-status--2,
+      .seat-edge-status--3,
+      .seat-edge-status--4
+    ) {
+    top: 4rem;
+  }
+
+  /* Narrow digital table/TV lanes use the canonical rank + SuitGlyph face so
+     every revealed pair remains legible without importing desktop SVG width.
+     Physical/Phase1 surfaces and the public board retain their full faces. */
+  .table-surface:is(.table-surface--tablet, .table-surface--tv):has(.chip-rail)
+    .quiet-shown-hand
+    .card--svg-face {
+    width: clamp(1.65rem, 8vw, 2.35rem);
+    background: var(--table-card, #fffaf0);
+    aspect-ratio: 0.7;
+    border-radius: 0.3rem;
+    box-shadow:
+      inset 0 0 0 0.1rem rgba(255, 255, 255, 0.3),
+      0 0.22rem 0.4rem rgba(0, 0, 0, 0.24);
+  }
+
+  .table-surface:is(.table-surface--tablet, .table-surface--tv):has(.chip-rail)
+    .quiet-shown-hand
+    .card--svg-face
+    .card__face-svg {
+    display: none;
+  }
+
+  .table-surface:is(.table-surface--tablet, .table-surface--tv):has(.chip-rail)
+    .quiet-shown-hand
+    .card--svg-face
+    .card__compact-face {
+    position: absolute;
+    inset: 0;
+    display: grid;
+    place-content: center;
+    justify-items: center;
+    gap: 0.08rem;
+    color: currentColor;
+    line-height: 1;
+  }
+
+  .table-surface:is(.table-surface--tablet, .table-surface--tv):has(.chip-rail)
+    .quiet-shown-hand
+    .card--svg-face
+    .card__compact-face
+    .card__rank {
+    font-size: clamp(1rem, 4.6vw, 1.2rem);
+    font-weight: 760;
+    letter-spacing: -0.04em;
+    line-height: 1;
+  }
+
+  .table-surface:is(.table-surface--tablet, .table-surface--tv):has(.chip-rail)
+    .quiet-shown-hand
+    .card--svg-face
+    .card__compact-face
+    .card__corner-suit {
+    display: grid;
+    width: 1em;
+    height: 1em;
+    place-items: center;
+    margin: 0;
+    font-size: clamp(0.75rem, 3.2vw, 1rem);
+    line-height: 1;
+  }
   .table-surface--host .public-table {
     padding-top: 1rem;
   }
@@ -3212,6 +3610,7 @@ button.secondary-control-card:disabled {
     display: grid;
     height: auto;
   }
+  .tablet-digital-progress,
   .next-card-action,
   .next-hand-control {
     width: 100%;

@@ -57,7 +57,7 @@ test("Phase 2 preview defaults to digital and keeps both phase tables recoverabl
   ).toBeChecked();
   await expect(
     phase2.getByText(
-      "Phase 2 test preview: confirm settlement before the next hand. Top up between hands; new seats after dealing are not supported.",
+      "Confirm settlement before the next hand. Top up between hands; the player roster is fixed after dealing.",
     ),
   ).toBeVisible();
 
@@ -96,6 +96,10 @@ test("Phase 2 feedback: auto settlement persists until one confirmed award, then
     "Requires the assembled release paths.",
   );
   await host.goto("/multiplayer/");
+  // Keep these accounting vectors independent of the product's suggested stakes.
+  await host.getByLabel("Starting stack", { exact: true }).fill("100");
+  await host.getByLabel("Small blind", { exact: true }).fill("1");
+  await host.getByLabel("Big blind", { exact: true }).fill("2");
   await host.getByRole("button", { name: "Create table" }).click();
   const players = [];
   for (const name of ["Alice", "Bob"]) {

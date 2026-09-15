@@ -48,6 +48,26 @@ import {
   type ClientAirplanePairing,
   type HostAirplanePairing,
 } from "./airplane";
+import {
+  ConnectivityRecoveryCoordinator,
+  ConnectivityRecoveryBackoffError,
+  recordAuthenticatedLivenessMiss,
+  resetAuthenticatedLiveness,
+  type ConnectivityRecoveryTrigger,
+} from "./connection-recovery";
+
+export {
+  CONNECTIVITY_RECOVERY_BACKOFF_MS,
+  ConnectivityRecoveryBackoffError,
+  ConnectivityRecoveryCoordinator,
+  recordAuthenticatedLivenessMiss,
+  resetAuthenticatedLiveness,
+} from "./connection-recovery";
+export type {
+  AuthenticatedLivenessState,
+  ConnectivityRecoveryOptions,
+  ConnectivityRecoveryTrigger,
+} from "./connection-recovery";
 
 import {
   BUILD_VERSION,
@@ -1125,7 +1145,12 @@ class RoomEndpoint {
     RelayRoomRoute,
     Promise<WebSocket>
   >();
+  private readonly relayRecovery = new Map<
+    RelayRoomRoute,
+    ConnectivityRecoveryCoordinator
+  >();
   private readonly relaySockets = new Map<RelayRoomRoute, WebSocket>();
+  private relayResumeFlight: Promise<boolean> | undefined;
   private relayRoutes: RelayRouteConfiguration | undefined;
   private selectedRoute: RoomRoute | undefined;
   private sequence = 0;
@@ -1150,7 +1175,9 @@ class RoomEndpoint {
     );
     for (const route of ["cloud-relay", "private-relay"] as const) {
       if (relayConfigForRoute(route, this.relayRoutes)) {
-        void this.connectRelay(route).catch(() => undefined);
+        void this.relayRecoveryFor(route)
+          .run("automatic")
+          .catch(() => undefined);
       }
     }
   }
@@ -1177,6 +1204,8 @@ class RoomEndpoint {
     }
     this.relaySockets.clear();
     this.relayConnections.clear();
+    this.relayRecovery.clear();
+    this.relayResumeFlight = undefined;
   }
 
   connectionLabel(): string {
@@ -1199,9 +1228,12 @@ class RoomEndpoint {
         this.relaySockets.get(route)?.close(1000, "relay ticket rotated");
         this.relaySockets.delete(route);
         this.relayConnections.delete(route);
+        this.relayRecovery.delete(route);
       }
       if (nextConfig?.accessToken && !this.relayConnections.has(route)) {
-        void this.connectRelay(route).catch(() => undefined);
+        void this.relayRecoveryFor(route)
+          .run("automatic")
+          .catch(() => undefined);
       }
     }
   }
@@ -1212,24 +1244,56 @@ class RoomEndpoint {
    * WebSocket. Replacing the socket is bounded to relay transports; Airplane
    * and already-open direct data channels remain available for probing.
    */
-  async resume(): Promise<void> {
+  async resume(
+    trigger: ConnectivityRecoveryTrigger = "manual",
+  ): Promise<boolean> {
     if (this.closed) throw new Error("The room route is closed.");
-    this.selectedRoute = undefined;
+    if (this.relayResumeFlight) return this.relayResumeFlight;
+    if (
+      trigger === "automatic" &&
+      typeof navigator !== "undefined" &&
+      navigator.onLine === false
+    ) {
+      return false;
+    }
+    // Relay health must not gate a working local/direct host path.
+    if (
+      this.localPeerId !== "host" &&
+      ((await this.probe("airplane")) || (await this.probe("direct", false)))
+    ) {
+      return true;
+    }
     const routes = (["cloud-relay", "private-relay"] as const).filter((route) =>
       Boolean(relayConfigForRoute(route, this.relayRoutes)),
     );
-    if (routes.length === 0) return;
-    const results = await Promise.allSettled(
-      routes.map(async (route) => {
-        this.relaySockets.get(route)?.close(1000, "browser foregrounded");
-        this.relaySockets.delete(route);
-        this.relayConnections.delete(route);
-        await this.connectRelay(route);
-      }),
-    );
-    if (results.every((result) => result.status === "rejected")) {
-      throw new Error("The configured relay did not reconnect.");
-    }
+    if (routes.length === 0) return true;
+    const operation = Promise.allSettled(
+      routes.map((route) => this.relayRecoveryFor(route).run(trigger)),
+    )
+      .then((results) => {
+        if (results.every((result) => result.status === "rejected")) {
+          const failureResult = results.find(
+            (result): result is PromiseRejectedResult =>
+              result.status === "rejected" &&
+              !(result.reason instanceof ConnectivityRecoveryBackoffError),
+          );
+          const fallbackResult = results.find(
+            (result): result is PromiseRejectedResult =>
+              result.status === "rejected",
+          );
+          const failure = (failureResult ?? fallbackResult)?.reason;
+          throw failure instanceof Error
+            ? failure
+            : new Error("The configured relay did not reconnect.");
+        }
+        return true;
+      })
+      .finally(() => {
+        if (this.relayResumeFlight === operation)
+          this.relayResumeFlight = undefined;
+      });
+    this.relayResumeFlight = operation;
+    return operation;
   }
 
   attachAirplaneChannel(peerId: string, channel: RTCDataChannel): void {
@@ -1391,6 +1455,9 @@ class RoomEndpoint {
         if (settled) return;
         settled = true;
         globalThis.clearTimeout(timeout);
+        if (this.relayConnections.get(route) === connection) {
+          this.relayConnections.delete(route);
+        }
         reject(new Error(`${route} connection failed.`));
       };
       socket.addEventListener("error", fail, { once: true });
@@ -1438,6 +1505,17 @@ class RoomEndpoint {
           ) {
             settled = true;
             globalThis.clearTimeout(timeout);
+            const currentConfig = relayConfigForRoute(route, this.relayRoutes);
+            if (
+              this.closed ||
+              this.relayConnections.get(route) !== connection ||
+              currentConfig?.accessToken !== config.accessToken ||
+              currentConfig?.url !== config.url
+            ) {
+              socket.close(1000, "superseded registration");
+              reject(new Error("Relay registration was superseded."));
+              return;
+            }
             this.relaySockets.set(route, socket);
             resolve(socket);
             return;
@@ -1483,6 +1561,9 @@ class RoomEndpoint {
         }
       });
       socket.addEventListener("close", () => {
+        const wasCurrent =
+          this.relaySockets.get(route) === socket ||
+          this.relayConnections.get(route) === connection;
         if (this.relaySockets.get(route) === socket) {
           this.relaySockets.delete(route);
         }
@@ -1490,12 +1571,81 @@ class RoomEndpoint {
           this.relayConnections.delete(route);
         }
         if (!settled) fail();
-        this.rejectRelayReceipts(route);
-        if (this.selectedRoute === route) this.selectedRoute = undefined;
+        if (wasCurrent) {
+          this.rejectRelayReceipts(route);
+          if (this.selectedRoute === route) this.selectedRoute = undefined;
+        }
       });
     });
     this.relayConnections.set(route, connection);
+    void connection.catch(() => {
+      if (this.relayConnections.get(route) === connection) {
+        this.relayConnections.delete(route);
+      }
+    });
     return connection;
+  }
+
+  private relayRecoveryFor(
+    route: RelayRoomRoute,
+  ): ConnectivityRecoveryCoordinator {
+    const existing = this.relayRecovery.get(route);
+    if (existing) return existing;
+    const recovery = new ConnectivityRecoveryCoordinator({
+      checkHealthy: async () => this.probeRelaySocket(route),
+      isHealthy: () => this.relaySocketIsHealthy(route),
+      recover: async () => {
+        await this.connectRelay(route);
+      },
+    });
+    this.relayRecovery.set(route, recovery);
+    return recovery;
+  }
+
+  private relaySocketIsHealthy(route: RelayRoomRoute): boolean {
+    return this.relaySockets.get(route)?.readyState === WebSocket.OPEN;
+  }
+
+  /**
+   * Confirm an open relay socket with a read-only receipt. A browser can leave
+   * a WebSocket in OPEN while its underlying network path is half-open after a
+   * sleep or network switch; an envelope receipt is the relay's bounded ack for
+   * the current authenticated registration.
+   */
+  private async probeRelaySocket(route: RelayRoomRoute): Promise<boolean> {
+    const socket = this.relaySockets.get(route);
+    if (!socket || socket.readyState !== WebSocket.OPEN) return false;
+    try {
+      await this.sendOn(
+        route,
+        { kind: "route-probe", requestId: makeId("relay-health") },
+        this.localPeerId,
+      );
+      return (
+        this.relaySockets.get(route) === socket &&
+        socket.readyState === WebSocket.OPEN
+      );
+    } catch {
+      this.invalidateRelaySocket(route, socket, "relay health check failed");
+      return false;
+    }
+  }
+
+  private invalidateRelaySocket(
+    route: RelayRoomRoute,
+    socket: WebSocket,
+    reason: string,
+  ): void {
+    if (this.relaySockets.get(route) !== socket) return;
+    this.relaySockets.delete(route);
+    this.relayConnections.delete(route);
+    if (this.selectedRoute === route) this.selectedRoute = undefined;
+    try {
+      socket.close(1000, reason);
+    } catch {
+      // A transport that already failed can reject close; recovery will still
+      // create a fresh registration because the socket maps were cleared.
+    }
   }
 
   private handleIncoming(frame: RoomWireFrame, route: RoomRoute): void {
@@ -1818,9 +1968,9 @@ class RoomEndpoint {
     }
   }
 
-  private async probe(route: RoomRoute): Promise<boolean> {
+  private async probe(route: RoomRoute, allowOffer = true): Promise<boolean> {
     if (route === "airplane" && this.airplaneChannels.size === 0) return false;
-    if (route === "direct" && this.localPeerId !== "host") {
+    if (route === "direct" && this.localPeerId !== "host" && allowOffer) {
       if (await this.establishDirectPeer("host")) return true;
     }
     if (route === "private-relay" || route === "cloud-relay") {
@@ -2130,6 +2280,9 @@ export class HostTableRuntime {
   >();
   private readonly endpoint: RoomEndpoint;
   private readonly diagnosticSalt: string;
+  private connectivityError: string | undefined;
+  private connectivityLivenessMisses = 0;
+  private connectivityUnavailable = false;
   private error: string | undefined;
   private readonly handIds = createHandIdGenerator();
   private readonly identity: RoomIdentity;
@@ -2724,17 +2877,46 @@ export class HostTableRuntime {
     });
   }
 
-  async resumeConnectivity(): Promise<void> {
+  async resumeConnectivity(
+    trigger: ConnectivityRecoveryTrigger = "manual",
+  ): Promise<void> {
     try {
-      await this.endpoint.resume();
-      this.error = undefined;
-      this.broadcastChange();
+      const resumed = await this.endpoint.resume(trigger);
+      if (!resumed) return;
+      const wasUnavailable = this.connectivityUnavailable;
+      const previousConnectivityError = this.connectivityError;
+      this.connectivityLivenessMisses = 0;
+      this.connectivityUnavailable = false;
+      this.connectivityError = undefined;
+      if (
+        previousConnectivityError &&
+        this.error === previousConnectivityError
+      ) {
+        this.error = undefined;
+      }
+      if (wasUnavailable || previousConnectivityError) this.broadcastChange();
     } catch (error) {
-      this.captureError(
-        error instanceof Error
-          ? new Error(`Host connection did not resume: ${error.message}`)
-          : new Error("Host connection did not resume."),
+      if (typeof navigator !== "undefined" && navigator.onLine === false) {
+        if (trigger === "manual") throw error;
+        return;
+      }
+      // A polling tick inside the bounded backoff window is not a new
+      // authenticated liveness miss. The last real failure remains quiet
+      // until the next permitted probe.
+      if (error instanceof ConnectivityRecoveryBackoffError) return;
+      // Host-side relay health is a transport counter, not peer liveness.
+      this.connectivityLivenessMisses = Math.min(
+        this.connectivityLivenessMisses + 1,
+        3,
       );
+      this.connectivityUnavailable = this.connectivityLivenessMisses >= 3;
+      if (!this.connectivityUnavailable && trigger === "automatic") return;
+      const message =
+        error instanceof Error
+          ? `Host connection did not resume: ${error.message}`
+          : "Host connection did not resume.";
+      this.connectivityError = message;
+      this.captureError(new Error(message));
       throw error;
     }
   }
@@ -3984,6 +4166,11 @@ export class TableClientRuntime {
         | LivenessResponseMessage,
     ) => void
   >();
+  private refreshFlight: Promise<void> | undefined;
+  private refreshTrigger: ConnectivityRecoveryTrigger = "automatic";
+  private refreshRequestedRevision = 0;
+  private routeRecoveryMisses = 0;
+  private routeRecoveryError: string | undefined;
   private hostLivenessMisses = 0;
   private hostUnavailable = false;
   private presencePaused = false;
@@ -4052,7 +4239,10 @@ export class TableClientRuntime {
       ) {
         if (this.finalPublicHistory)
           void this.acknowledgeFinalHistory().catch(() => undefined);
-        else void this.refresh().catch((error) => this.captureError(error));
+        else
+          void this.refresh("automatic", message.revision).catch((error) =>
+            this.captureError(error),
+          );
       }
     });
   }
@@ -4176,9 +4366,63 @@ export class TableClientRuntime {
     };
   }
 
-  async reconnect(): Promise<void> {
-    await this.endpoint.resume();
-    await this.refresh();
+  async reconnect(
+    trigger: ConnectivityRecoveryTrigger = "manual",
+  ): Promise<void> {
+    await this.resumeConnectivity(trigger);
+  }
+
+  /**
+   * Probe the relay and then perform the existing authenticated projection
+   * catch-up. Relay health is read-only and never replaces a healthy socket;
+   * the projection request remains here because liveness does not carry a
+   * revision and a quiet page can miss a host broadcast.
+   */
+  async resumeConnectivity(
+    trigger: ConnectivityRecoveryTrigger = "automatic",
+  ): Promise<void> {
+    if (this.finalPublicHistory || !this.credential) return;
+    let resumed: boolean;
+    try {
+      resumed = await this.endpoint.resume(trigger);
+    } catch (error) {
+      if (typeof navigator !== "undefined" && navigator.onLine === false) {
+        if (trigger === "manual") throw error;
+        return;
+      }
+      // A backoff poll is deliberately quiet; it did not perform a new
+      // authenticated probe and must not advance the three-miss policy.
+      if (error instanceof ConnectivityRecoveryBackoffError) {
+        if (trigger === "automatic") return;
+        // A manual caller may share an automatic flight rejected during
+        // backoff. No retry happened, so it must not report success.
+        this.routeRecoveryError =
+          "Connection did not resume. Check the network and choose Reconnect to table.";
+        this.captureError(new Error(this.routeRecoveryError));
+        throw error;
+      }
+      this.routeRecoveryMisses = Math.min(this.routeRecoveryMisses + 1, 3);
+      if (this.routeRecoveryMisses < 3 && trigger === "automatic") return;
+      this.routeRecoveryError =
+        "Connection did not resume. Check the network and choose Reconnect to table.";
+      this.captureError(new Error(this.routeRecoveryError));
+      throw error;
+    }
+    if (!resumed) return;
+    try {
+      await this.refresh(trigger);
+    } catch (error) {
+      // refresh() owns the first-two quiet liveness misses and throws on the
+      // third. Only that durable connectivity state gets an emitted error;
+      // an authenticated projection command failure remains caller-owned.
+      if (this.hostUnavailable)
+        this.captureError(
+          new Error(
+            "Connection did not resume. Check the network and choose Reconnect to table.",
+          ),
+        );
+      throw error;
+    }
   }
 
   async join(displayName?: string): Promise<void> {
@@ -4355,13 +4599,15 @@ export class TableClientRuntime {
    * authenticated projection request as a reconnection, so a normal refresh
    * restores presence without giving the client a separate authority path.
    */
-  async setPresence(connected: boolean): Promise<void> {
+  async setPresence(
+    connected: boolean,
+    trigger: ConnectivityRecoveryTrigger = "manual",
+  ): Promise<void> {
     if (this.finalPublicHistory) return;
     if (this.role !== "player" || !this.credential) return;
     if (connected) {
       this.presencePaused = false;
-      await this.endpoint.resume();
-      await this.refresh();
+      await this.resumeConnectivity(trigger);
       return;
     }
     this.presencePaused = true;
@@ -4571,18 +4817,28 @@ export class TableClientRuntime {
   }
 
   private resetHostLiveness(): void {
-    this.hostLivenessMisses = 0;
-    if (!this.hostUnavailable) return;
-    this.hostUnavailable = false;
+    const state = resetAuthenticatedLiveness();
+    const wasUnavailable = this.hostUnavailable;
+    const hadRouteError =
+      this.routeRecoveryError !== undefined &&
+      this.error === this.routeRecoveryError;
+    this.routeRecoveryMisses = 0;
+    this.routeRecoveryError = undefined;
+    this.hostLivenessMisses = state.consecutiveMisses;
+    this.hostUnavailable = state.unavailable;
+    if (!wasUnavailable && !hadRouteError) return;
     this.error = undefined;
     this.emit();
   }
 
   private recordHostLivenessMiss(): boolean {
-    this.hostLivenessMisses = Math.min(this.hostLivenessMisses + 1, 3);
-    if (this.hostLivenessMisses < 3) return false;
-    this.hostUnavailable = true;
-    return true;
+    const state = recordAuthenticatedLivenessMiss({
+      consecutiveMisses: this.hostLivenessMisses,
+      unavailable: this.hostUnavailable,
+    });
+    this.hostLivenessMisses = state.consecutiveMisses;
+    this.hostUnavailable = state.unavailable;
+    return state.unavailable;
   }
 
   private updateRelayRoutes(relayRoutes: RelayRouteConfiguration): void {
@@ -4625,13 +4881,49 @@ export class TableClientRuntime {
     return commit;
   }
 
-  private async refresh(): Promise<void> {
+  private refresh(
+    trigger: ConnectivityRecoveryTrigger = "automatic",
+    requestedRevision = 0,
+  ): Promise<void> {
+    this.refreshRequestedRevision = Math.max(
+      this.refreshRequestedRevision,
+      requestedRevision,
+    );
+    if (this.refreshFlight) {
+      if (trigger === "manual") this.refreshTrigger = "manual";
+      return this.refreshFlight;
+    }
+    this.refreshTrigger = trigger;
+    const operation = Promise.resolve()
+      .then(async () => {
+        let before: number;
+        do {
+          before = this.projection?.revision ?? -1;
+          await this.refreshOnce();
+        } while (
+          this.status !== "rejected" &&
+          (this.projection?.revision ?? -1) < this.refreshRequestedRevision &&
+          (this.projection?.revision ?? -1) > before
+        );
+      })
+      .finally(() => {
+        if (this.refreshFlight === operation) this.refreshFlight = undefined;
+      });
+    this.refreshFlight = operation;
+    return operation;
+  }
+
+  private async refreshOnce(): Promise<void> {
     if (this.finalPublicHistory || !this.credential) return;
     if (!this.airplanePairing) {
       try {
         await this.livenessRequest();
       } catch (error) {
-        if (!this.recordHostLivenessMiss()) return;
+        if (
+          !this.recordHostLivenessMiss() &&
+          this.refreshTrigger === "automatic"
+        )
+          return;
         throw error;
       }
       if (this.status === "rejected") return;
