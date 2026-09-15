@@ -220,7 +220,7 @@ describe("Table-side release configuration", () => {
       path.join(process.cwd(), ".github", "workflows", "ci.yml"),
       "utf8",
     );
-    const configure = workflow.indexOf("Configure hosted Phase 2 preview");
+    const configure = workflow.indexOf("Configure hosted Multiplayer");
     const liveGate = workflow.indexOf("Verify configured live relay");
     const deploy = workflow.indexOf("Deploy GitHub Pages");
 

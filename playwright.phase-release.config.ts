@@ -6,6 +6,8 @@ export default defineConfig({
     "phase2-preview.spec.ts",
     "phase2-history.spec.ts",
     "phase2-corner-parity.spec.ts",
+    "phase2-revision4.spec.ts",
+    "phase2-revision4-connectivity.spec.ts",
   ],
   outputDir: "test-results/phase-release",
   workers: 1,

@@ -28,7 +28,7 @@ const chinese: Readonly<Record<string, string>> = {
   "Nearby browser channel": "附近浏览器通道",
   "Isolated state projections": "隔离的状态视图",
   "Exclusive Trusted Host recovery": "可信主机独占恢复",
-  "This browser cannot safely host a table. Open the HTTPS local preview in a current browser.":
+  "This browser cannot safely host a table. Open the HTTPS site in a current browser.":
     "当前浏览器无法安全地主持牌局，请使用最新版浏览器打开 HTTPS 页面。",
   "Physical chips": "实体筹码",
   "Deal-only mode. Players move chips on the table.":
@@ -336,6 +336,7 @@ const chinese: Readonly<Record<string, string>> = {
   "Host Controls": "主机控制",
   "My Hand": "我的手牌",
   "Table View": "牌桌视图",
+  "TV View": "电视视图",
   "Full screen": "全屏",
   "Show player names": "显示玩家姓名",
   "Hide player names": "隐藏玩家姓名",
@@ -351,6 +352,11 @@ const chinese: Readonly<Record<string, string>> = {
   "Diagnostics & history": "诊断与历史记录",
   "Privacy-filtered support evidence": "已过滤隐私的支持信息",
   "Save log": "保存日志",
+  "Hand history": "牌局记录",
+  "Download hand history": "下载牌局记录",
+  "Downloading…": "正在下载…",
+  "Import and replay": "导入与复盘",
+  "Leave table page": "退出牌桌页面",
   "Return to table": "返回牌桌",
   "Your cards": "你的手牌",
   "See your table position": "查看你的座位位置",
@@ -456,7 +462,7 @@ const chinese: Readonly<Record<string, string>> = {
     "请输入整数，并满足 0 < 小盲注 < 大盲注 < 起始筹码。",
   "New players locked": "新玩家加入已锁定",
   "New seats are paused": "新座位暂时关闭",
-  "This Digital Chips preview keeps the same seats after dealing. Existing seat recovery and device replacement still work.":
+  "Digital Chips keeps the same seats after dealing. Existing seat recovery and device replacement still work.":
     "数字筹码预览版发牌后保持原有座位；已有座位仍可恢复或更换设备。",
   "Allow new players to reveal a one-use QR and link. Existing seat recovery and device replacement still work.":
     "允许新玩家获取一次性二维码和链接；已有座位仍可恢复或更换设备。",

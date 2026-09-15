@@ -298,7 +298,8 @@ test("two players complete a dev experimental digital-chip hand through the Tabl
   await expect(host.getByText("Total pot 4", { exact: true })).toBeVisible();
   await expect(
     host.getByText("Stacks update only after confirmation."),
-  ).toBeVisible();
+  ).toBeHidden();
+  await expect(control(host, "tablet-confirm-settlement")).toBeVisible();
 
   const stacksBefore = await host
     .locator("[data-seat-stack]")

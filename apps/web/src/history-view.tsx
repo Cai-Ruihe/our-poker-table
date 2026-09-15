@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import type { Card } from "@html-poker/card-custody";
-import { useLanguage } from "@html-poker/presentation";
+import { PlayingCard, useLanguage } from "@html-poker/presentation";
 import {
   groupPublicHistoryHands,
   parsePublicTableHistory,
@@ -144,13 +144,6 @@ function localDateTimeToIso(value: string): string | undefined {
   return Number.isFinite(date.getTime()) ? date.toISOString() : value;
 }
 
-const suitGlyph: Record<string, string> = {
-  c: "♣",
-  d: "♦",
-  h: "♥",
-  s: "♠",
-};
-
 const suitName: Record<string, { en: string; zh: string }> = {
   c: { en: "clubs", zh: "梅花" },
   d: { en: "diamonds", zh: "方块" },
@@ -249,16 +242,19 @@ function CardFace({
   readonly language: "en" | "zh";
   readonly small?: boolean;
 }) {
-  const suit = card.slice(1, 2);
   return (
     <span
       aria-label={cardSpokenName(card, language)}
-      className={`history-replay__card${small ? " history-replay__card--small" : ""}${suit === "h" || suit === "d" ? " history-replay__card--red" : ""}`}
+      className={`history-replay__card${small ? " history-replay__card--small" : ""}`}
       data-history-public-card={card}
-      role="img"
     >
-      <span>{cardRank(card)}</span>
-      <span aria-hidden="true">{suitGlyph[suit] ?? suit}</span>
+      <PlayingCard
+        card={card}
+        marker="shown"
+        compact={small}
+        compactGlyphsOnly={small}
+        fullFace={!small}
+      />
     </span>
   );
 }

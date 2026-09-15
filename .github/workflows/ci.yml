@@ -84,7 +84,9 @@ jobs:
         run: pnpm install --frozen-lockfile
       - name: Build release artifacts
         run: pnpm build:multiplayer
-      - name: Configure hosted Phase 2 preview
+      - name: Build relay fixture for packaged connection checks
+        run: pnpm build:service
+      - name: Configure hosted Multiplayer
         env:
           TABLE_SIDE_CLOUD_RELAY_URL: ${{ vars.TABLE_SIDE_CLOUD_RELAY_URL }}
           TABLE_SIDE_MAC_RELAY_URL: ${{ vars.TABLE_SIDE_MAC_RELAY_URL }}

@@ -24,7 +24,23 @@ interface DownloadedHistory {
 }
 
 function control(page: Page, id: string): Locator {
-  return page.locator(`[data-qa-control="${id}"]`);
+  const menuIds: Record<string, string> = {
+    "player-history-download": "player-menu-history-download",
+    "player-history-replay": "player-menu-history-replay",
+    "player-exit-page": "player-menu-exit-page",
+  };
+  const menuId = menuIds[id];
+  return page.locator(
+    menuId
+      ? `[data-qa-control="${id}"], [data-qa-control="${menuId}"]`
+      : `[data-qa-control="${id}"]`,
+  );
+}
+
+async function openPlayerHistoryMenu(page: Page): Promise<void> {
+  if (await control(page, "player-history-download").isVisible()) return;
+  await control(page, "player-leave-options-open").click();
+  await expect(control(page, "player-history-download")).toBeVisible();
 }
 
 async function joinPlayer(
@@ -53,6 +69,8 @@ async function downloadHistory(
     | "host-history-download" = "player-history-download",
   afterDownload?: () => Promise<unknown>,
 ): Promise<DownloadedHistory> {
+  if (controlId === "player-history-download")
+    await openPlayerHistoryMenu(page);
   let downloaded: Download | undefined;
   const trigger = async (target: Locator) => {
     const pending = page.waitForEvent("download");
@@ -74,6 +92,17 @@ async function downloadHistory(
   } else if (controlId === "host-history-download") {
     await exerciseControl(
       "host-history-download",
+      control(page, controlId),
+      trigger,
+      verify,
+    );
+  } else if (
+    await page
+      .locator('[data-qa-control="player-menu-history-download"]')
+      .isVisible()
+  ) {
+    await exerciseControl(
+      "player-menu-history-download",
       control(page, controlId),
       trigger,
       verify,
@@ -147,10 +176,35 @@ test("Phase 2 history downloads, replay, exit, and dissolution preserve public r
   );
 
   await host.goto("/multiplayer/");
+  await host.getByLabel("Starting stack", { exact: true }).fill("100");
+  await host.getByLabel("Small blind", { exact: true }).fill("1");
+  await host.getByLabel("Big blind", { exact: true }).fill("2");
   await host.getByRole("button", { name: "Create table" }).click();
   const alice = await joinPlayer(host, context, "Alice");
   const bob = await joinPlayer(host, context, "Bob");
   const bobRecoveryUrl = bob.url();
+
+  // Waiting-room actions use the retained panel; in-hand actions live in its menu.
+  await exerciseControl(
+    "player-history-replay",
+    control(alice, "player-history-replay"),
+    (target) => target.click(),
+    () =>
+      expect(
+        alice.getByRole("heading", { name: "Hand history", exact: true }),
+      ).toBeVisible(),
+  );
+  await control(alice, "history-close").click();
+  await exerciseControl(
+    "player-exit-page",
+    control(alice, "player-exit-page"),
+    (target) => target.click(),
+    () =>
+      expect(
+        alice.getByRole("dialog", { name: "Leave this table?" }),
+      ).toBeVisible(),
+  );
+  await control(alice, "leave-dialog-cancel").click();
 
   await host.getByRole("button", { name: "Deal first hand" }).click();
   await expect(alice.locator("[data-private-card]")).toHaveCount(2);
@@ -206,16 +260,13 @@ test("Phase 2 history downloads, replay, exit, and dissolution preserve public r
     );
   }
 
-  const winnerSeat = host.locator(".settlement-panel__winner-hand");
+  const winnerSeat = host.locator('[data-seat-settlement-winner="true"]');
   await expect(winnerSeat.first()).toBeVisible();
-  const winnerSeatId = await winnerSeat
-    .first()
-    .getAttribute("data-settlement-winner-seat");
+  const winnerSeatId = await winnerSeat.first().getAttribute("data-seat-id");
   if (!winnerSeatId)
     throw new Error("The settlement proposal has no winner seat.");
-  await expect(
-    winnerSeat.first().locator(".settlement-panel__winner-cards"),
-  ).toBeVisible();
+  await expect(winnerSeat.first().locator("[data-shown-card]")).toHaveCount(2);
+  await expect(host.locator(".settlement-panel [data-card]")).toHaveCount(0);
   await exerciseControl(
     "dealer-confirm-settlement",
     control(host, "dealer-confirm-settlement"),
@@ -342,8 +393,9 @@ test("Phase 2 history downloads, replay, exit, and dissolution preserve public r
   );
   await home.close();
 
+  await openPlayerHistoryMenu(alice);
   await exerciseControl(
-    "player-history-replay",
+    "player-menu-history-replay",
     control(alice, "player-history-replay"),
     (target) => target.click(),
     () =>
@@ -506,11 +558,11 @@ test("Phase 2 history downloads, replay, exit, and dissolution preserve public r
     "history-close",
     control(alice, "history-close"),
     (target) => target.click(),
-    () => expect(control(alice, "player-history-download")).toBeVisible(),
+    () => openPlayerHistoryMenu(alice),
   );
 
   await exerciseControl(
-    "player-exit-page",
+    "player-menu-exit-page",
     control(alice, "player-exit-page"),
     (target) => target.click(),
     () =>
@@ -524,11 +576,12 @@ test("Phase 2 history downloads, replay, exit, and dissolution preserve public r
     "leave-dialog-cancel",
     control(alice, "leave-dialog-cancel"),
     (target) => target.click(),
-    () => expect(control(alice, "player-history-download")).toBeVisible(),
+    () => openPlayerHistoryMenu(alice),
   );
 
+  await openPlayerHistoryMenu(bob);
   await exerciseControl(
-    "player-exit-page",
+    "player-menu-exit-page",
     control(bob, "player-exit-page"),
     (target) => target.click(),
     () =>
@@ -545,7 +598,7 @@ test("Phase 2 history downloads, replay, exit, and dissolution preserve public r
   expect(bobLeaveDownload.filename).toBe(bobHistory.filename);
   await bob.goto(bobRecoveryUrl);
   await bob.reload();
-  await expect(control(bob, "player-history-download")).toBeVisible();
+  await openPlayerHistoryMenu(bob);
 
   // Delay one final-save acknowledgement to reproduce a host refresh halfway
   // through dissolution. Only synthetic test messages are intercepted.

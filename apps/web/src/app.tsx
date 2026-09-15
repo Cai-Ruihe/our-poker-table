@@ -266,9 +266,11 @@ function Home({
   const [chipMode, setChipMode] = useState<"digital" | "physical">(
     IS_PHASE2_BUILD ? "digital" : "physical",
   );
-  const [startingStack, setStartingStack] = useState(100);
-  const [smallBlind, setSmallBlind] = useState(1);
-  const [bigBlind, setBigBlind] = useState(2);
+  const [startingStack, setStartingStack] = useState(
+    IS_PHASE2_BUILD ? 1000 : 100,
+  );
+  const [smallBlind, setSmallBlind] = useState(IS_PHASE2_BUILD ? 5 : 1);
+  const [bigBlind, setBigBlind] = useState(IS_PHASE2_BUILD ? 10 : 2);
   const relayRequiresOperatorToken = tableSideRelayRequiresOperatorToken();
   const digitalRulesValid =
     Number.isSafeInteger(startingStack) &&
@@ -345,13 +347,9 @@ function Home({
         aside={
           <div className="brand-bar__actions">
             <LanguageSwitch compact />
-            <span className="build-label">
-              {IS_PHASE2_BUILD
-                ? language === "zh"
-                  ? "第二阶段预览"
-                  : "Phase 2 preview"
-                : `Build ${BUILD_VERSION}`}
-            </span>
+            {!IS_PHASE2_BUILD ? (
+              <span className="build-label">{`Build ${BUILD_VERSION}`}</span>
+            ) : null}
           </div>
         }
       />
@@ -368,8 +366,8 @@ function Home({
           <p className="home-intro__copy">
             {IS_PHASE2_BUILD
               ? language === "zh"
-                ? "手机保管个人底牌，平板或电视展示公共牌。本预览会记录数字筹码。"
-                : "Phones hold private cards. A tablet or TV shows the board. This preview records digital play chips."
+                ? "手机保管个人底牌，平板或电视展示公共牌，自动记录数字筹码与牌局历史。"
+                : "Phones hold private cards. A tablet or TV shows the board. Keep track of play chips and every hand."
               : t(
                   "Phones hold private cards. A tablet or TV shows the board. Chips and conversation stay on the physical table.",
                 )}
@@ -377,8 +375,8 @@ function Home({
           {IS_PHASE2_BUILD ? (
             <p className="inline-warning" role="note">
               {language === "zh"
-                ? "第二阶段测试预览：确认结算后可继续下一手，并在两手之间补充筹码。暂不支持中途新增玩家。"
-                : "Phase 2 test preview: confirm settlement before the next hand. Top up between hands; new seats after dealing are not supported."}
+                ? "确认结算后继续下一手，两手之间可补充筹码。开始发牌后，玩家名单固定。"
+                : "Confirm settlement before the next hand. Top up between hands; the player roster is fixed after dealing."}
             </p>
           ) : null}
           <div className="deck-statement" aria-hidden="true">
@@ -414,7 +412,7 @@ function Home({
           {!ready ? (
             <p className="inline-warning" role="alert">
               {t(
-                "This browser cannot safely host a table. Open the HTTPS local preview in a current browser.",
+                "This browser cannot safely host a table. Open the HTTPS site in a current browser.",
               )}
             </p>
           ) : null}
@@ -454,8 +452,8 @@ function Home({
                   <strong>
                     {IS_PHASE2_BUILD
                       ? language === "zh"
-                        ? "数字筹码 · 测试预览"
-                        : "Digital chips · preview"
+                        ? "数字筹码"
+                        : "Digital chips"
                       : t("Digital chips · development tracer")}
                   </strong>
                   <small>
@@ -1247,7 +1245,7 @@ function InvitePanel({
           <p>
             {digitalJoinLocked
               ? t(
-                  "This Digital Chips preview keeps the same seats after dealing. Existing seat recovery and device replacement still work.",
+                  "Digital Chips keeps the same seats after dealing. Existing seat recovery and device replacement still work.",
                 )
               : tableSideMode
                 ? t(
@@ -2205,6 +2203,17 @@ function HostDeviceViewSwitcher({
       >
         {t("Table View")}
       </button>
+      {IS_PHASE2_BUILD ? (
+        <button
+          aria-pressed={activeView === "tv"}
+          data-qa-control="device-view-tv"
+          disabled={!tableReady}
+          onClick={() => onChange("tv")}
+          type="button"
+        >
+          {t("TV View")}
+        </button>
+      ) : null}
     </nav>
   );
 }
@@ -2499,6 +2508,7 @@ function HostTable({
   );
   const adminDrawerRef = useRef<HTMLElement>(null);
   const [developerMode, setDeveloperMode] = useState(false);
+  const [historyOpen, setHistoryOpen] = useState(false);
   useScreenWakeLock(true);
   const projection = snapshot.projection;
 
@@ -2515,6 +2525,8 @@ function HostTable({
   ]);
 
   if (!projection) return null;
+  if (historyOpen)
+    return <HistoryReplay onClose={() => setHistoryOpen(false)} />;
 
   function perform(action: () => Promise<void>) {
     if (busy) return;
@@ -2579,6 +2591,20 @@ function HostTable({
             }
           : {})}
         {...(hasPlayer ? { onMyHand: () => onViewChange("player") } : {})}
+        {...(IS_PHASE2_BUILD && activeView !== "host"
+          ? {
+              historyControlPrefix: "host" as const,
+              onDownloadHistory: () => {
+                const history = runtime.exportPublicHistory();
+                saveHistoryFile(
+                  history,
+                  history.frames[0]?.seats[0]?.seatId ?? "",
+                  "Host",
+                );
+              },
+              onImportHistory: () => setHistoryOpen(true),
+            }
+          : {})}
         onDownloadLog={() =>
           downloadText(
             `html-poker-${runtime.tableId}-diagnostics.json`,
@@ -2817,8 +2843,8 @@ function ChipTopUp({
       {allowed && seat?.status === "sitting-out" ? (
         <p role="status">
           {zh
-            ? "此座位已错过发牌。本预览版暂不支持重新入局，请开新桌。"
-            : "This seat has missed a deal. Re-entry is not supported in this preview; start a new table."}
+            ? "此座位已错过发牌，暂不支持重新入局，请开新桌。"
+            : "This seat has missed a deal. Re-entry is not supported after missing a deal; start a new table."}
         </p>
       ) : null}
       <form onSubmit={(event) => void submit(event)}>
@@ -3080,7 +3106,7 @@ function PlayerExperience({
       resuming = true;
       setError(undefined);
       void runtime
-        .setPresence(true)
+        .setPresence(true, "automatic")
         .catch(() => {
           setError(
             isAirplaneMode()
@@ -3096,7 +3122,25 @@ function PlayerExperience({
       if (document.visibilityState === "hidden") hide();
       else show();
     };
-    const poll = globalThis.setInterval(show, 4_000);
+    const poll = globalThis.setInterval(() => {
+      if (isAirplaneMode()) {
+        show();
+        return;
+      }
+      if (
+        document.visibilityState === "hidden" ||
+        resuming ||
+        !navigator.onLine
+      )
+        return;
+      resuming = true;
+      void runtime
+        .resumeConnectivity("automatic")
+        .catch(() => undefined)
+        .finally(() => {
+          resuming = false;
+        });
+    }, 4_000);
     globalThis.addEventListener("pagehide", hide);
     globalThis.addEventListener("pageshow", show);
     globalThis.addEventListener("focus", show);
@@ -3472,6 +3516,17 @@ function PlayerExperience({
           ? { onReconnect: reconnect }
           : {})}
         reconnecting={reconnecting}
+        {...(IS_PHASE2_BUILD
+          ? {
+              historyControlPrefix: "player" as const,
+              historyBusy,
+              onDownloadHistory: () => void downloadHistory(),
+              onImportHistory: () => setHistoryOpen(true),
+              ...(manageLifecycle
+                ? { onLeaveTablePage: () => setLeaveConfirmOpen(true) }
+                : {}),
+            }
+          : {})}
         onShowCards={() => perform({ type: "show" })}
         {...(!fixedDigitalSeats
           ? {
@@ -3483,7 +3538,6 @@ function PlayerExperience({
         projection={playerProjection}
         productName={PRODUCT_NAME}
       />
-      {historyTools}
       {leaveConfirmOpen ? (
         <LeaveTableDialog
           busy={busy || historyBusy}
@@ -3529,7 +3583,7 @@ function RoleExperience({ runtime }: { readonly runtime: TableClientRuntime }) {
       resuming = true;
       setError(undefined);
       void runtime
-        .reconnect()
+        .reconnect("automatic")
         .catch((caught: unknown) => {
           setError(
             caught instanceof Error
@@ -3544,7 +3598,25 @@ function RoleExperience({ runtime }: { readonly runtime: TableClientRuntime }) {
     const visibilityChanged = () => {
       if (document.visibilityState === "visible") resume();
     };
-    const poll = globalThis.setInterval(resume, 4_000);
+    const poll = globalThis.setInterval(() => {
+      if (isAirplaneMode()) {
+        resume();
+        return;
+      }
+      if (
+        document.visibilityState === "hidden" ||
+        resuming ||
+        !navigator.onLine
+      )
+        return;
+      resuming = true;
+      void runtime
+        .resumeConnectivity("automatic")
+        .catch(() => undefined)
+        .finally(() => {
+          resuming = false;
+        });
+    }, 4_000);
     globalThis.addEventListener("pageshow", resume);
     globalThis.addEventListener("focus", resume);
     globalThis.addEventListener("online", resume);
@@ -4072,10 +4144,12 @@ function AppContent() {
         // Re-register the Trusted Host first. The embedded Player uses the
         // same phone and can otherwise race its first authenticated refresh
         // against a relay that has not seen the host return yet.
-        await hostRuntime.resumeConnectivity().catch(() => undefined);
+        await hostRuntime
+          .resumeConnectivity("automatic")
+          .catch(() => undefined);
         if (!hostPlayerRuntime) return;
         try {
-          await hostPlayerRuntime.setPresence(true);
+          await hostPlayerRuntime.setPresence(true, "automatic");
           setHostPlayerRecoveryError(undefined);
         } catch (caught) {
           setHostPlayerRecoveryError(
@@ -4092,7 +4166,29 @@ function AppContent() {
       if (document.visibilityState === "hidden") pauseEmbeddedPlayer();
       else resume();
     };
-    const poll = globalThis.setInterval(resume, 4_000);
+    const poll = globalThis.setInterval(() => {
+      if (isAirplaneMode()) {
+        resume();
+        return;
+      }
+      if (
+        document.visibilityState === "hidden" ||
+        resuming ||
+        !navigator.onLine
+      )
+        return;
+      resuming = true;
+      void (async () => {
+        await hostRuntime
+          .resumeConnectivity("automatic")
+          .catch(() => undefined);
+        await hostPlayerRuntime
+          ?.resumeConnectivity("automatic")
+          .catch(() => undefined);
+      })().finally(() => {
+        resuming = false;
+      });
+    }, 4_000);
     globalThis.addEventListener("pagehide", pauseEmbeddedPlayer);
     globalThis.addEventListener("pageshow", resume);
     globalThis.addEventListener("focus", resume);

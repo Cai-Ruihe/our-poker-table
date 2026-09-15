@@ -512,17 +512,19 @@ test("Table-side liveness stays quiet for two misses and recovers after a third"
     // Keep both relay sockets available while pausing only the Trusted Host
     // document. This models a browser scheduling pause, not Wi-Fi loss.
     const hostStall = host.evaluate(() => {
-      const deadline = performance.now() + 25_000;
+      const deadline = performance.now() + 40_000;
       while (performance.now() < deadline) {
         // Deliberately block only this page's JavaScript event loop.
       }
     });
 
-    await player.waitForTimeout(8_500);
+    // Each serialized liveness request can take 7.5 seconds. Two misses
+    // therefore require more than two four-second scheduler ticks.
+    await player.waitForTimeout(18_500);
     await expect(player.getByRole("alert")).toHaveCount(0);
     await expect(player.getByRole("alert")).toHaveText(
       "Connection did not resume. Check the network and choose Reconnect to table.",
-      { timeout: 8_000 },
+      { timeout: 12_000 },
     );
 
     await hostStall;
