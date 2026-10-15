@@ -130,8 +130,8 @@ pnpm build
 It supports digital play-chip betting, explicit settlement, consecutive hands,
 host-controlled top-ups between hands, public hand-history downloads, and local
 search and replay. The roster stays fixed after dealing; late joins and manual
-sit-out/return remain unavailable. See the [release record](docs/releases/MULTIPLAYER-0.2.0.md)
-for the history and scope of the published build.
+sit-out/return remain unavailable. See the [release record](docs/releases/MULTIPLAYER-0.2.1.md)
+for publication status, history, and scope.
 
 **The honest release boundary:** automated browser and contract evidence exists,
 but physical iOS/iPadOS, Android, TV, WAN-removal, hostile-network, and

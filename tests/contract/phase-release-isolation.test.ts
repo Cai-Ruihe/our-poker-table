@@ -26,7 +26,7 @@ describe("independent phase release channels", () => {
   });
 
   test("Phase 2 has its preview version and separate storage and crypto names", () => {
-    expect(phase2.buildVersion).toBe("0.2.0");
+    expect(phase2.buildVersion).toBe("0.2.1");
     expect(phaseScopedName("html-poker-host:table-1", phase2)).toBe(
       "phase2:html-poker-host:table-1",
     );
@@ -53,6 +53,16 @@ describe("independent phase release channels", () => {
         role: "player",
       }),
     ).toThrow(/different version/);
+  });
+
+  test("Phase 2 rejects invitations from the previous 0.2.0 build", () => {
+    expect(
+      invitationReleaseIssue(
+        { buildVersion: "0.2.0", protocolVersion: 2 },
+        ["/multiplayer/"],
+        phase2,
+      ),
+    ).toBe("build");
   });
 
   test("a valid build invitation on the other phase entry path is rejected", () => {

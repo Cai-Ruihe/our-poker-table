@@ -2,6 +2,20 @@
 
 All notable project changes will be documented here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and released versions will follow [Semantic Versioning](https://semver.org/) once a public application release exists.
 
+## [0.2.1] — Publication pending
+
+### Fixed
+
+- Rejected Digital Chips participation changes at the Game Core authority,
+  closing the missed-deal return/top-up bypass, including after recovery.
+
+### Added
+
+- Qualified six independently hand-derived accounting vectors with stipulated
+  winners, exact settlement balances, explicit confirmation, and isolated fault
+  sensitivity checks. This does not qualify card evaluation or full differential
+  settlement coverage. See the [0.2.1 candidate record](docs/releases/MULTIPLAYER-0.2.1.md).
+
 ## [Unreleased]
 
 ### Fixed
