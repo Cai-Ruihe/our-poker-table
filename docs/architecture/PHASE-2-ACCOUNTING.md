@@ -178,3 +178,20 @@ after the guard, all 14 top-up contracts and the selected 73 accounting, authori
 persistence, custody, and Phase 1 contracts passed. Changed TypeScript formatting,
 lint, and repository typecheck passed. This is bounded local contract evidence;
 independent review and full integration/browser/device qualification remain open.
+
+## Frozen settlement qualification slice — 2026-10-15
+
+`digital-accounting-frozen-settlement.test.ts` executes six independently
+hand-derived, frozen JSON vectors through the public accounting interface.
+They cover nested side pots, folded dead money, single-eligible uncalled excess,
+tied odd-chip order, cumulative short-all-in reopening, and a single short
+all-in that does not reopen. Literal expectations check contributions, pot
+eligibility, proposed awards, confirmation-only balances, rejected ineligible
+winners, duplicate confirmation, and conservation at every accepted transition.
+
+The fixture preserves the independent author's provenance and mathematical
+derivations. Winners are stipulated ranking inputs; the adapter does not select
+commands or calculate expected awards from production output. All six vectors
+pass locally. This is a bounded accounting qualification slice, not independent
+card-evaluator or full differential qualification. Non-author review and isolated
+production-fault sensitivity experiments remain integration acceptance gates.
