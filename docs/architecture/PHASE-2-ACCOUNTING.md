@@ -162,3 +162,19 @@ Preview re-entry boundary: an existing player may reload immediately after a
 hand, including after reaching zero, before missing a subsequent deal. Once a
 seat has sat out a deal, top-up/return is unavailable until blind-aware re-entry
 is implemented. This does not change the settled wait-for-big-blind rule.
+
+## Digital participation authority verification — 2026-10-15
+
+Game Core now rejects `SetSeatParticipation` for the digital Rules Profile,
+before state or receipt persistence. This closes the missed-deal return/top-up
+bypass at the command owner, including after authority recovery. The runtime
+guard remains in place. Contract coverage checks host/own-seat/other-seat actors,
+both participation flags, and lobby/betting/settlement/complete phases; rejected
+commands preserve revision, history, public/private projections, and the store.
+Immediate reload before a missed deal and Deal-Only sit-out/return remain valid.
+
+Local verification: the six new negative cases failed against the previous Core;
+after the guard, all 14 top-up contracts and the selected 73 accounting, authority,
+persistence, custody, and Phase 1 contracts passed. Changed TypeScript formatting,
+lint, and repository typecheck passed. This is bounded local contract evidence;
+independent review and full integration/browser/device qualification remain open.

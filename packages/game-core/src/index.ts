@@ -1731,7 +1731,9 @@ export function createTrustedHostAuthority(
         break;
       }
       case "SetSeatParticipation": {
-        if (!current) return rejected("command-not-allowed", revision);
+        if (!current || accountingFor(rulesProfileOf(current))) {
+          return rejected("command-not-allowed", revision);
+        }
         const seatId = command.payload.seatId;
         const sittingOut = command.payload.sittingOut;
         const authorized =
