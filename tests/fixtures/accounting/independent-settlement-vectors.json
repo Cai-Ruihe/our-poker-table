@@ -1,0 +1,662 @@
+{
+  "schemaVersion": 1,
+  "title": "Independent manually derived NLHE settlement vectors — bounded P1 slice",
+  "baseline": "091ed94938e85fce1603e47cfc8cbca0b8f59c43",
+  "authorRole": "Independent Architect",
+  "status": "Frozen review inputs and expectations; not execution results",
+  "scope": "Single-table p2-house-1 integer play chips. No external engine, production reducer, legalActions output or project output was used to calculate expected amounts. API/representation was inspected only for adapter compatibility.",
+  "independenceLimit": "Winners are explicitly stipulated independent ranking inputs, not evaluator results. These vectors test accounting and specified betting boundaries; they do not qualify card evaluation or full independent differential settlement coverage.",
+  "commonSetup": {
+    "smallBlind": 1,
+    "bigBlind": 2,
+    "housePolicyId": "p2-house-1",
+    "seatOrderMeaning": "seatOrder is clockwise; first eligible tied winner strictly left of dealer receives first odd chip",
+    "setup": "CreateSession with startingStacks in seatOrder; StartHand with all listed activeSeatIds, dealerSeatId and a fresh handId. Execute commands in their literal order. Do not choose commands/expected winners from engine output.",
+    "assertions": "Assert exact contributions, folded seats, stack before proposal, pots/eligibility, proposal awards, unchanged stack on proposal, final stacks only after ConfirmSettlement; total stacks plus committed contributions conserved at each accepted step. Repeated confirm without a new proposal rejects.",
+    "expectedPotRepresentation": "Adjacent contribution layers with identical eligibility can be combined. expectedPots below use the current public contract's combined representation. Single-contributor excess is identified separately as uncalledReturn, even if represented as a single-eligible settlement entry.",
+    "winnerOrder": "winnersByPot may intentionally use reverse tied-seat order to verify house-rule ordering rather than caller order."
+  },
+  "vectors": [
+    {
+      "id": "SV01-nested-side-pots",
+      "purpose": "Three nested pools, distinct winners and folded-free eligibility caps",
+      "seatOrder": ["A", "B", "C", "D"],
+      "dealerSeatId": "D",
+      "startingStacks": {
+        "A": 30,
+        "B": 60,
+        "C": 100,
+        "D": 100
+      },
+      "commands": [
+        {
+          "type": "AllIn",
+          "seatId": "C"
+        },
+        {
+          "type": "Call",
+          "seatId": "D"
+        },
+        {
+          "type": "Call",
+          "seatId": "A"
+        },
+        {
+          "type": "Call",
+          "seatId": "B"
+        }
+      ],
+      "expected": {
+        "contributions": {
+          "A": 30,
+          "B": 60,
+          "C": 100,
+          "D": 100
+        },
+        "foldedSeatIds": [],
+        "preSettlementStacks": {
+          "A": 0,
+          "B": 0,
+          "C": 0,
+          "D": 0
+        },
+        "sessionTotal": 290,
+        "totalCommitted": 290,
+        "pots": [
+          {
+            "amount": 120,
+            "eligibleSeatIds": ["A", "B", "C", "D"]
+          },
+          {
+            "amount": 90,
+            "eligibleSeatIds": ["B", "C", "D"]
+          },
+          {
+            "amount": 80,
+            "eligibleSeatIds": ["C", "D"]
+          }
+        ],
+        "winnersByPot": [["A"], ["B"], ["C"]],
+        "awardsByPot": [
+          {
+            "A": 120
+          },
+          {
+            "B": 90
+          },
+          {
+            "C": 80
+          }
+        ],
+        "finalStacks": {
+          "A": 120,
+          "B": 90,
+          "C": 80,
+          "D": 0
+        }
+      },
+      "derivation": [
+        "0..30: four contributors => 30*4=120; A wins stipulated strongest eligible hand.",
+        "30..60: B,C,D => 30*3=90; B wins stipulated next strongest hand.",
+        "60..100: C,D => 40*2=80; C wins. Total120+90+80=290.",
+        "Stipulated strict ranking A>B>C>D is consistent across all pots; a short stack cannot win a pool above its contribution."
+      ],
+      "negativeChecks": [
+        {
+          "description": "A cannot win first side pot",
+          "winnersByPot": [["A"], ["A"], ["C"]],
+          "expected": "rejected; state unchanged"
+        }
+      ]
+    },
+    {
+      "id": "SV02-folded-dead-money",
+      "purpose": "Folded contributors remain in amounts and never in eligibility",
+      "seatOrder": ["A", "B", "C", "D"],
+      "dealerSeatId": "D",
+      "startingStacks": {
+        "A": 100,
+        "B": 100,
+        "C": 100,
+        "D": 100
+      },
+      "commands": [
+        {
+          "type": "BetOrRaiseTo",
+          "seatId": "C",
+          "to": 10
+        },
+        {
+          "type": "Call",
+          "seatId": "D"
+        },
+        {
+          "type": "Call",
+          "seatId": "A"
+        },
+        {
+          "type": "Call",
+          "seatId": "B"
+        },
+        {
+          "type": "Check",
+          "seatId": "A"
+        },
+        {
+          "type": "BetOrRaiseTo",
+          "seatId": "B",
+          "to": 20
+        },
+        {
+          "type": "Call",
+          "seatId": "C"
+        },
+        {
+          "type": "Fold",
+          "seatId": "D"
+        },
+        {
+          "type": "Call",
+          "seatId": "A"
+        },
+        {
+          "type": "Check",
+          "seatId": "A"
+        },
+        {
+          "type": "Check",
+          "seatId": "B"
+        },
+        {
+          "type": "BetOrRaiseTo",
+          "seatId": "C",
+          "to": 30
+        },
+        {
+          "type": "Fold",
+          "seatId": "A"
+        },
+        {
+          "type": "Call",
+          "seatId": "B"
+        },
+        {
+          "type": "Check",
+          "seatId": "B"
+        },
+        {
+          "type": "Check",
+          "seatId": "C"
+        }
+      ],
+      "expected": {
+        "contributions": {
+          "A": 30,
+          "B": 60,
+          "C": 60,
+          "D": 10
+        },
+        "foldedSeatIds": ["A", "D"],
+        "preSettlementStacks": {
+          "A": 70,
+          "B": 40,
+          "C": 40,
+          "D": 90
+        },
+        "sessionTotal": 400,
+        "totalCommitted": 160,
+        "pots": [
+          {
+            "amount": 160,
+            "eligibleSeatIds": ["B", "C"]
+          }
+        ],
+        "winnersByPot": [["C"]],
+        "awardsByPot": [
+          {
+            "C": 160
+          }
+        ],
+        "finalStacks": {
+          "A": 70,
+          "B": 40,
+          "C": 200,
+          "D": 90
+        }
+      },
+      "derivation": [
+        "A pays10 preflop+20 flop then folds; D pays10 preflop then folds. B,C each pay10+20+30=60.",
+        "Layers:10*4=40; (30-10)*3=60; (60-30)*2=60. Only B,C remain eligible in every layer, hence combined160.",
+        "C stipulated stronger than B gets160; folded A,D keep only their uncommitted70,90. Final70+40+200+90=400."
+      ],
+      "negativeChecks": [
+        {
+          "description": "Folded A is ineligible despite contributing30",
+          "winnersByPot": [["A"]],
+          "expected": "rejected; state unchanged"
+        }
+      ]
+    },
+    {
+      "id": "SV03-uncalled-excess",
+      "purpose": "An overbet above the opponent's entire stack returns to its contributor; it is not a contested side pot",
+      "seatOrder": ["A", "B"],
+      "dealerSeatId": "A",
+      "startingStacks": {
+        "A": 100,
+        "B": 40
+      },
+      "commands": [
+        {
+          "type": "AllIn",
+          "seatId": "A"
+        },
+        {
+          "type": "Call",
+          "seatId": "B"
+        }
+      ],
+      "expected": {
+        "contributions": {
+          "A": 100,
+          "B": 40
+        },
+        "foldedSeatIds": [],
+        "preSettlementStacks": {
+          "A": 0,
+          "B": 0
+        },
+        "sessionTotal": 140,
+        "totalCommitted": 140,
+        "pots": [
+          {
+            "amount": 80,
+            "eligibleSeatIds": ["A", "B"]
+          },
+          {
+            "amount": 60,
+            "eligibleSeatIds": ["A"]
+          }
+        ],
+        "contestedPotTotal": 80,
+        "uncalledReturn": {
+          "A": 60
+        },
+        "winnersByPot": [["B"], ["A"]],
+        "awardsByPot": [
+          {
+            "B": 80
+          },
+          {
+            "A": 60
+          }
+        ],
+        "finalStacks": {
+          "A": 60,
+          "B": 80
+        }
+      },
+      "derivation": [
+        "Matched stakes are40 from each player => contested80. A's remaining100-40=60 has no opponent and belongs back to A irrespective of hand rank.",
+        "Stipulate B beats A. B receives80; A receives its own60. Sum140.",
+        "Current explicit-confirmation representation may keep60 as a single-eligible entry until settlement; do not call it a contested side pot or require a new pre-confirmation refund event in this bounded slice. Economic outcome is fixed."
+      ],
+      "negativeChecks": [
+        {
+          "description": "B cannot be awarded A's uncalled60",
+          "winnersByPot": [["B"], ["B"]],
+          "expected": "rejected; state unchanged"
+        }
+      ]
+    },
+    {
+      "id": "SV04-tie-odd-chip",
+      "purpose": "Odd chip follows clockwise order left of dealer; dead money produces an odd total",
+      "seatOrder": ["A", "B", "C"],
+      "dealerSeatId": "C",
+      "startingStacks": {
+        "A": 100,
+        "B": 100,
+        "C": 100
+      },
+      "commands": [
+        {
+          "type": "BetOrRaiseTo",
+          "seatId": "C",
+          "to": 5
+        },
+        {
+          "type": "Call",
+          "seatId": "A"
+        },
+        {
+          "type": "Call",
+          "seatId": "B"
+        },
+        {
+          "type": "Check",
+          "seatId": "A"
+        },
+        {
+          "type": "Check",
+          "seatId": "B"
+        },
+        {
+          "type": "Check",
+          "seatId": "C"
+        },
+        {
+          "type": "BetOrRaiseTo",
+          "seatId": "A",
+          "to": 4
+        },
+        {
+          "type": "Call",
+          "seatId": "B"
+        },
+        {
+          "type": "Fold",
+          "seatId": "C"
+        },
+        {
+          "type": "Check",
+          "seatId": "A"
+        },
+        {
+          "type": "Check",
+          "seatId": "B"
+        }
+      ],
+      "expected": {
+        "contributions": {
+          "A": 9,
+          "B": 9,
+          "C": 5
+        },
+        "foldedSeatIds": ["C"],
+        "preSettlementStacks": {
+          "A": 91,
+          "B": 91,
+          "C": 95
+        },
+        "sessionTotal": 300,
+        "totalCommitted": 23,
+        "pots": [
+          {
+            "amount": 23,
+            "eligibleSeatIds": ["A", "B"]
+          }
+        ],
+        "winnersByPot": [["B", "A"]],
+        "orderedWinnerSeatIdsByPot": [["A", "B"]],
+        "awardsByPot": [
+          {
+            "A": 12,
+            "B": 11
+          }
+        ],
+        "finalStacks": {
+          "A": 103,
+          "B": 102,
+          "C": 95
+        }
+      },
+      "derivation": [
+        "Preflop all pay5; turn A,B pay4 each while C folds =>15+8=23. A and B stipulated tie.",
+        "23=11*2+1. Clockwise left of button C is A, so A gets12 and B11 even when input lists B first.",
+        "Final91+12=103;91+11=102;C95. Sum300. No folded seat receives an odd chip."
+      ]
+    },
+    {
+      "id": "SV05-cumulative-short-allins-reopen",
+      "purpose": "Two individually short increases cumulatively reopen a prior actor; then exact side-pot settlement",
+      "seatOrder": ["A", "B", "C", "D"],
+      "dealerSeatId": "B",
+      "startingStacks": {
+        "A": 100,
+        "B": 13,
+        "C": 20,
+        "D": 100
+      },
+      "commands": [
+        {
+          "type": "BetOrRaiseTo",
+          "seatId": "A",
+          "to": 10
+        },
+        {
+          "type": "AllIn",
+          "seatId": "B"
+        },
+        {
+          "type": "AllIn",
+          "seatId": "C"
+        },
+        {
+          "type": "Call",
+          "seatId": "D"
+        },
+        {
+          "type": "Call",
+          "seatId": "A"
+        },
+        {
+          "type": "Check",
+          "seatId": "D"
+        },
+        {
+          "type": "Check",
+          "seatId": "A"
+        },
+        {
+          "type": "Check",
+          "seatId": "D"
+        },
+        {
+          "type": "Check",
+          "seatId": "A"
+        },
+        {
+          "type": "Check",
+          "seatId": "D"
+        },
+        {
+          "type": "Check",
+          "seatId": "A"
+        }
+      ],
+      "checkpoints": [
+        {
+          "afterCommandCount": 4,
+          "actorSeatId": "A",
+          "expected": {
+            "callAmount": 10,
+            "raiseAllowed": true,
+            "minRaiseTo": 28,
+            "maxRaiseTo": 100
+          },
+          "derivation": "A raised2 to10: last full raise increment8. Unacted B all-in13 adds3; unacted C all-in20 adds7. Each is below8, but A now faces20-10=10>=8. Minimum full raise is20+8=28. D's call does not change increment."
+        }
+      ],
+      "expected": {
+        "contributions": {
+          "A": 20,
+          "B": 13,
+          "C": 20,
+          "D": 20
+        },
+        "foldedSeatIds": [],
+        "preSettlementStacks": {
+          "A": 80,
+          "B": 0,
+          "C": 0,
+          "D": 80
+        },
+        "sessionTotal": 233,
+        "totalCommitted": 73,
+        "pots": [
+          {
+            "amount": 52,
+            "eligibleSeatIds": ["A", "B", "C", "D"]
+          },
+          {
+            "amount": 21,
+            "eligibleSeatIds": ["A", "C", "D"]
+          }
+        ],
+        "winnersByPot": [["B"], ["D"]],
+        "awardsByPot": [
+          {
+            "B": 52
+          },
+          {
+            "D": 21
+          }
+        ],
+        "finalStacks": {
+          "A": 80,
+          "B": 52,
+          "C": 0,
+          "D": 101
+        }
+      },
+      "derivation": [
+        "13 from all four =>52. Further7 from A,C,D =>21. Total73.",
+        "Stipulate B strongest overall, D strongest among A,C,D. B wins52 only, D wins21.",
+        "Final80+52+0+101=233; B's lower contribution cannot win the side pool.",
+        "Flop/turn/river active order is D then A, after dealer B while C is all-in; both check each street."
+      ]
+    },
+    {
+      "id": "SV06-single-short-allin-does-not-reopen",
+      "purpose": "A prior actor facing only one short increase cannot raise, though other opponents still have chips",
+      "seatOrder": ["A", "B", "C", "D"],
+      "dealerSeatId": "B",
+      "startingStacks": {
+        "A": 100,
+        "B": 13,
+        "C": 100,
+        "D": 100
+      },
+      "commands": [
+        {
+          "type": "BetOrRaiseTo",
+          "seatId": "A",
+          "to": 10
+        },
+        {
+          "type": "AllIn",
+          "seatId": "B"
+        },
+        {
+          "type": "Call",
+          "seatId": "C"
+        },
+        {
+          "type": "Call",
+          "seatId": "D"
+        },
+        {
+          "type": "Call",
+          "seatId": "A"
+        },
+        {
+          "type": "Check",
+          "seatId": "C"
+        },
+        {
+          "type": "Check",
+          "seatId": "D"
+        },
+        {
+          "type": "Check",
+          "seatId": "A"
+        },
+        {
+          "type": "Check",
+          "seatId": "C"
+        },
+        {
+          "type": "Check",
+          "seatId": "D"
+        },
+        {
+          "type": "Check",
+          "seatId": "A"
+        },
+        {
+          "type": "Check",
+          "seatId": "C"
+        },
+        {
+          "type": "Check",
+          "seatId": "D"
+        },
+        {
+          "type": "Check",
+          "seatId": "A"
+        }
+      ],
+      "checkpoints": [
+        {
+          "afterCommandCount": 4,
+          "actorSeatId": "A",
+          "expected": {
+            "callAmount": 3,
+            "raiseAllowed": false,
+            "aggressiveAllInAllowed": false
+          },
+          "derivation": "A's full raise increment is8. B increases10 to13 by3<8. C,D only call. A faces3, so its raise rights remain closed despite C,D retaining chips."
+        }
+      ],
+      "expected": {
+        "contributions": {
+          "A": 13,
+          "B": 13,
+          "C": 13,
+          "D": 13
+        },
+        "foldedSeatIds": [],
+        "preSettlementStacks": {
+          "A": 87,
+          "B": 0,
+          "C": 87,
+          "D": 87
+        },
+        "sessionTotal": 313,
+        "totalCommitted": 52,
+        "pots": [
+          {
+            "amount": 52,
+            "eligibleSeatIds": ["A", "B", "C", "D"]
+          }
+        ],
+        "winnersByPot": [["B"]],
+        "awardsByPot": [
+          {
+            "B": 52
+          }
+        ],
+        "finalStacks": {
+          "A": 87,
+          "B": 52,
+          "C": 87,
+          "D": 87
+        }
+      },
+      "derivation": [
+        "All four pay13 =>52. B stipulated strongest and wins52.",
+        "Final87+52+87+87=313. Three postflop check rounds involve C,D,A; B remains all-in."
+      ]
+    }
+  ],
+  "consumptionGuidance": [
+    "Use literal expected data, never update expected amounts to make a failing production result pass. Investigate disagreement and return a finding to PM/Architect.",
+    "Translate commands to existing AccountingCommand API without modifying production to accommodate fixture setup. Every command sequence should be accepted; verify afterCommandCount checkpoints before next command.",
+    "Do not use production validate/derivePots/evaluator as the sole oracle. validate may be an additional assertion.",
+    "Proposal must not pay out; confirmation must conserve sessionTotal and clear contributions. At authority integration separately test stable-command duplicate receipt and failed commit without projection/ack.",
+    "Prefer all six vectors if feasible. If time-limited, PM records precisely which IDs ran, with untouched remaining IDs as pending.",
+    "No external oracle is needed for these arithmetic and stipulated-ranking vectors. Full differential qualification and independent evaluator verification remain future work.",
+    "This artifact records manual mathematics and API compatibility observations only; no tests have been executed by its author."
+  ]
+}

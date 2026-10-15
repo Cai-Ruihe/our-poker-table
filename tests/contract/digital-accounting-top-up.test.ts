@@ -214,7 +214,7 @@ async function createBustedThreeSeatTable() {
     11: "8s",
     13: "Tc",
   });
-  const { authority } = createAuthority(
+  const { authority, store } = createAuthority(
     createMemoryTableStore<PersistedAuthorityState>(),
     deck,
   );
@@ -319,7 +319,7 @@ async function createBustedThreeSeatTable() {
       { seatId: "charlie", stack: 198 },
     ],
   );
-  return { authority, revision };
+  return { authority, revision, store };
 }
 
 async function settleActiveHeadsUpHand(
@@ -380,7 +380,236 @@ async function settleActiveHeadsUpHand(
   return revision + 1;
 }
 
+async function participationSnapshot(
+  authority: ReturnType<typeof createAuthority>["authority"],
+  store: AtomicTableStore<PersistedAuthorityState>,
+) {
+  const privateViews = ["alice", "bob", "charlie"].map((seatId) => {
+    try {
+      return authority.project({ kind: "seat", seatId });
+    } catch (error) {
+      return {
+        unavailable: error instanceof Error ? error.message : String(error),
+      };
+    }
+  });
+  return {
+    history: authority.history(),
+    persisted: await store.load(),
+    privateViews,
+    publicView: authority.project({ kind: "public" }),
+  };
+}
+
 describe("digital play-chip top-ups", () => {
+  test("preserves own-seat sit-out and return for the physical profile", async () => {
+    const { authority } = createAuthority();
+    await expect(
+      authority.submit(
+        command("physical-create", 0, {
+          dealerSeatId: "alice",
+          seats: [
+            { displayName: "Alice", seatId: "alice" },
+            { displayName: "Bob", seatId: "bob" },
+          ],
+          type: "CreateTable",
+        }),
+      ),
+    ).resolves.toMatchObject({ revision: 1, status: "accepted" });
+    for (const [index, sittingOut] of [true, false].entries()) {
+      await expect(
+        authority.submit(
+          command(
+            `physical-participation-${index}`,
+            index + 1,
+            {
+              seatId: "alice",
+              sittingOut,
+              type: "SetSeatParticipation",
+            },
+            { actor: { kind: "seat", seatId: "alice" } },
+          ),
+        ),
+      ).resolves.toMatchObject({ revision: index + 2, status: "accepted" });
+      expect(authority.project({ kind: "public" }).seats[0]?.status).toBe(
+        sittingOut ? "sitting-out" : "waiting",
+      );
+    }
+    await expect(
+      authority.submit(command("physical-start", 3, { type: "StartHand" })),
+    ).resolves.toMatchObject({ revision: 4, status: "accepted" });
+    expect(authority.project({ kind: "seat", seatId: "alice" })).toMatchObject({
+      self: { seatId: "alice", holeCards: expect.any(Array) },
+    });
+    expect(authority.project({ kind: "public" })).not.toHaveProperty(
+      "accounting",
+    );
+  });
+
+  test.each([false, true])(
+    "rejects a missed-hand return bypass with recovered authority=%s",
+    async (recover) => {
+      const fixture = await createBustedThreeSeatTable();
+      let { authority } = fixture;
+      const { store } = fixture;
+      await expect(
+        authority.submit(
+          command("missed-deal", fixture.revision, {
+            type: "StartHand",
+          }),
+        ),
+      ).resolves.toMatchObject({ status: "accepted" });
+      const revision = await settleActiveHeadsUpHand(
+        authority,
+        "hand-2",
+        "bob",
+        "charlie",
+        fixture.revision + 1,
+      );
+      if (recover) {
+        authority = createAuthority(store).authority;
+        await expect(authority.recover()).resolves.toMatchObject({
+          revision,
+          status: "recovered",
+        });
+      }
+      const before = await participationSnapshot(authority, store);
+      const topUp = {
+        amount: 10,
+        seatId: "alice",
+        type: "TopUpChips",
+      } as const;
+      await expect(
+        authority.submit(command("direct-missed-reload", revision, topUp)),
+      ).resolves.toEqual({
+        code: "command-not-allowed",
+        revision,
+        status: "rejected",
+      });
+      await expect(
+        authority.submit(
+          command(
+            "unsupported-return",
+            revision,
+            {
+              seatId: "alice",
+              sittingOut: false,
+              type: "SetSeatParticipation",
+            },
+            { actor: { kind: "seat", seatId: "alice" } },
+          ),
+        ),
+      ).resolves.toEqual({
+        code: "command-not-allowed",
+        revision,
+        status: "rejected",
+      });
+      await expect(
+        authority.submit(command("reload-after-return", revision, topUp)),
+      ).resolves.toEqual({
+        code: "command-not-allowed",
+        revision,
+        status: "rejected",
+      });
+      expect(await participationSnapshot(authority, store)).toEqual(before);
+    },
+  );
+
+  test.each(["lobby", "betting", "settlement", "complete"] as const)(
+    "rejects all digital participation actors and flags during %s without mutation",
+    async (phase) => {
+      const { authority, store } = createAuthority();
+      await createDigitalTable(authority);
+      let revision = 1;
+      if (phase !== "lobby") {
+        await expect(
+          authority.submit(
+            command("matrix-start", revision++, {
+              type: "StartHand",
+            }),
+          ),
+        ).resolves.toMatchObject({ status: "accepted" });
+      }
+      if (phase === "settlement" || phase === "complete") {
+        await expect(
+          authority.submit(
+            command(
+              "matrix-fold",
+              revision++,
+              {
+                action: { type: "fold" },
+                type: "SubmitBettingAction",
+              },
+              { actor: { kind: "seat", seatId: "alice" }, handId: "hand-1" },
+            ),
+          ),
+        ).resolves.toMatchObject({ status: "accepted" });
+        await expect(
+          authority.submit(
+            command(
+              "matrix-prepare",
+              revision++,
+              {
+                type: "PrepareSettlement",
+              },
+              { handId: "hand-1" },
+            ),
+          ),
+        ).resolves.toMatchObject({ status: "accepted" });
+      }
+      if (phase === "complete") {
+        await expect(
+          authority.submit(
+            command(
+              "matrix-confirm",
+              revision++,
+              {
+                type: "ConfirmSettlement",
+              },
+              { handId: "hand-1" },
+            ),
+          ),
+        ).resolves.toMatchObject({ status: "accepted" });
+      }
+      expect(authority.project({ kind: "public" }).accounting?.phase).toBe(
+        phase === "lobby"
+          ? "between-hands"
+          : phase === "settlement"
+            ? "settlement-pending"
+            : phase,
+      );
+      const actors: readonly CommandEnvelope["actor"][] = [
+        { actorId: "host", kind: "trusted-host" },
+        { kind: "seat", seatId: "alice" },
+        { kind: "seat", seatId: "bob" },
+      ];
+      const before = await participationSnapshot(authority, store);
+      for (const [index, actor] of actors.entries()) {
+        for (const sittingOut of [true, false]) {
+          await expect(
+            authority.submit(
+              command(
+                `matrix-${index}-${sittingOut}`,
+                revision,
+                {
+                  seatId: "alice",
+                  sittingOut,
+                  type: "SetSeatParticipation",
+                },
+                { actor },
+              ),
+            ),
+          ).resolves.toEqual({
+            code: "command-not-allowed",
+            revision,
+            status: "rejected",
+          });
+          expect(await participationSnapshot(authority, store)).toEqual(before);
+        }
+      }
+    },
+  );
+
   test("adds chips to one seat and the session total between hands", () => {
     const accounting = createDigitalAccounting({
       bigBlind: 2,

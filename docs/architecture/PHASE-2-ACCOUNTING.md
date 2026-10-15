@@ -162,3 +162,36 @@ Preview re-entry boundary: an existing player may reload immediately after a
 hand, including after reaching zero, before missing a subsequent deal. Once a
 seat has sat out a deal, top-up/return is unavailable until blind-aware re-entry
 is implemented. This does not change the settled wait-for-big-blind rule.
+
+## Digital participation authority verification — 2026-10-15
+
+Game Core now rejects `SetSeatParticipation` for the digital Rules Profile,
+before state or receipt persistence. This closes the missed-deal return/top-up
+bypass at the command owner, including after authority recovery. The runtime
+guard remains in place. Contract coverage checks host/own-seat/other-seat actors,
+both participation flags, and lobby/betting/settlement/complete phases; rejected
+commands preserve revision, history, public/private projections, and the store.
+Immediate reload before a missed deal and Deal-Only sit-out/return remain valid.
+
+Local verification: the six new negative cases failed against the previous Core;
+after the guard, all 14 top-up contracts and the selected 73 accounting, authority,
+persistence, custody, and Phase 1 contracts passed. Changed TypeScript formatting,
+lint, and repository typecheck passed. This is bounded local contract evidence;
+independent review and full integration/browser/device qualification remain open.
+
+## Frozen settlement qualification slice — 2026-10-15
+
+`digital-accounting-frozen-settlement.test.ts` executes six independently
+hand-derived, frozen JSON vectors through the public accounting interface.
+They cover nested side pots, folded dead money, single-eligible uncalled excess,
+tied odd-chip order, cumulative short-all-in reopening, and a single short
+all-in that does not reopen. Literal expectations check contributions, pot
+eligibility, proposed awards, confirmation-only balances, rejected ineligible
+winners, duplicate confirmation, and conservation at every accepted transition.
+
+The fixture preserves the independent author's provenance and mathematical
+derivations. Winners are stipulated ranking inputs; the adapter does not select
+commands or calculate expected awards from production output. All six vectors
+pass locally. This is a bounded accounting qualification slice, not independent
+card-evaluator or full differential qualification. Non-author review and isolated
+production-fault sensitivity experiments remain integration acceptance gates.
